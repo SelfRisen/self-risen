@@ -4,6 +4,7 @@ import { StaterVideosService } from './stater-videos.service';
 
 @Module({
   controllers: [StaterVideosController],
-  providers: [StaterVideosService]
+  providers: [StaterVideosService],
+  exports: [StaterVideosService],
 })
 export class StaterVideosModule {}

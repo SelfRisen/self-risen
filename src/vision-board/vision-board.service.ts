@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { DatabaseProvider } from 'src/database/database.provider';
 import { BaseService } from 'src/common';
 import { StorageService, FileType } from 'src/common/storage/storage.service';
+import { StaterVideosService } from 'src/stater-videos/stater-videos.service';
 import { AddVisionDto } from './dto';
 import { ReflectionSessionStatus, Prisma } from '@prisma/client';
 
@@ -66,6 +67,7 @@ export class VisionBoardService extends BaseService {
     constructor(
         private prisma: DatabaseProvider,
         private storageService: StorageService,
+        private staterVideosService: StaterVideosService,
     ) {
         super();
     }
@@ -743,6 +745,59 @@ export class VisionBoardService extends BaseService {
             sounds: files,
             count: files.length,
         });
+    }
+
+    /**
+     * Set a vision's background sound by name from the stater-videos music list.
+     * Resolves the name to a URL, finds or creates a VisionSound, and links it to the vision.
+     */
+    async setVisionBackgroundSoundByName(firebaseId: string, visionId: string, name: string) {
+        const user = await this.getUserByFirebaseId(firebaseId);
+        if (!user) {
+            return this.HandleError(new NotFoundException('User not found'));
+        }
+
+        const vision = await this.prisma.vision.findFirst({
+            where: {
+                id: visionId,
+                visionBoard: { userId: user.id },
+            },
+        });
+        if (!vision) {
+            return this.HandleError(new NotFoundException('Vision not found'));
+        }
+
+        const music = this.staterVideosService.getMusicByName(name);
+        if (!music) {
+            return this.HandleError(new NotFoundException('Sound not found'));
+        }
+
+        let visionSound = await this.prisma.visionSound.findFirst({
+            where: { name: music.name },
+        });
+        if (!visionSound) {
+            const maxSoundOrder = await this.prisma.visionSound.findFirst({
+                orderBy: { order: 'desc' },
+            });
+            const newOrder = maxSoundOrder ? (maxSoundOrder.order ?? 0) + 1 : 1;
+            visionSound = await this.prisma.visionSound.create({
+                data: {
+                    soundUrl: music.url,
+                    name: music.name,
+                    fileSize: null,
+                    mimeType: null,
+                    order: newOrder,
+                },
+            });
+        }
+
+        const updated = await this.prisma.vision.update({
+            where: { id: visionId },
+            data: { visionSound: { connect: { id: visionSound.id } } },
+            include: visionInclude,
+        });
+
+        return this.Results(this.mapVisionToResponse(updated));
     }
 
     /**

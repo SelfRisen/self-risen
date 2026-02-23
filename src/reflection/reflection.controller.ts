@@ -29,7 +29,7 @@ import { FirebaseUser, StreakInterceptor } from 'src/common';
 import { auth } from 'firebase-admin';
 import { BaseController } from 'src/common';
 import { ReflectionService } from './reflection.service';
-import { CreateSessionDto, SubmitBeliefDto, ReflectionSessionResponseDto, ReRecordBeliefDto, CreateWaveDto, UpdateWaveDto, RegenerateVoiceDto, VoicePreferenceDto, EditAffirmationDto, EditBeliefDto } from './dto';
+import { CreateSessionDto, SubmitBeliefDto, ReflectionSessionResponseDto, ReRecordBeliefDto, CreateWaveDto, UpdateWaveDto, RegenerateVoiceDto, VoicePreferenceDto, EditAffirmationDto, EditBeliefDto, SetReflectionSoundDto } from './dto';
 
 @UseGuards(FirebaseGuard)
 @UseInterceptors(StreakInterceptor)
@@ -299,38 +299,24 @@ export class ReflectionController extends BaseController {
     }
 
     @Post('sessions/:sessionId/sound')
-    @UseInterceptors(FileInterceptor('file'))
-    @ApiConsumes('multipart/form-data')
     @ApiOperation({
         summary: 'Create or replace sound for reflection session',
-        description: 'Uploads an audio file as the background sound for this reflection session (1:1). Replaces existing sound if present.',
+        description: 'Selects a sound from the stater-videos music list by name and sets it as the reflection session background sound (1:1). Replaces existing sound if present.',
     })
     @ApiParam({
         name: 'sessionId',
         description: 'The unique identifier of the reflection session',
         example: 'session-id-123',
     })
-    @ApiBody({
-        schema: {
-            type: 'object',
-            properties: {
-                file: { type: 'string', format: 'binary', description: 'Audio file' },
-            },
-            required: ['file'],
-        },
-    })
+    @ApiBody({ type: SetReflectionSoundDto })
     @ApiResponse({ status: 200, description: 'Sound created or updated' })
-    @ApiResponse({ status: 400, description: 'No file or upload failed' })
-    @ApiResponse({ status: 404, description: 'Reflection session not found' })
+    @ApiResponse({ status: 404, description: 'Reflection session not found or sound name not found' })
     async createReflectionSound(
         @FirebaseUser() user: auth.DecodedIdToken,
         @Param('sessionId') sessionId: string,
-        @UploadedFile() file?: Express.Multer.File,
+        @Body() dto: SetReflectionSoundDto,
     ) {
-        if (!file) {
-            throw new BadRequestException('Audio file is required');
-        }
-        const result = await this.reflectionService.createReflectionSound(user.uid, sessionId, file);
+        const result = await this.reflectionService.createReflectionSound(user.uid, sessionId, dto.name);
         if (result.isError) throw result.error;
 
         return this.response({

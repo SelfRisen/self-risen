@@ -60,14 +60,25 @@ export class StaterVideosService extends BaseService {
         return this.Results({ light, dark });
     }
 
-    async getMusicUrls() {
-        const musicUrls = [
+    private getMusicList(): Array<{ url: string; name: string }> {
+        return [
             {
                 url: 'https://lstprxumviehmvbebcub.supabase.co/storage/v1/object/public/uploads/Starters/Over_the_Horizon.m4a',
-                name: 'bright-glow'
-            }
+                name: 'bright-glow',
+            },
         ];
-        return this.Results(musicUrls);
+    }
+
+    async getMusicUrls() {
+        return this.Results(this.getMusicList());
+    }
+
+    /**
+     * Returns the music entry for the given name, or null if not found.
+     */
+    getMusicByName(name: string): { url: string; name: string } | null {
+        const list = this.getMusicList();
+        return list.find((item) => item.name === name) ?? null;
     }
 
     // async getAllSessions(

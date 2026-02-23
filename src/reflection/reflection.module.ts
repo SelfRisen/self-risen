@@ -11,6 +11,7 @@ import { SessionExpirationService } from './services/session-expiration.service'
 import { CommonModule } from 'src/common/common.module';
 import { NotificationsModule } from 'src/notifications/notifications.module';
 import { UserModule } from 'src/user/user.module';
+import { StaterVideosModule } from 'src/stater-videos/stater-videos.module';
 
 @Module({
     imports: [
@@ -19,6 +20,7 @@ import { UserModule } from 'src/user/user.module';
         StorageModule,
         NotificationsModule,
         UserModule, // Import to access TokenUsageService
+        StaterVideosModule,
         ScheduleModule.forRoot()
     ],
     controllers: [ReflectionController],

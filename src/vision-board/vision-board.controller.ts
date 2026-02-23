@@ -29,7 +29,7 @@ import { FirebaseUser, StreakInterceptor } from 'src/common';
 import { auth } from 'firebase-admin';
 import { BaseController } from 'src/common';
 import { VisionBoardService } from './vision-board.service';
-import { AddVisionDto, AddVisionToGlobalBoardDto, UpdateVisionDto, ReorderVisionDto, ReorderSoundDto } from './dto';
+import { AddVisionDto, AddVisionToGlobalBoardDto, UpdateVisionDto, SetVisionSoundDto, ReorderVisionDto, ReorderSoundDto } from './dto';
 
 @UseGuards(FirebaseGuard)
 @UseInterceptors(StreakInterceptor)
@@ -286,6 +286,33 @@ export class VisionBoardController extends BaseController {
         });
     }
 
+    @Patch('visions/:id/background-sound')
+    @ApiOperation({
+        summary: 'Set vision background sound by name',
+        description: 'Selects a sound from the stater-videos music list by name and sets it as the vision\'s background sound. Creates a catalog entry if needed.',
+    })
+    @ApiParam({
+        name: 'id',
+        description: 'The unique identifier of the vision',
+        example: 'vision-id-123',
+    })
+    @ApiBody({ type: SetVisionSoundDto })
+    @ApiResponse({ status: 200, description: 'Vision updated with background sound' })
+    @ApiResponse({ status: 404, description: 'Vision not found or sound name not found' })
+    async setVisionBackgroundSound(
+        @FirebaseUser() user: auth.DecodedIdToken,
+        @Param('id') visionId: string,
+        @Body() dto: SetVisionSoundDto,
+    ) {
+        const result = await this.visionBoardService.setVisionBackgroundSoundByName(user.uid, visionId, dto.name);
+        if (result.isError) throw result.error;
+
+        return this.response({
+            message: 'Background sound set successfully',
+            data: result.data,
+        });
+    }
+
     @Delete('visions/:id')
     @ApiOperation({
         summary: 'Remove vision from board',
@@ -323,79 +350,79 @@ export class VisionBoardController extends BaseController {
         });
     }
 
-    @Post('sounds')
-    @UseInterceptors(FilesInterceptor('sounds', 10))
-    @ApiConsumes('multipart/form-data')
-    @ApiOperation({
-        summary: 'Upload multiple audio files for vision board',
-        description: 'Uploads one or more audio files to be used with the vision board. Supports multiple file uploads (max 10 files per request).',
-    })
-    @ApiBody({
-        schema: {
-            type: 'object',
-            properties: {
-                sounds: {
-                    type: 'array',
-                    items: {
-                        type: 'string',
-                        format: 'binary',
-                    },
-                    description: 'Audio files to upload (max 10 files). Supported formats: MP3, WAV, OGG, AAC, M4A, WebM',
-                },
-            },
-            required: ['sounds'],
-        },
-    })
-    @ApiResponse({
-        status: 200,
-        description: 'Audio files uploaded successfully',
-        schema: {
-            type: 'object',
-            properties: {
-                uploaded: { type: 'number', description: 'Number of files successfully uploaded' },
-                files: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        properties: {
-                            id: { type: 'string' },
-                            soundUrl: { type: 'string' },
-                            name: { type: 'string', nullable: true },
-                            fileSize: { type: 'number', nullable: true },
-                            mimeType: { type: 'string', nullable: true },
-                            order: { type: 'number', nullable: true },
-                            createdAt: { type: 'string', format: 'date-time' },
-                            updatedAt: { type: 'string', format: 'date-time' },
-                        },
-                    },
-                },
-            },
-        },
-    })
-    @ApiResponse({
-        status: 400,
-        description: 'Invalid request or failed to upload audio files',
-    })
-    @ApiResponse({
-        status: 404,
-        description: 'User not found',
-    })
-    async uploadSound(
-        @FirebaseUser() user: auth.DecodedIdToken,
-        @UploadedFiles() soundFiles?: Express.Multer.File[],
-    ) {
-        if (!soundFiles || soundFiles.length === 0) {
-            throw new BadRequestException('At least one audio file is required');
-        }
+    // @Post('sounds')
+    // @UseInterceptors(FilesInterceptor('sounds', 10))
+    // @ApiConsumes('multipart/form-data')
+    // @ApiOperation({
+    //     summary: 'Upload multiple audio files for vision board',
+    //     description: 'Uploads one or more audio files to be used with the vision board. Supports multiple file uploads (max 10 files per request).',
+    // })
+    // @ApiBody({
+    //     schema: {
+    //         type: 'object',
+    //         properties: {
+    //             sounds: {
+    //                 type: 'array',
+    //                 items: {
+    //                     type: 'string',
+    //                     format: 'binary',
+    //                 },
+    //                 description: 'Audio files to upload (max 10 files). Supported formats: MP3, WAV, OGG, AAC, M4A, WebM',
+    //             },
+    //         },
+    //         required: ['sounds'],
+    //     },
+    // })
+    // @ApiResponse({
+    //     status: 200,
+    //     description: 'Audio files uploaded successfully',
+    //     schema: {
+    //         type: 'object',
+    //         properties: {
+    //             uploaded: { type: 'number', description: 'Number of files successfully uploaded' },
+    //             files: {
+    //                 type: 'array',
+    //                 items: {
+    //                     type: 'object',
+    //                     properties: {
+    //                         id: { type: 'string' },
+    //                         soundUrl: { type: 'string' },
+    //                         name: { type: 'string', nullable: true },
+    //                         fileSize: { type: 'number', nullable: true },
+    //                         mimeType: { type: 'string', nullable: true },
+    //                         order: { type: 'number', nullable: true },
+    //                         createdAt: { type: 'string', format: 'date-time' },
+    //                         updatedAt: { type: 'string', format: 'date-time' },
+    //                     },
+    //                 },
+    //             },
+    //         },
+    //     },
+    // })
+    // @ApiResponse({
+    //     status: 400,
+    //     description: 'Invalid request or failed to upload audio files',
+    // })
+    // @ApiResponse({
+    //     status: 404,
+    //     description: 'User not found',
+    // })
+    // async uploadSound(
+    //     @FirebaseUser() user: auth.DecodedIdToken,
+    //     @UploadedFiles() soundFiles?: Express.Multer.File[],
+    // ) {
+    //     if (!soundFiles || soundFiles.length === 0) {
+    //         throw new BadRequestException('At least one audio file is required');
+    //     }
 
-        const result = await this.visionBoardService.uploadSound(user.uid, soundFiles);
-        if (result.isError) throw result.error;
+    //     const result = await this.visionBoardService.uploadSound(user.uid, soundFiles);
+    //     if (result.isError) throw result.error;
 
-        return this.response({
-            message: 'Audio files uploaded successfully',
-            data: result.data,
-        });
-    }
+    //     return this.response({
+    //         message: 'Audio files uploaded successfully',
+    //         data: result.data,
+    //     });
+    // }
 
     @Get('sounds')
     @ApiOperation({

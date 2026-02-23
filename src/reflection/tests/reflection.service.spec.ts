@@ -8,6 +8,7 @@ import { NlpTransformationService } from '../services/nlp-transformation.service
 import { TextToSpeechService } from '../services/text-to-speech.service';
 import { INotificationService } from '../../notifications/interfaces/notification.interface';
 import { TtsVoicePreference } from '@prisma/client';
+import { StaterVideosService } from '../../stater-videos/stater-videos.service';
 
 jest.mock('../../common', () => {
   const originalModule = jest.requireActual('../../common');
@@ -29,6 +30,7 @@ describe('ReflectionService', () => {
   let mockNlpTransformationService: any;
   let mockTextToSpeechService: any;
   let mockNotificationService: any;
+  let mockStaterVideosService: any;
 
   const mockUser = {
     id: 'user-123',
@@ -121,6 +123,10 @@ describe('ReflectionService', () => {
       notifyUser: jest.fn(),
     };
 
+    mockStaterVideosService = {
+      getMusicByName: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReflectionService,
@@ -130,6 +136,7 @@ describe('ReflectionService', () => {
         { provide: NlpTransformationService, useValue: mockNlpTransformationService },
         { provide: TextToSpeechService, useValue: mockTextToSpeechService },
         { provide: INotificationService, useValue: mockNotificationService },
+        { provide: StaterVideosService, useValue: mockStaterVideosService },
       ],
     }).compile();
 
@@ -192,13 +199,14 @@ describe('ReflectionService', () => {
   });
 
   describe('createReflectionSound', () => {
+    const mockMusic = { url: 'https://storage.com/sound.mp3', name: 'bright-glow' };
     const mockReflectionSound = {
       id: 'ref-sound-123',
       reflectionSessionId: 'session-123',
-      soundUrl: 'https://storage.com/sound.mp3',
-      name: 'ambient.mp3',
-      fileSize: 1024,
-      mimeType: 'audio/mpeg',
+      soundUrl: mockMusic.url,
+      name: mockMusic.name,
+      fileSize: null,
+      mimeType: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -206,18 +214,18 @@ describe('ReflectionService', () => {
     it('should create reflection sound when session has none', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.reflectionSession.findFirst.mockResolvedValue({ ...mockSession, reflectionSound: null });
-      mockStorageService.uploadFile.mockResolvedValue({ url: 'https://storage.com/sound.mp3' });
+      mockStaterVideosService.getMusicByName.mockReturnValue(mockMusic);
       mockPrisma.reflectionSound.create.mockResolvedValue(mockReflectionSound);
 
-      const mockFile = { originalname: 'ambient.mp3', size: 1024, mimetype: 'audio/mpeg' } as Express.Multer.File;
-      const result = await service.createReflectionSound('firebase-uid-123', 'session-123', mockFile);
+      const result = await service.createReflectionSound('firebase-uid-123', 'session-123', 'bright-glow');
 
       expect(result.isError).toBe(false);
+      expect(mockStaterVideosService.getMusicByName).toHaveBeenCalledWith('bright-glow');
       expect(mockPrisma.reflectionSound.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           reflectionSessionId: 'session-123',
-          soundUrl: 'https://storage.com/sound.mp3',
-          name: 'ambient.mp3',
+          soundUrl: mockMusic.url,
+          name: mockMusic.name,
         }),
       });
     });
@@ -228,14 +236,13 @@ describe('ReflectionService', () => {
         ...mockSession,
         reflectionSound: mockReflectionSound,
       });
-      mockStorageService.uploadFile.mockResolvedValue({ url: 'https://storage.com/new-sound.mp3' });
+      mockStaterVideosService.getMusicByName.mockReturnValue({ url: 'https://storage.com/new-sound.mp3', name: 'bright-glow' });
       mockPrisma.reflectionSound.update.mockResolvedValue({
         ...mockReflectionSound,
         soundUrl: 'https://storage.com/new-sound.mp3',
       });
 
-      const mockFile = { originalname: 'new.mp3', size: 2048, mimetype: 'audio/mpeg' } as Express.Multer.File;
-      const result = await service.createReflectionSound('firebase-uid-123', 'session-123', mockFile);
+      const result = await service.createReflectionSound('firebase-uid-123', 'session-123', 'bright-glow');
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.reflectionSound.update).toHaveBeenCalled();
@@ -245,8 +252,18 @@ describe('ReflectionService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.reflectionSession.findFirst.mockResolvedValue(null);
 
-      const mockFile = { originalname: 'a.mp3' } as Express.Multer.File;
-      const result = await service.createReflectionSound('firebase-uid-123', 'nonexistent-session', mockFile);
+      const result = await service.createReflectionSound('firebase-uid-123', 'nonexistent-session', 'bright-glow');
+
+      expect(result.isError).toBe(true);
+      expect(result.error).toBeInstanceOf(NotFoundException);
+    });
+
+    it('should return error when sound name not found', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.reflectionSession.findFirst.mockResolvedValue({ ...mockSession, reflectionSound: null });
+      mockStaterVideosService.getMusicByName.mockReturnValue(null);
+
+      const result = await service.createReflectionSound('firebase-uid-123', 'session-123', 'unknown-sound');
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);

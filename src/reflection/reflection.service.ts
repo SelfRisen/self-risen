@@ -9,6 +9,7 @@ import { CreateSessionDto, SubmitBeliefDto, ReRecordBeliefDto, CreateWaveDto, Up
 import { INotificationService } from 'src/notifications/interfaces/notification.interface';
 import { NotificationTypeEnum, NotificationChannelTypeEnum } from 'src/notifications/enums/notification.enum';
 import { randomUUID } from 'crypto';
+import { StaterVideosService } from 'src/stater-videos/stater-videos.service';
 
 @Injectable()
 export class ReflectionService extends BaseService {
@@ -42,6 +43,7 @@ export class ReflectionService extends BaseService {
         private nlpTransformationService: NlpTransformationService,
         private textToSpeechService: TextToSpeechService,
         private notificationService: INotificationService,
+        private staterVideosService: StaterVideosService,
     ) {
         super();
     }
@@ -104,13 +106,9 @@ export class ReflectionService extends BaseService {
     }
 
     /**
-     * Create or replace the sound for a reflection session (1:1). Uploads the file and creates/updates ReflectionSound.
+     * Create or replace the sound for a reflection session (1:1). Selects by name from the stater-videos music list.
      */
-    async createReflectionSound(
-        firebaseId: string,
-        sessionId: string,
-        audioFile: Express.Multer.File,
-    ) {
+    async createReflectionSound(firebaseId: string, sessionId: string, name: string) {
         const user = await this.getUserByFirebaseId(firebaseId);
         if (!user) {
             return this.HandleError(new NotFoundException('User not found'));
@@ -128,42 +126,34 @@ export class ReflectionService extends BaseService {
             return this.HandleError(new NotFoundException('Reflection session not found'));
         }
 
-        try {
-            const uploadResult = await this.storageService.uploadFile(
-                audioFile,
-                FileType.AUDIO,
-                user.id,
-                'reflection/sounds',
-            );
-
-            const soundData = {
-                soundUrl: uploadResult.url,
-                name: audioFile.originalname || null,
-                fileSize: audioFile.size || null,
-                mimeType: audioFile.mimetype || null,
-            };
-
-            let reflectionSound;
-            if (session.reflectionSound) {
-                reflectionSound = await this.prisma.reflectionSound.update({
-                    where: { id: session.reflectionSound.id },
-                    data: soundData,
-                });
-            } else {
-                reflectionSound = await this.prisma.reflectionSound.create({
-                    data: {
-                        reflectionSessionId: sessionId,
-                        ...soundData,
-                    },
-                });
-            }
-
-            return this.Results(reflectionSound);
-        } catch (error) {
-            return this.HandleError(
-                new BadRequestException(`Failed to upload sound: ${error.message}`),
-            );
+        const music = this.staterVideosService.getMusicByName(name);
+        if (!music) {
+            return this.HandleError(new NotFoundException('Sound not found'));
         }
+
+        const soundData = {
+            soundUrl: music.url,
+            name: music.name,
+            fileSize: null as number | null,
+            mimeType: null as string | null,
+        };
+
+        let reflectionSound;
+        if (session.reflectionSound) {
+            reflectionSound = await this.prisma.reflectionSound.update({
+                where: { id: session.reflectionSound.id },
+                data: soundData,
+            });
+        } else {
+            reflectionSound = await this.prisma.reflectionSound.create({
+                data: {
+                    reflectionSessionId: sessionId,
+                    ...soundData,
+                },
+            });
+        }
+
+        return this.Results(reflectionSound);
     }
 
     /**
