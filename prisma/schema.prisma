@@ -21,7 +21,7 @@ model User {
   // password        String
   email               String              @unique
   avatar              String?
-  fcmTokens           String[]            @default([])
+  pushTokens          String[]            @default([])
   streak              Int                 @default(0)
   sessions            Int                 @default(0)
   lastStreakDate      DateTime?

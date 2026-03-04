@@ -13,7 +13,7 @@ import { MailgunAdapter } from './adapters/email/mailgun.adapter';
 import { GmailAdapter } from './adapters/email/gmail.adapter';
 import { MailjetAdapter } from './adapters/email/mailjet.adapter';
 import { TwilioAdapter } from './adapters/sms/twilio.adapter';
-import { FirebaseAdapter } from './adapters/push/firebase.adapter';
+import { ExpoAdapter } from './adapters/push/expo.adapter';
 import { INotificationService } from './interfaces/notification.interface';
 import { NotificationChannelTypeEnum } from './enums/notification.enum';
 import { IEmailChannelAdapter } from './interfaces/adapter.interface';
@@ -72,7 +72,7 @@ import { IEmailChannelAdapter } from './interfaces/adapter.interface';
     GmailAdapter,
     MailjetAdapter,
     TwilioAdapter,
-    FirebaseAdapter,
+    ExpoAdapter,
 
     // Adapter Registry
     {
@@ -82,7 +82,7 @@ import { IEmailChannelAdapter } from './interfaces/adapter.interface';
         gmail: GmailAdapter,
         mailjet: MailjetAdapter,
         twilio: TwilioAdapter,
-        firebase: FirebaseAdapter,
+        expo: ExpoAdapter,
         configService: ConfigService,
       ) => {
         const map = new Map();
@@ -122,7 +122,7 @@ import { IEmailChannelAdapter } from './interfaces/adapter.interface';
 
         map.set(NotificationChannelTypeEnum.EMAIL, emailAdapters);
         map.set(NotificationChannelTypeEnum.SMS, [twilio]);
-        map.set(NotificationChannelTypeEnum.PUSH, [firebase]);
+        map.set(NotificationChannelTypeEnum.PUSH, [expo]);
         return map;
       },
       inject: [
@@ -130,7 +130,7 @@ import { IEmailChannelAdapter } from './interfaces/adapter.interface';
         GmailAdapter,
         MailjetAdapter,
         TwilioAdapter,
-        FirebaseAdapter,
+        ExpoAdapter,
         ConfigService,
       ],
     },

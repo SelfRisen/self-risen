@@ -10,7 +10,7 @@ export interface CreateAuditLogParams {
   type: string;
   notificationType: string;
   recipientId?: string; // Actual user ID (optional for external notifications)
-  recipientContact: string; // Email, phone, or FCM token
+  recipientContact: string; // Email, phone, or push token
   channel: NotificationChannelTypeEnum;
   provider: string;
   status: NotificationStatusEnum;

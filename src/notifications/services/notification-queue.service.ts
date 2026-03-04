@@ -113,7 +113,7 @@ export class NotificationQueueService {
             type: data.userId ? 'USER' : 'EXTERNAL',
             notificationType: data.notificationType,
             recipientId: data.userId, // Actual user ID (undefined for external)
-            recipientContact: data.recipient, // Email, phone, or FCM token
+            recipientContact: data.recipient, // Email, phone, or push token
             channel: data.channel as NotificationChannelTypeEnum,
             provider: adapter.name,
             status: NotificationStatusEnum.QUEUED,

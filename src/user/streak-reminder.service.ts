@@ -78,7 +78,7 @@ export class StreakReminderService {
     const users = await this.prisma.user.findMany({
       where: {
         streak: { gt: 0 },
-        fcmTokens: { isEmpty: false },
+        pushTokens: { isEmpty: false },
         streakReminderEnabled: true,
         streakReminderTimes: { isEmpty: false },
       },
@@ -140,7 +140,7 @@ export class StreakReminderService {
     const users = await this.prisma.user.findMany({
       where: {
         streak: { gt: 0 },
-        fcmTokens: { isEmpty: false },
+        pushTokens: { isEmpty: false },
         streakReminderEnabled: true,
         streakReminderTimes: { isEmpty: true },
       },

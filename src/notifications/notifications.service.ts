@@ -6,8 +6,8 @@ import {
 import { BaseService } from 'src/common';
 import { DatabaseProvider } from 'src/database/database.provider';
 import {
-  RegisterFcmTokenDto,
-  RemoveFcmTokenDto,
+  RegisterPushTokenDto,
+  RemovePushTokenDto,
   CreateManualNotificationDto,
 } from './dto';
 import {
@@ -40,8 +40,8 @@ export class NotificationsService
     super();
   }
 
-  async registerFcmToken(firebaseId: string, payload: RegisterFcmTokenDto) {
-    const { fcmToken } = payload;
+  async registerPushToken(firebaseId: string, payload: RegisterPushTokenDto) {
+    const { pushToken } = payload;
 
     // Use transaction to avoid race condition
     const updatedUser = await this.prisma.$transaction(async (tx) => {
@@ -54,7 +54,7 @@ export class NotificationsService
       }
 
       // Check for duplicate within transaction
-      if (user.fcmTokens.includes(fcmToken)) {
+      if (user.pushTokens.includes(pushToken)) {
         return user; // Return existing user without update
       }
 
@@ -62,21 +62,21 @@ export class NotificationsService
       return await tx.user.update({
         where: { firebaseId },
         data: {
-          fcmTokens: {
-            push: fcmToken,
+          pushTokens: {
+            push: pushToken,
           },
         },
       });
     });
 
     return this.Results({
-      message: 'FCM token registered successfully',
-      tokensCount: updatedUser.fcmTokens.length,
+      message: 'Push token registered successfully',
+      tokensCount: updatedUser.pushTokens.length,
     });
   }
 
-  async removeFcmToken(firebaseId: string, payload: RemoveFcmTokenDto) {
-    const { fcmToken } = payload;
+  async removePushToken(firebaseId: string, payload: RemovePushTokenDto) {
+    const { pushToken } = payload;
 
     // Use transaction to avoid race condition
     const updatedUser = await this.prisma.$transaction(async (tx) => {
@@ -89,19 +89,19 @@ export class NotificationsService
       }
 
       // Filter tokens within transaction to ensure atomicity
-      const updatedTokens = user.fcmTokens.filter((token) => token !== fcmToken);
+      const updatedTokens = user.pushTokens.filter((token) => token !== pushToken);
 
       return await tx.user.update({
         where: { firebaseId },
         data: {
-          fcmTokens: updatedTokens,
+          pushTokens: updatedTokens,
         },
       });
     });
 
     return this.Results({
-      message: 'FCM token removed successfully',
-      tokensCount: updatedUser.fcmTokens.length,
+      message: 'Push token removed successfully',
+      tokensCount: updatedUser.pushTokens.length,
     });
   }
 
@@ -225,7 +225,7 @@ export class NotificationsService
     const user = await this.prisma.user.findUnique({
       where: { firebaseId },
       select: {
-        fcmTokens: true,
+        pushTokens: true,
       },
     });
 
@@ -234,8 +234,8 @@ export class NotificationsService
     }
 
     return this.Results({
-      tokens: user.fcmTokens,
-      count: user.fcmTokens.length,
+      tokens: user.pushTokens,
+      count: user.pushTokens.length,
     });
   }
 
@@ -756,7 +756,7 @@ export class NotificationsService
       where: { id: userId },
       select: {
         email: true,
-        fcmTokens: true,
+        pushTokens: true,
       },
     });
 
@@ -770,8 +770,8 @@ export class NotificationsService
       // case NotificationChannelTypeEnum.SMS:
       //   return user.phone;
       case NotificationChannelTypeEnum.PUSH:
-        // Return first FCM token, or null if none
-        return user.fcmTokens.length > 0 ? user.fcmTokens[0] : null;
+        // Return first push token, or null if none
+        return user.pushTokens.length > 0 ? user.pushTokens[0] : null;
       default:
         return null;
     }

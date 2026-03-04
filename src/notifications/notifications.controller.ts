@@ -11,8 +11,8 @@ import {
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import {
-  RegisterFcmTokenDto,
-  RemoveFcmTokenDto,
+  RegisterPushTokenDto,
+  RemovePushTokenDto,
   SendNotificationDto,
   SendBulkNotificationDto,
   CreateManualNotificationDto,
@@ -31,45 +31,45 @@ export class NotificationsController extends BaseController {
   }
 
   @Post('register-token')
-  @ApiOperation({ summary: 'Register FCM device token for push notifications' })
+  @ApiOperation({ summary: 'Register push token for push notifications (Expo)' })
   @UseGuards(FirebaseGuard)
   async registerToken(
     @FirebaseUser() user: auth.DecodedIdToken,
-    @Body() form: RegisterFcmTokenDto
+    @Body() form: RegisterPushTokenDto
   ) {
-    const result = await this.notificationsService.registerFcmToken(
+    const result = await this.notificationsService.registerPushToken(
       user.uid,
       form
     );
     if (result.isError) throw result.error;
 
     return this.response({
-      message: 'FCM token registered',
+      message: 'Push token registered',
       data: result.data,
     });
   }
 
   @Delete('remove-token')
-  @ApiOperation({ summary: 'Remove FCM device token' })
+  @ApiOperation({ summary: 'Remove push device token' })
   @UseGuards(FirebaseGuard)
   async removeToken(
     @FirebaseUser() user: auth.DecodedIdToken,
-    @Body() form: RemoveFcmTokenDto
+    @Body() form: RemovePushTokenDto
   ) {
-    const result = await this.notificationsService.removeFcmToken(
+    const result = await this.notificationsService.removePushToken(
       user.uid,
       form
     );
     if (result.isError) throw result.error;
 
     return this.response({
-      message: 'FCM token removed',
+      message: 'Push token removed',
       data: result.data,
     });
   }
 
   @Get('my-tokens')
-  @ApiOperation({ summary: 'Get all registered FCM tokens for current user' })
+  @ApiOperation({ summary: 'Get all registered push tokens for current user' })
   @UseGuards(FirebaseGuard)
   async getMyTokens(@FirebaseUser() user: auth.DecodedIdToken) {
     const result = await this.notificationsService.getUserTokens(user.uid);
