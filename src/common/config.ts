@@ -1,5 +1,5 @@
 import { plainToInstance, Type } from "class-transformer";
-import { IsNotEmpty, IsNumber, IsString, validate } from "class-validator";
+import { IsNotEmpty, IsNumber, IsOptional, IsString, validate } from "class-validator";
 
 class Config {
     @IsNotEmpty()
@@ -107,65 +107,69 @@ class Config {
 
     @IsNotEmpty()
     @IsString()
-    SUPABASE_URL?: string;
+    SUPABASE_URL: string;
 
     @IsNotEmpty()
     @IsString()
-    SUPABASE_SERVICE_ROLE_KEY?: string;
+    SUPABASE_SERVICE_ROLE_KEY: string;
 
     @IsNotEmpty()
     @IsString()
-    SUPABASE_STORAGE_BUCKET?: string;
+    SUPABASE_STORAGE_BUCKET: string;
 
     // Storage Provider Selection (optional, defaults to 'firebase')
     @IsNotEmpty()
     @IsString()
-    STORAGE_PROVIDER?: string;
+    STORAGE_PROVIDER: string;
 
     // Redis Configuration
     @IsNotEmpty()
     @IsString()
-    REDIS_HOST?: string;
+    REDIS_HOST: string;
 
     @IsNotEmpty()
     @IsNumber()
     @Type(() => Number)
-    REDIS_PORT?: number;
+    REDIS_PORT: number;
 
     @IsNotEmpty()
     @IsString()
     REDIS_PASSWORD?: string;
 
 
-    // Twilio Configuration
-    TWILIO_ACCOUNT_SID?: string;
-    TWILIO_AUTH_TOKEN?: string;
-    TWILIO_PHONE_NUMBER?: string;
+    // // Twilio Configuration
+    // TWILIO_ACCOUNT_SID?: string;
+    // TWILIO_AUTH_TOKEN?: string;
+    // TWILIO_PHONE_NUMBER?: string;
 
     // OpenAI Configuration
     @IsNotEmpty()
     @IsString()
-    OPENAI_API_KEY?: string;
+    OPENAI_API_KEY: string;
 
     @IsNotEmpty()
     @IsString()
-    OPENAI_MODEL?: string;
+    OPENAI_MODEL: string;
 
     @IsNotEmpty()
     @IsString()
-    OPENAI_NLP_MODEL?: string;
+    OPENAI_NLP_MODEL: string;
 
     @IsNotEmpty()
     @IsString()
-    OPENAI_TTS_MODEL?: string;
+    OPENAI_TTS_MODEL: string;
 
     @IsNotEmpty()
     @IsString()
-    OPENAI_TTS_VOICE?: string;
+    OPENAI_TTS_VOICE: string;
 
     @IsNotEmpty()
     @IsString()
     OPENAI_TRANSCRIPTION_MODEL: string;
+
+    @IsNotEmpty()
+    @IsNumber()
+    OPENAI_REQUEST_TIMEOUT_MS: number;
 
     @IsNotEmpty()
     @IsString()

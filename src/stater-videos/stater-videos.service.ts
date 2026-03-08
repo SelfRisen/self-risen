@@ -60,7 +60,7 @@ export class StaterVideosService extends BaseService {
         return this.Results({ light, dark });
     }
 
-    private getMusicList(): Array<{ url: string; name: string }> {
+    private getSoundList(): Array<{ url: string; name: string }> {
         return [
             {
                 url: 'https://lstprxumviehmvbebcub.supabase.co/storage/v1/object/sign/uploads/audios/background/HtmDdP4E5EO1vZwujDIg2Xvz3tF2/a43c3898-d301-4e30-9df5-f7c07db5126c-1772198989463.mp3?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8zMmE2ZWM2Zi1iZDNjLTRmY2YtYTVmYS1hNjVhZDVmM2E4ODEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJ1cGxvYWRzL2F1ZGlvcy9iYWNrZ3JvdW5kL0h0bURkUDRFNUVPMXZad3VqRElnMlh2ejN0RjIvYTQzYzM4OTgtZDMwMS00ZTMwLTlkZjUtZjdjMDdkYjUxMjZjLTE3NzIxOTg5ODk0NjMubXAzIiwiaWF0IjoxNzcyMTk4OTkxLCJleHAiOjE4MDM3MzQ5OTF9.AQHRTzymskO7A_ouB1RLC7BHB20b8iYZsYFz2oXfpaA',
@@ -98,14 +98,14 @@ export class StaterVideosService extends BaseService {
     }
 
     async getMusicUrls() {
-        return this.Results(this.getMusicList());
+        return this.Results(this.getSoundList());
     }
 
     /**
      * Returns the music entry for the given name, or null if not found.
      */
-    getMusicByName(name: string): { url: string; name: string } | null {
-        const list = this.getMusicList();
+    getSoundByName(name: string): { url: string; name: string } | null {
+        const list = this.getSoundList();
         return list.find((item) => item.name === name) ?? null;
     }
 

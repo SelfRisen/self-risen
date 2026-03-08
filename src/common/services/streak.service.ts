@@ -25,6 +25,8 @@ export class StreakService {
     ) { }
 
     async updateStreak(user: User) {
+        // TODO: Add timezone support using user.timezone so "today" and "yesterday" are computed
+        // in the user's timezone rather than server-local (see User.timezone, IANA e.g. America/New_York).
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const lastStreakDate = user.lastStreakDate ?
@@ -36,69 +38,72 @@ export class StreakService {
         let streak = user.streak;
         let shouldRecordHistory = false;
 
-        if (!lastStreakDate) {
-            streak = 1;
-            shouldRecordHistory = true;
-            await this.prisma.user.update({
-                where: { id: user.id },
-                data: {
-                    streak,
-                    lastStreakDate: today,
-                }
-            });
-        } else if (lastStreakDate.getTime() === yesterday.getTime()) {
-            streak = user.streak + 1;
-            shouldRecordHistory = true;
-            await this.prisma.user.update({
-                where: { id: user.id },
-                data: {
-                    streak,
-                    lastStreakDate: today,
-                }
-            });
-        } else if (lastStreakDate.getTime() === today.getTime()) {
-            // Already logged in today - no update needed
-            return;
-        } else {
-            // Streak broken - reset to 1
-            streak = 1;
-            shouldRecordHistory = true;
-            await this.prisma.user.update({
-                where: { id: user.id },
-                data: {
-                    streak,
-                    lastStreakDate: today,
-                }
-            });
-        }
+        await this.prisma.$transaction(async (tx) => {
+            if (!lastStreakDate) {
+                streak = 1;
+                shouldRecordHistory = true;
+                await tx.user.update({
+                    where: { id: user.id },
+                    data: {
+                        streak,
+                        lastStreakDate: today,
+                    }
+                });
+            } else if (lastStreakDate.getTime() === yesterday.getTime()) {
+                streak = user.streak + 1;
+                shouldRecordHistory = true;
+                await tx.user.update({
+                    where: { id: user.id },
+                    data: {
+                        streak,
+                        lastStreakDate: today,
+                    }
+                });
+            } else if (lastStreakDate.getTime() === today.getTime()) {
+                // Already logged in today - no update needed
+                return;
+            } else {
+                // Streak broken - reset to 1
+                streak = 1;
+                shouldRecordHistory = true;
+                await tx.user.update({
+                    where: { id: user.id },
+                    data: {
+                        streak,
+                        lastStreakDate: today,
+                    }
+                });
+            }
 
-        // Record streak history if activity occurred
-        if (shouldRecordHistory) {
-            await this.recordStreakHistory(user.id, today, streak);
-        }
+            if (shouldRecordHistory) {
+                await this.recordStreakHistory(user.id, today, streak, tx);
+            }
+        });
     }
 
-    private async recordStreakHistory(userId: string, date: Date, streak: number): Promise<void> {
-        try {
-            await this.prisma.streakHistory.upsert({
-                where: {
-                    userId_date: {
-                        userId,
-                        date,
-                    },
-                },
-                update: {
-                    streak,
-                },
-                create: {
+    private async recordStreakHistory(
+        userId: string,
+        date: Date,
+        streak: number,
+        tx?: Pick<DatabaseProvider, "streakHistory">
+    ): Promise<void> {
+        const client = tx ?? this.prisma;
+        await client.streakHistory.upsert({
+            where: {
+                userId_date: {
                     userId,
                     date,
-                    streak,
                 },
-            });
-        } catch (error) {
-            this.logger.error(`Failed to record streak history: ${error.message}`);
-        }
+            },
+            update: {
+                streak,
+            },
+            create: {
+                userId,
+                date,
+                streak,
+            },
+        });
     }
 
     async getStreakCalendar(userId: string, year: number, month: number): Promise<StreakCalendarResponse> {

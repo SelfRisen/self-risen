@@ -34,6 +34,19 @@ const MESSAGE_MAP: Record<ReminderKind, Array<(streak: number) => { title: strin
   evening: EVENING_MESSAGES,
 };
 
+const MAX_USERS_PER_RUN = 500;
+// const MAX_USERS_PER_RUN = 5000;
+
+const NOTIFY_BATCH_SIZE = 25;
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
 /** Hour (0-23) -> morning | afternoon | evening. Night (0-4) treated as evening. */
 function getKindFromHour(hour: number): ReminderKind {
   if (hour >= 5 && hour < 12) return 'morning';
@@ -41,10 +54,10 @@ function getKindFromHour(hour: number): ReminderKind {
   return 'evening';
 }
 
-/** Current time in timezone as "HH:mm" (hour and minute). */
-function getCurrentTimeInZone(timezone: string): { hour: number; minute: number; timeStr: string } {
-  const now = new Date();
-  const parts = now.toLocaleString('en-CA', { timeZone: timezone, hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
+/** Current time in timezone as "HH:mm" (hour and minute). Pass optional now for a consistent snapshot. */
+function getCurrentTimeInZone(timezone: string, now?: Date): { hour: number; minute: number; timeStr: string } {
+  const instant = now ?? new Date();
+  const parts = instant.toLocaleString('en-CA', { timeZone: timezone, hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
   const hour = parseInt(parts[0], 10);
   const minute = parseInt(parts[1], 10);
   const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
@@ -75,6 +88,9 @@ export class StreakReminderService {
   /** Every hour: custom-time users – if their local time matches a reminder time, send the right message (morning/afternoon/evening) */
   @Cron('0 * * * *')
   async sendCustomTimeReminders() {
+    const now = new Date();
+    const dateKey = now.toISOString().slice(0, 10);
+
     const users = await this.prisma.user.findMany({
       where: {
         streak: { gt: 0 },
@@ -88,51 +104,59 @@ export class StreakReminderService {
         streakReminderTimes: true,
         timezone: true,
       },
+      orderBy: { id: 'asc' },
+      take: MAX_USERS_PER_RUN,
     });
 
     if (users.length === 0) {
       return;
     }
 
-    const dateKey = new Date().toISOString().slice(0, 10);
-
+    type UserWithKind = (typeof users)[number] & { kind: ReminderKind; timeStr: string };
+    const toNotify: UserWithKind[] = [];
     for (const user of users) {
       const times = user.streakReminderTimes ?? [];
       const tz = (user.timezone || 'UTC').trim() || 'UTC';
-      const { hour, timeStr } = getCurrentTimeInZone(tz);
+      const { hour, timeStr } = getCurrentTimeInZone(tz, now);
 
       // Match when current time in user's TZ is exactly HH:00 (cron runs at minute 0). User times are "HH:mm".
       const currentHourLabel = `${String(hour).padStart(2, '0')}:00`;
       if (!times.includes(currentHourLabel)) continue;
-
-      const kind = getKindFromHour(hour);
-      const messages = MESSAGE_MAP[kind];
-      const pick = messages[Math.floor(Math.random() * messages.length)];
-      const { title, body } = pick(user.streak);
-      const requestId = `streak-reminder-${user.id}-${dateKey}-${kind}-${timeStr}-${randomUUID()}`;
-
-      try {
-        await this.notificationService.notifyUser({
-          userId: user.id,
-          type: NotificationTypeEnum.STREAK_REMINDER,
-          requestId,
-          channels: [
-            { type: NotificationChannelTypeEnum.PUSH },
-            { type: NotificationChannelTypeEnum.IN_APP },
-          ],
-          metadata: {
-            title,
-            body,
-            streak: user.streak,
-            reminderKind: kind,
-          },
-        });
-      } catch (err) {
-        this.logger.warn(`Streak reminder failed for user ${user.id}: ${err.message}`);
-      }
+      toNotify.push({ ...user, kind: getKindFromHour(hour), timeStr });
     }
 
-    this.logger.debug(`Custom streak reminders: processed ${users.length} users with custom times`);
+    for (const batch of chunk(toNotify, NOTIFY_BATCH_SIZE)) {
+      const results = await Promise.allSettled(
+        batch.map((user) => {
+          const messages = MESSAGE_MAP[user.kind];
+          const pick = messages[Math.floor(Math.random() * messages.length)];
+          const { title, body } = pick(user.streak);
+          const requestId = `streak-reminder-${user.id}-${dateKey}-${user.kind}-${user.timeStr}-${randomUUID()}`;
+          return this.notificationService.notifyUser({
+            userId: user.id,
+            type: NotificationTypeEnum.STREAK_REMINDER,
+            requestId,
+            channels: [
+              { type: NotificationChannelTypeEnum.PUSH },
+              { type: NotificationChannelTypeEnum.IN_APP },
+            ],
+            metadata: {
+              title,
+              body,
+              streak: user.streak,
+              reminderKind: user.kind,
+            },
+          });
+        }),
+      );
+      results.forEach((result, i) => {
+        if (result.status === 'rejected') {
+          this.logger.warn(`Streak reminder failed for user ${batch[i].id}: ${result.reason?.message ?? result.reason}`);
+        }
+      });
+    }
+
+    this.logger.debug(`Custom streak reminders: processed ${users.length} users, sent to ${toNotify.length} with matching time`);
   }
 
   /** Send to users who use defaults: no custom times, reminders enabled, at fixed UTC 8 (morning) or 18 (evening). */
@@ -145,6 +169,8 @@ export class StreakReminderService {
         streakReminderTimes: { isEmpty: true },
       },
       select: { id: true, streak: true },
+      orderBy: { id: 'asc' },
+      take: MAX_USERS_PER_RUN,
     });
 
     if (users.length === 0) {
@@ -155,30 +181,34 @@ export class StreakReminderService {
     const messages = MESSAGE_MAP[kind];
     const dateKey = new Date().toISOString().slice(0, 10);
 
-    for (const user of users) {
-      try {
-        const pick = messages[Math.floor(Math.random() * messages.length)];
-        const { title, body } = pick(user.streak);
-        const requestId = `streak-reminder-${user.id}-${dateKey}-${kind}-${randomUUID()}`;
-
-        await this.notificationService.notifyUser({
-          userId: user.id,
-          type: NotificationTypeEnum.STREAK_REMINDER,
-          requestId,
-          channels: [
-            { type: NotificationChannelTypeEnum.PUSH },
-            { type: NotificationChannelTypeEnum.IN_APP },
-          ],
-          metadata: {
-            title,
-            body,
-            streak: user.streak,
-            reminderKind: kind,
-          },
-        });
-      } catch (err) {
-        this.logger.warn(`Streak reminder failed for user ${user.id}: ${err.message}`);
-      }
+    for (const batch of chunk(users, NOTIFY_BATCH_SIZE)) {
+      const results = await Promise.allSettled(
+        batch.map((user) => {
+          const pick = messages[Math.floor(Math.random() * messages.length)];
+          const { title, body } = pick(user.streak);
+          const requestId = `streak-reminder-${user.id}-${dateKey}-${kind}-${randomUUID()}`;
+          return this.notificationService.notifyUser({
+            userId: user.id,
+            type: NotificationTypeEnum.STREAK_REMINDER,
+            requestId,
+            channels: [
+              { type: NotificationChannelTypeEnum.PUSH },
+              { type: NotificationChannelTypeEnum.IN_APP },
+            ],
+            metadata: {
+              title,
+              body,
+              streak: user.streak,
+              reminderKind: kind,
+            },
+          });
+        }),
+      );
+      results.forEach((result, i) => {
+        if (result.status === 'rejected') {
+          this.logger.warn(`Streak reminder failed for user ${batch[i].id}: ${result.reason?.message ?? result.reason}`);
+        }
+      });
     }
 
     this.logger.log(`Streak reminders (${kind}, default): sent to ${users.length} users`);

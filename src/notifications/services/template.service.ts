@@ -72,6 +72,8 @@ export class TemplateService {
         'push_user_onboarding_welcome',
       [`${NotificationTypeEnum.PASSWORD_RESET_OTP}_${NotificationChannelTypeEnum.EMAIL}`]:
         'email_password_reset_otp',
+      [`${NotificationTypeEnum.PASSWORD_RESET_CONFIRMATION}_${NotificationChannelTypeEnum.EMAIL}`]:
+        'email_password_reset_confirmation',
     };
 
     return (

@@ -97,13 +97,33 @@ export class VisionBoardService extends BaseService {
             );
         }
 
-        // Verify vision board exists and belongs to user
-        const visionBoard = await this.prisma.visionBoard.findFirst({
-            where: {
-                id: visionBoardId,
-                userId: user.id,
-            },
-        });
+        // Fetch vision board and optionally reflection session in parallel
+        const [visionBoard, foundSession] = await Promise.all([
+            this.prisma.visionBoard.findFirst({
+                where: {
+                    id: visionBoardId,
+                    userId: user.id,
+                },
+            }),
+            reflectionSessionId
+                ? this.prisma.reflectionSession.findFirst({
+                    where: {
+                        id: reflectionSessionId,
+                        userId: user.id,
+                    },
+                    include: {
+                        category: {
+                            select: {
+                                id: true,
+                                name: true,
+                            },
+                        },
+                        reflectionSound: true,
+                    },
+                })
+                : Promise.resolve(null),
+        ]);
+
         if (!visionBoard) {
             return this.HandleError(new NotFoundException('Vision board not found'));
         }
@@ -119,45 +139,24 @@ export class VisionBoardService extends BaseService {
             };
             reflectionSound: { id: string; soundUrl: string; name: string | null; fileSize: number | null; mimeType: string | null } | null;
         } | null = null;
-        
-        if (reflectionSessionId) {
-            const foundSession = await this.prisma.reflectionSession.findFirst({
-                where: {
-                    id: reflectionSessionId,
-                    userId: user.id,
-                },
-                include: {
-                    category: {
-                        select: {
-                            id: true,
-                            name: true,
-                        },
-                    },
-                    reflectionSound: true,
-                },
-            });
 
+        if (reflectionSessionId) {
             if (!foundSession) {
                 return this.HandleError(new NotFoundException('Reflection session not found'));
             }
-
             if (foundSession.status !== ReflectionSessionStatus.AFFIRMATION_GENERATED) {
                 return this.HandleError(
                     new BadRequestException('Reflection session must be in AFFIRMATION_GENERATED status to add to vision board'),
                 );
             }
-
-            // Check if already added to vision board
             const existingItem = await this.prisma.vision.findUnique({
                 where: { reflectionSessionId },
             });
-
             if (existingItem) {
                 return this.HandleError(
                     new BadRequestException('This reflection session is already in the vision board'),
                 );
             }
-
             reflectionSession = foundSession;
         }
 
@@ -185,42 +184,36 @@ export class VisionBoardService extends BaseService {
 
         const order = maxOrderItem ? (maxOrderItem.order || 0) + 1 : 1;
 
-        // Create vision
-        const createData: Prisma.VisionCreateInput = {
-            visionBoard: {
-                connect: { id: visionBoard.id },
-            },
-            order,
-        };
-        if (reflectionSessionId) {
-            createData.reflectionSession = {
-                connect: { id: reflectionSessionId },
+        // Create vision (and visionSound in same tx when needed to avoid order race)
+        const visionItem = await this.prisma.$transaction(async (tx) => {
+            const createData: Prisma.VisionCreateInput = {
+                visionBoard: {
+                    connect: { id: visionBoard.id },
+                },
+                order,
             };
-            if (reflectionSession?.reflectionSound) {
-                const rs = reflectionSession.reflectionSound;
-                const maxSoundOrder = await this.prisma.visionSound.findFirst({
-                    orderBy: { order: 'desc' },
-                });
-                const newOrder = maxSoundOrder ? (maxSoundOrder.order ?? 0) + 1 : 1;
-                const newVisionSound = await this.prisma.visionSound.create({
-                    data: {
+            if (reflectionSessionId) {
+                createData.reflectionSession = {
+                    connect: { id: reflectionSessionId },
+                };
+                if (reflectionSession?.reflectionSound) {
+                    const rs = reflectionSession.reflectionSound;
+                    const newVisionSound = await this.createVisionSoundWithNextOrder(tx, {
                         soundUrl: rs.soundUrl,
                         name: rs.name,
                         fileSize: rs.fileSize,
                         mimeType: rs.mimeType,
-                        order: newOrder,
-                    },
-                });
-                createData.visionSound = { connect: { id: newVisionSound.id } };
+                    });
+                    createData.visionSound = { connect: { id: newVisionSound.id } };
+                }
             }
-        }
-        if (imageUrl) {
-            createData.imageUrl = imageUrl;
-        }
-
-        const visionItem = await this.prisma.vision.create({
-            data: createData,
-            include: visionInclude,
+            if (imageUrl) {
+                createData.imageUrl = imageUrl;
+            }
+            return tx.vision.create({
+                data: createData,
+                include: visionInclude,
+            });
         });
 
         // Update reflection session to mark it as a vision
@@ -253,34 +246,34 @@ export class VisionBoardService extends BaseService {
         if (!user) {
             return this.HandleError(new NotFoundException('User not found'));
         }
-        
-        // Verify vision board exists and belongs to user
-        const visionBoard = await this.prisma.visionBoard.findFirst({
-            where: {
-                userId: user.id,
-                isGloabal: true,
-            },
-        });
+
+        const [visionBoard, sourceVision] = await Promise.all([
+            this.prisma.visionBoard.findFirst({
+                where: {
+                    userId: user.id,
+                    isGloabal: true,
+                },
+            }),
+            this.prisma.vision.findFirst({
+                where: {
+                    id: visionId,
+                    visionBoard: { userId: user.id },
+                },
+            }),
+        ]);
+
         if (!visionBoard) {
             return this.HandleError(new NotFoundException('Vision board not found'));
         }
-        
+        if (!sourceVision) {
+            return this.HandleError(new NotFoundException('Vision not found'));
+        }
+
         const maxOrderItem = await this.prisma.vision.findFirst({
             where: { visionBoardId: visionBoard.id },
             orderBy: { order: 'desc' },
         });
-    
         const order = maxOrderItem ? (maxOrderItem.order || 0) + 1 : 1;
-
-        const sourceVision = await this.prisma.vision.findFirst({
-            where: {
-                id: visionId,
-                visionBoard: { userId: user.id },
-            },
-        });
-        if (!sourceVision) {
-            return this.HandleError(new NotFoundException('Vision not found'));
-        }
 
         const visionItem = await this.prisma.vision.create({
             data: {
@@ -298,13 +291,15 @@ export class VisionBoardService extends BaseService {
     }
 
     /**
-     * Get all visions for user's vision board (paginated)
+     * Get all visions for user's vision board (paginated).
+     * When includeTotalCount is false, skips the count query for faster responses (e.g. "next page").
      */
     async getAllVisions(
         firebaseId: string,
         page: number = 1,
         limit: number = 10,
         visionBoardId?: string,
+        includeTotalCount: boolean = true,
     ) {
         const user = await this.getUserByFirebaseId(firebaseId);
         if (!user) {
@@ -315,27 +310,27 @@ export class VisionBoardService extends BaseService {
         const pageSize = Math.max(1, Math.min(100, Math.floor(limit)));
         const skip = (pageNumber - 1) * pageSize;
 
-        // Build where clause - filter directly on nested relation to avoid extra query
         const where: Prisma.VisionWhereInput = {
             visionBoard: {
                 userId: user.id,
                 ...(visionBoardId ? { id: visionBoardId } : {}),
             },
         };
-        
-        const totalCount = await this.prisma.vision.count({ where });
 
-        const items = await this.prisma.vision.findMany({
-            where,
-            orderBy: { order: 'asc' },
-            skip,
-            take: pageSize,
-            include: visionInclude,
-        });
+        const [items, totalCount] = await Promise.all([
+            this.prisma.vision.findMany({
+                where,
+                orderBy: { order: 'asc' },
+                skip,
+                take: pageSize,
+                include: visionInclude,
+            }),
+            includeTotalCount ? this.prisma.vision.count({ where }) : Promise.resolve(null),
+        ]);
 
-        const totalPages = Math.ceil(totalCount / pageSize);
+        const total = totalCount ?? null;
+        const totalPages = total != null ? Math.ceil(total / pageSize) : null;
 
-        // Format response
         const data = items.map((item) => this.mapVisionToResponse(item));
 
         return this.Results({
@@ -343,9 +338,9 @@ export class VisionBoardService extends BaseService {
             pagination: {
                 page: pageNumber,
                 limit: pageSize,
-                total: totalCount,
+                total,
                 totalPages,
-                hasNextPage: pageNumber < totalPages,
+                hasNextPage: totalPages != null ? pageNumber < totalPages : items.length === pageSize,
                 hasPreviousPage: pageNumber > 1,
             },
         });
@@ -417,28 +412,26 @@ export class VisionBoardService extends BaseService {
         }
 
         if (reflectionSessionId) {
-            const foundSession = await this.prisma.reflectionSession.findFirst({
-                where: {
-                    id: reflectionSessionId,
-                    userId: user.id,
-                },
-            });
+            const [foundSession, existingItem] = await Promise.all([
+                this.prisma.reflectionSession.findFirst({
+                    where: {
+                        id: reflectionSessionId,
+                        userId: user.id,
+                    },
+                }),
+                this.prisma.vision.findUnique({
+                    where: { reflectionSessionId },
+                }),
+            ]);
 
             if (!foundSession) {
                 return this.HandleError(new NotFoundException('Reflection session not found'));
             }
-
             if (foundSession.status !== ReflectionSessionStatus.AFFIRMATION_GENERATED) {
                 return this.HandleError(
                     new BadRequestException('Reflection session must be in AFFIRMATION_GENERATED status to link to vision board'),
                 );
             }
-
-            // Check if already linked to another vision
-            const existingItem = await this.prisma.vision.findUnique({
-                where: { reflectionSessionId },
-            });
-
             if (existingItem && existingItem.id !== visionId) {
                 return this.HandleError(
                     new BadRequestException('This reflection session is already linked to another vision'),
@@ -446,40 +439,39 @@ export class VisionBoardService extends BaseService {
             }
         }
 
-        // Upload new image if provided and delete old image
-        let imageUrl: string | undefined;
+        // Run image upload and sound lookup in parallel when both are needed
         const oldImageUrl = visionItem.imageUrl;
-        
-        if (imageFile) {
-            try {
-                const uploadResult = await this.storageService.uploadFile(
-                    imageFile,
-                    FileType.IMAGE,
-                    user.id,
-                    'vision-board/images',
-                );
-                imageUrl = uploadResult.url;
+        const [uploadResult, sound] = await Promise.all([
+            imageFile
+                ? this.storageService
+                    .uploadFile(imageFile, FileType.IMAGE, user.id, 'vision-board/images')
+                    .then((r) => r.url)
+                    .catch((error) => {
+                        throw new BadRequestException(`Failed to upload image: ${error.message}`);
+                    })
+                : Promise.resolve(undefined),
+            visionSoundId !== undefined && visionSoundId != null && visionSoundId !== ''
+                ? this.prisma.visionSound.findUnique({ where: { id: visionSoundId } })
+                : Promise.resolve(null),
+        ]);
 
-                // Delete old image if it exists
-                if (oldImageUrl) {
-                    try {
-                        const oldImagePath = this.extractFilePathFromUrl(oldImageUrl);
-                        if (oldImagePath) {
-                            await this.storageService.deleteFile(oldImagePath);
-                        }
-                    } catch (error) {
-                        // Log error but don't fail the update if deletion fails
-                        this.logger.warn(`Failed to delete old image: ${oldImageUrl}`, error);
-                    }
+        const imageUrl = uploadResult;
+
+        if (imageFile && imageUrl && oldImageUrl) {
+            try {
+                const oldImagePath = this.extractFilePathFromUrl(oldImageUrl);
+                if (oldImagePath) {
+                    await this.storageService.deleteFile(oldImagePath);
                 }
             } catch (error) {
-                return this.HandleError(
-                    new BadRequestException(`Failed to upload image: ${error.message}`),
-                );
+                this.logger.warn(`Failed to delete old image: ${oldImageUrl}`, error);
             }
         }
 
-        // Prepare update data
+        if (visionSoundId !== undefined && visionSoundId != null && visionSoundId !== '' && !sound) {
+            return this.HandleError(new NotFoundException('Sound not found'));
+        }
+
         const updateData: Prisma.VisionUpdateInput = {};
         if (imageUrl !== undefined) {
             updateData.imageUrl = imageUrl;
@@ -491,12 +483,6 @@ export class VisionBoardService extends BaseService {
         }
         if (visionSoundId !== undefined) {
             if (visionSoundId != null && visionSoundId !== '') {
-                const sound = await this.prisma.visionSound.findUnique({
-                    where: { id: visionSoundId },
-                });
-                if (!sound) {
-                    return this.HandleError(new NotFoundException('Sound not found'));
-                }
                 updateData.visionSound = { connect: { id: visionSoundId } };
             } else {
                 updateData.visionSound = { disconnect: true };
@@ -592,70 +578,76 @@ export class VisionBoardService extends BaseService {
             return this.HandleError(new BadRequestException('At least one audio file is required'));
         }
 
-        // Get the current max order for this user's sound files
-        const maxOrderFile = await this.prisma.visionSound.findFirst({
-            orderBy: { order: 'desc' },
-        });
-
-        let currentOrder = maxOrderFile ? (maxOrderFile.order || 0) : 0;
-
-        const uploadedFiles: Array<{
-            id: string;
-            soundUrl: string;
-            name: string | null;
-            fileSize: number | null;
-            mimeType: string | null;
-            order: number | null;
-            createdAt: Date;
-            updatedAt: Date;
-        }> = [];
-
-        // Upload each file and save to database
-        for (const soundFile of soundFiles) {
-            try {
-                // Upload file to storage
-                const uploadResult = await this.storageService.uploadFile(
-                    soundFile,
+        // Upload all files in parallel
+        const uploadResults = await Promise.allSettled(
+            soundFiles.map((file) =>
+                this.storageService.uploadFile(
+                    file,
                     FileType.AUDIO,
                     user.id,
                     'vision-board/sounds',
+                ),
+            ),
+        );
+
+        const successfulUploads: Array<{ url: string; file: Express.Multer.File }> = [];
+        uploadResults.forEach((result, index) => {
+            if (result.status === 'fulfilled') {
+                successfulUploads.push({ url: result.value.url, file: soundFiles[index] });
+            } else {
+                this.logger.error(
+                    `Failed to upload sound file ${soundFiles[index]?.originalname}: ${result.reason?.message}`,
                 );
-
-                currentOrder += 1;
-
-                // Save file record to database
-                const soundFileRecord = await this.prisma.visionSound.create({
-                    data: {
-                        soundUrl: uploadResult.url,
-                        name: soundFile.originalname,
-                        fileSize: soundFile.size,
-                        mimeType: soundFile.mimetype,
-                        order: currentOrder,
-                    },
-                });
-
-                uploadedFiles.push({
-                    id: soundFileRecord.id,
-                    soundUrl: soundFileRecord.soundUrl,
-                    name: soundFileRecord.name,
-                    fileSize: soundFileRecord.fileSize,
-                    mimeType: soundFileRecord.mimeType,
-                    order: soundFileRecord.order,
-                    createdAt: soundFileRecord.createdAt,
-                    updatedAt: soundFileRecord.updatedAt,
-                });
-            } catch (error) {
-                this.logger.error(`Failed to upload sound file ${soundFile.originalname}: ${error.message}`);
-                // Continue with other files even if one fails
-                // You might want to handle this differently based on requirements
             }
-        }
+        });
 
-        if (uploadedFiles.length === 0) {
+        if (successfulUploads.length === 0) {
             return this.HandleError(
                 new BadRequestException('Failed to upload any audio files'),
             );
         }
+
+        // Create all records in a single transaction with correct order (avoids race conditions)
+        const uploadedFiles = await this.prisma.$transaction(async (tx) => {
+            const maxRow = await tx.visionSound.findFirst({
+                orderBy: { order: 'desc' },
+                select: { order: true },
+            });
+            let nextOrder = maxRow?.order != null ? maxRow.order + 1 : 1;
+            const created: Array<{
+                id: string;
+                soundUrl: string;
+                name: string | null;
+                fileSize: number | null;
+                mimeType: string | null;
+                order: number | null;
+                createdAt: Date;
+                updatedAt: Date;
+            }> = [];
+            for (const { url, file } of successfulUploads) {
+                const record = await tx.visionSound.create({
+                    data: {
+                        soundUrl: url,
+                        name: file.originalname,
+                        fileSize: file.size,
+                        mimeType: file.mimetype,
+                        order: nextOrder,
+                    },
+                });
+                nextOrder += 1;
+                created.push({
+                    id: record.id,
+                    soundUrl: record.soundUrl,
+                    name: record.name,
+                    fileSize: record.fileSize,
+                    mimeType: record.mimeType,
+                    order: record.order,
+                    createdAt: record.createdAt,
+                    updatedAt: record.updatedAt,
+                });
+            }
+            return created;
+        });
 
         return this.Results({
             uploaded: uploadedFiles.length,
@@ -667,7 +659,7 @@ export class VisionBoardService extends BaseService {
      * Get all sounds (catalog used for both visions and reflections).
      */
     async getSounds(firebaseId: string) {
-        const user = await this.getUserByFirebaseId(firebaseId);
+          const user = await this.getUserByFirebaseId(firebaseId);
         if (!user) {
             return this.HandleError(new NotFoundException('User not found'));
         }
@@ -695,6 +687,7 @@ export class VisionBoardService extends BaseService {
 
     /**
      * Get sounds in the context of a vision: all sounds plus the vision's selected background sound.
+     * Fetches vision and sounds in parallel.
      */
     async getSoundsForVision(firebaseId: string, visionId: string) {
         const user = await this.getUserByFirebaseId(firebaseId);
@@ -702,34 +695,35 @@ export class VisionBoardService extends BaseService {
             return this.HandleError(new NotFoundException('User not found'));
         }
 
-        const vision = await this.prisma.vision.findFirst({
-            where: {
-                id: visionId,
-                visionBoard: { userId: user.id },
-            },
-            include: {
-                visionSound: {
-                    select: {
-                        id: true,
-                        soundUrl: true,
-                        name: true,
-                        fileSize: true,
-                        mimeType: true,
-                        order: true,
+        const [vision, soundFiles] = await Promise.all([
+            this.prisma.vision.findFirst({
+                where: {
+                    id: visionId,
+                    visionBoard: { userId: user.id },
+                },
+                include: {
+                    visionSound: {
+                        select: {
+                            id: true,
+                            soundUrl: true,
+                            name: true,
+                            fileSize: true,
+                            mimeType: true,
+                            order: true,
+                        },
                     },
                 },
-            },
-        });
+            }),
+            this.prisma.visionSound.findMany({
+                orderBy: { order: 'asc' },
+            }),
+        ]);
 
         if (!vision) {
             return this.HandleError(new NotFoundException('Vision not found'));
         }
 
-        const allSounds = await this.prisma.visionSound.findMany({
-            orderBy: { order: 'asc' },
-        });
-
-        const files = allSounds.map((file) => ({
+        const files = soundFiles.map((file) => ({
             id: file.id,
             soundUrl: file.soundUrl,
             name: file.name,
@@ -748,7 +742,7 @@ export class VisionBoardService extends BaseService {
     }
 
     /**
-     * Set a vision's background sound by name from the stater-videos music list.
+     * Set a vision's background sound by name from the stater-videos sound list.
      * Resolves the name to a URL, finds or creates a VisionSound, and links it to the vision.
      */
     async setVisionBackgroundSoundByName(firebaseId: string, visionId: string, name: string) {
@@ -757,39 +751,37 @@ export class VisionBoardService extends BaseService {
             return this.HandleError(new NotFoundException('User not found'));
         }
 
-        const vision = await this.prisma.vision.findFirst({
-            where: {
-                id: visionId,
-                visionBoard: { userId: user.id },
-            },
-        });
+        const sound = this.staterVideosService.getSoundByName(name);
+        if (!sound) {
+            return this.HandleError(new NotFoundException('Sound not found'));
+        }
+
+        const [vision, visionSoundExisting] = await Promise.all([
+            this.prisma.vision.findFirst({
+                where: {
+                    id: visionId,
+                    visionBoard: { userId: user.id },
+                },
+            }),
+            this.prisma.visionSound.findFirst({
+                where: { name: sound.name },
+            }),
+        ]);
+
         if (!vision) {
             return this.HandleError(new NotFoundException('Vision not found'));
         }
 
-        const music = this.staterVideosService.getMusicByName(name);
-        if (!music) {
-            return this.HandleError(new NotFoundException('Sound not found'));
-        }
-
-        let visionSound = await this.prisma.visionSound.findFirst({
-            where: { name: music.name },
-        });
-        if (!visionSound) {
-            const maxSoundOrder = await this.prisma.visionSound.findFirst({
-                orderBy: { order: 'desc' },
-            });
-            const newOrder = maxSoundOrder ? (maxSoundOrder.order ?? 0) + 1 : 1;
-            visionSound = await this.prisma.visionSound.create({
-                data: {
-                    soundUrl: music.url,
-                    name: music.name,
+        const visionSound = visionSoundExisting
+            ? visionSoundExisting
+            : await this.prisma.$transaction(async (tx) =>
+                this.createVisionSoundWithNextOrder(tx, {
+                    soundUrl: sound.url,
+                    name: sound.name,
                     fileSize: null,
                     mimeType: null,
-                    order: newOrder,
-                },
-            });
-        }
+                }),
+            );
 
         const updated = await this.prisma.vision.update({
             where: { id: visionId },
@@ -874,64 +866,48 @@ export class VisionBoardService extends BaseService {
             return this.Results({ vision });
         }
 
-        // Get all visions in the same board
         const visions = await this.prisma.vision.findMany({
             where: { visionBoardId: vision.visionBoardId },
             orderBy: { order: 'asc' },
         });
 
-        // Reorder: shift items between old and new position
-        const updates: Promise<any>[] = [];
-
-        if (newOrder > currentOrder) {
-            // Moving down: shift items up
-            for (const v of visions) {
-                const vOrder = v.order ?? 0;
-                if (v.id === visionId) {
-                    updates.push(
-                        this.prisma.vision.update({
+        const updatedVisions = await this.prisma.$transaction(async (tx) => {
+            if (newOrder > currentOrder) {
+                for (const v of visions) {
+                    const vOrder = v.order ?? 0;
+                    if (v.id === visionId) {
+                        await tx.vision.update({
                             where: { id: v.id },
                             data: { order: newOrder },
-                        }),
-                    );
-                } else if (vOrder > currentOrder && vOrder <= newOrder) {
-                    updates.push(
-                        this.prisma.vision.update({
+                        });
+                    } else if (vOrder > currentOrder && vOrder <= newOrder) {
+                        await tx.vision.update({
                             where: { id: v.id },
                             data: { order: vOrder - 1 },
-                        }),
-                    );
+                        });
+                    }
                 }
-            }
-        } else {
-            // Moving up: shift items down
-            for (const v of visions) {
-                const vOrder = v.order ?? 0;
-                if (v.id === visionId) {
-                    updates.push(
-                        this.prisma.vision.update({
+            } else {
+                for (const v of visions) {
+                    const vOrder = v.order ?? 0;
+                    if (v.id === visionId) {
+                        await tx.vision.update({
                             where: { id: v.id },
                             data: { order: newOrder },
-                        }),
-                    );
-                } else if (vOrder >= newOrder && vOrder < currentOrder) {
-                    updates.push(
-                        this.prisma.vision.update({
+                        });
+                    } else if (vOrder >= newOrder && vOrder < currentOrder) {
+                        await tx.vision.update({
                             where: { id: v.id },
                             data: { order: vOrder + 1 },
-                        }),
-                    );
+                        });
+                    }
                 }
             }
-        }
-
-        await Promise.all(updates);
-
-        // Return updated list
-        const updatedVisions = await this.prisma.vision.findMany({
-            where: { visionBoardId: vision.visionBoardId },
-            orderBy: { order: 'asc' },
-            select: { id: true, order: true },
+            return tx.vision.findMany({
+                where: { visionBoardId: vision.visionBoardId },
+                orderBy: { order: 'asc' },
+                select: { id: true, order: true },
+            });
         });
 
         return this.Results({
@@ -962,62 +938,52 @@ export class VisionBoardService extends BaseService {
             return this.Results({ sound });
         }
 
-        // Get all sounds
+        const orderMin = Math.min(currentOrder, newOrder);
+        const orderMax = Math.max(currentOrder, newOrder);
+
         const sounds = await this.prisma.visionSound.findMany({
+            where: {
+                order: { gte: orderMin, lte: orderMax },
+            },
             orderBy: { order: 'asc' },
         });
 
-        // Reorder: shift items between old and new position
-        const updates: Promise<any>[] = [];
-
-        if (newOrder > currentOrder) {
-            // Moving down: shift items up
-            for (const s of sounds) {
-                const sOrder = s.order ?? 0;
-                if (s.id === soundId) {
-                    updates.push(
-                        this.prisma.visionSound.update({
+        const updatedSounds = await this.prisma.$transaction(async (tx) => {
+            if (newOrder > currentOrder) {
+                for (const s of sounds) {
+                    const sOrder = s.order ?? 0;
+                    if (s.id === soundId) {
+                        await tx.visionSound.update({
                             where: { id: s.id },
                             data: { order: newOrder },
-                        }),
-                    );
-                } else if (sOrder > currentOrder && sOrder <= newOrder) {
-                    updates.push(
-                        this.prisma.visionSound.update({
+                        });
+                    } else if (sOrder > currentOrder && sOrder <= newOrder) {
+                        await tx.visionSound.update({
                             where: { id: s.id },
                             data: { order: sOrder - 1 },
-                        }),
-                    );
+                        });
+                    }
                 }
-            }
-        } else {
-            // Moving up: shift items down
-            for (const s of sounds) {
-                const sOrder = s.order ?? 0;
-                if (s.id === soundId) {
-                    updates.push(
-                        this.prisma.visionSound.update({
+            } else {
+                for (const s of sounds) {
+                    const sOrder = s.order ?? 0;
+                    if (s.id === soundId) {
+                        await tx.visionSound.update({
                             where: { id: s.id },
                             data: { order: newOrder },
-                        }),
-                    );
-                } else if (sOrder >= newOrder && sOrder < currentOrder) {
-                    updates.push(
-                        this.prisma.visionSound.update({
+                        });
+                    } else if (sOrder >= newOrder && sOrder < currentOrder) {
+                        await tx.visionSound.update({
                             where: { id: s.id },
                             data: { order: sOrder + 1 },
-                        }),
-                    );
+                        });
+                    }
                 }
             }
-        }
-
-        await Promise.all(updates);
-
-        // Return updated list
-        const updatedSounds = await this.prisma.visionSound.findMany({
-            orderBy: { order: 'asc' },
-            select: { id: true, order: true, name: true },
+            return tx.visionSound.findMany({
+                orderBy: { order: 'asc' },
+                select: { id: true, order: true, name: true },
+            });
         });
 
         return this.Results({
@@ -1089,6 +1055,23 @@ export class VisionBoardService extends BaseService {
     private async getUserByFirebaseId(firebaseId: string) {
         return this.prisma.user.findUnique({
             where: { firebaseId },
+        });
+    }
+
+    /**
+     * Get the next order value for VisionSound and create a record in a single transaction to avoid race conditions.
+     */
+    private async createVisionSoundWithNextOrder(
+        tx: Parameters<Parameters<DatabaseProvider['$transaction']>[0]>[0],
+        data: Prisma.VisionSoundCreateInput,
+    ) {
+        const maxRow = await tx.visionSound.findFirst({
+            orderBy: { order: 'desc' },
+            select: { order: true },
+        });
+        const newOrder = maxRow?.order != null ? maxRow.order + 1 : 1;
+        return tx.visionSound.create({
+            data: { ...data, order: newOrder },
         });
     }
 }

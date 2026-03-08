@@ -46,7 +46,9 @@ Return your response as a JSON object with exactly these two fields:
         this.openai = new OpenAI({
             apiKey: config.OPENAI_API_KEY,
         });
-        this.logger.log('OpenAI client initialized for NLP transformation');
+        if (config.NODE_ENV === 'development') {
+            this.logger.log('OpenAI client initialized for NLP transformation');
+        }
     }
 
     /**
@@ -58,53 +60,74 @@ Return your response as a JSON object with exactly these two fields:
      */
     async transformBelief(beliefText: string, userId?: string): Promise<{ limitingBelief: string; generatedAffirmation: string }> {
         if (!this.openai) {
-            this.logger.warn('OpenAI not configured. Returning placeholder transformation.');
+            if (config.NODE_ENV === 'development') {
+                this.logger.warn('OpenAI not configured. Returning placeholder transformation.');
+            }
             return this.getPlaceholderTransformation(beliefText);
         }
 
         if (!beliefText || beliefText.trim().length === 0) {
-            this.logger.warn('Empty belief text provided. Returning placeholder.');
+            if (config.NODE_ENV === 'development') {
+                this.logger.warn('Empty belief text provided. Returning placeholder.');
+            }
             return this.getPlaceholderTransformation(beliefText);
         }
 
-        // Check token limit before making API call (if userId provided)
-        const estimatedTokens = this.estimateTokens(beliefText);
+        const maxResponseTokens = 500;
+        const estimatedTokens = this.estimateTokens(beliefText, maxResponseTokens);
         if (userId) {
             try {
                 await this.tokenUsageService.checkTokenLimit(userId, estimatedTokens);
             } catch (error) {
-                // If token limit exceeded, throw the error to the caller
-                this.logger.warn(`Token limit check failed for user ${userId}: ${error.message}`);
+                if (config.NODE_ENV === 'development') {
+                    this.logger.warn(`Token limit check failed for user ${userId}: ${error.message}`);
+                }
                 throw error;
             }
         }
 
+        const timeoutMs = config.OPENAI_REQUEST_TIMEOUT_MS;
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
+
         try {
-            this.logger.log(`Starting NLP transformation for belief: ${beliefText.substring(0, 50)}...`);
+            if (config.NODE_ENV === 'development') {
+                this.logger.log(`Starting NLP transformation for belief: ${beliefText.substring(0, 50)}...`);
+            }
 
             const model = config.OPENAI_NLP_MODEL || 'gpt-3.5-turbo';
 
-            const response = await this.openai.chat.completions.create({
-                model: model,
-                messages: [
-                    { role: 'system', content: this.systemPrompt },
-                    { role: 'user', content: beliefText },
-                ],
-                response_format: { type: 'json_object' },
-                temperature: 0.7,
-                max_tokens: 500,
-            });
+            const response = await this.openai.chat.completions.create(
+                {
+                    model: model,
+                    messages: [
+                        { role: 'system', content: this.systemPrompt },
+                        { role: 'user', content: beliefText },
+                    ],
+                    response_format: { type: 'json_object' },
+                    temperature: 0.7,
+                    max_tokens: maxResponseTokens,
+                },
+                { signal: abortController.signal },
+            );
 
             const content = response.choices[0]?.message?.content;
             if (!content) {
                 throw new Error('Empty response from OpenAI');
             }
 
-            // Track actual token usage (if userId provided)
             if (userId && response.usage) {
-                const totalTokens = response.usage.total_tokens || estimatedTokens;
+                const totalTokens = response.usage.total_tokens ?? estimatedTokens;
                 await this.tokenUsageService.trackTokenUsage(userId, totalTokens);
-                this.logger.log(`Tracked ${totalTokens} tokens for user ${userId}`);
+                if (config.NODE_ENV === 'development') {
+                    this.logger.log(`Tracked ${totalTokens} tokens for user ${userId}`);
+                    const diff = Math.abs(totalTokens - estimatedTokens);
+                    if (diff > estimatedTokens * 0.2) {
+                        this.logger.log(
+                            `Token estimate vs actual: estimated=${estimatedTokens}, actual=${totalTokens}`,
+                        );
+                    }
+                }
             }
 
             // Parse JSON response
@@ -129,13 +152,13 @@ Return your response as a JSON object with exactly these two fields:
                 throw new Error('Empty fields after sanitization');
             }
 
-            // Validate length (affirmations should be reasonable length)
-            if (generatedAffirmation.length > 500) {
+            if (generatedAffirmation.length > 500 && config.NODE_ENV === 'development') {
                 this.logger.warn(`Generated affirmation is very long (${generatedAffirmation.length} chars), truncating`);
-                // Could truncate, but for now just log
             }
 
-            this.logger.log(`NLP transformation completed successfully. Affirmation length: ${generatedAffirmation.length} chars`);
+            if (config.NODE_ENV === 'development') {
+                this.logger.log(`NLP transformation completed successfully. Affirmation length: ${generatedAffirmation.length} chars`);
+            }
 
             return {
                 limitingBelief,
@@ -143,10 +166,12 @@ Return your response as a JSON object with exactly these two fields:
             };
         } catch (error) {
             this.logger.error(`Error in NLP transformation: ${error.message}`, error.stack);
-
-            // Return placeholder on error (graceful degradation)
-            this.logger.warn('Falling back to placeholder transformation due to error');
+            if (config.NODE_ENV === 'development') {
+                this.logger.warn('Falling back to placeholder transformation due to error');
+            }
             return this.getPlaceholderTransformation(beliefText);
+        } finally {
+            clearTimeout(timeoutId);
         }
     }
 
@@ -167,15 +192,15 @@ Return your response as a JSON object with exactly these two fields:
     }
 
     /**
-     * Estimate token count for a given text
-     * Rough estimation: ~4 characters per token for English text
+     * Estimate token count for a given text with an explicit cap for response tokens.
+     * Rough estimation: ~4 characters per token for English text.
+     * @param text - User belief text
+     * @param maxResponseTokens - Same as max_tokens sent to the API (default 500)
      */
-    private estimateTokens(text: string): number {
+    private estimateTokens(text: string, maxResponseTokens: number = 500): number {
         const systemPromptTokens = Math.ceil(this.systemPrompt.length / 4);
         const userTextTokens = Math.ceil(text.length / 4);
-        const responseTokens = 500;
-        
-        return Math.ceil((systemPromptTokens + userTextTokens + responseTokens) * 1.1);
+        return Math.ceil((systemPromptTokens + userTextTokens + maxResponseTokens) * 1.1);
     }
 
     /**

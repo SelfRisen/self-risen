@@ -23,14 +23,22 @@ export class UserController extends BaseController {
   }
 
   @Get()
-  async findAll() {
-    const users = await this.userService.findAll();
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10, max: 100)' })
+  async findAll(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    const result = await this.userService.findAll(
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 10,
+    );
 
-    if (users.isError) throw users.error;
+    if (result.isError) throw result.error;
 
     return this.response({
-      message: 'Users Retrived',
-      data: users.data
+      message: 'Users Retrieved',
+      data: result.data,
     });
   }
 
@@ -69,7 +77,7 @@ export class UserController extends BaseController {
 
     return this.response({
       message: 'Names Updated',
-      data: user.data,
+      data: updatedUser.data,
     })
   }
 

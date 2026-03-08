@@ -21,9 +21,11 @@ export class StreakInterceptor implements NestInterceptor {
         const user: auth.DecodedIdToken | undefined = request.user;
 
         if (user) {
-            this.updateStreak(user.uid).catch(err => {
+            try {
+                await this.updateStreak(user.uid);
+            } catch (err) {
                 this.logger.error(`Failed to update streak: ${err.message}`);
-            });
+            }
         }
         return next.handle();
     }

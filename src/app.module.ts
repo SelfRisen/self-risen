@@ -5,7 +5,6 @@ import { AppService } from './app.service';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
-import { EmailModule } from './common/email/email.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { WheelOfLifeModule } from './wheel-of-life/wheel-of-life.module';
 import { StorageModule } from './common/storage/storage.module';
@@ -181,7 +180,6 @@ import { StaterVideosModule } from './stater-videos/stater-videos.module';
     AuthModule,
     UserModule,
     DatabaseModule,
-    EmailModule,
     NotificationsModule,
     WheelOfLifeModule,
     StorageModule,

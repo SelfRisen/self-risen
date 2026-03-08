@@ -4,6 +4,7 @@ import {
   NotFoundException,
   UnauthorizedException
 } from '@nestjs/common';
+import { User } from '@prisma/client';
 import { BaseService, config, logger } from 'src/common';
 import { DatabaseProvider } from 'src/database/database.provider';
 import {
@@ -21,7 +22,6 @@ import {
 import { auth } from 'firebase-admin';
 import { INotificationService } from 'src/notifications/interfaces/notification.interface';
 import { NotificationTypeEnum, NotificationChannelTypeEnum, NotificationStatusEnum } from 'src/notifications/enums/notification.enum';
-import { EmailService } from 'src/common/email/email.service';
 import { generateOtp, hashOtp, verifyOtp } from './utils/otp.util';
 import { randomUUID } from 'crypto';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
@@ -31,7 +31,6 @@ export class AuthService extends BaseService {
   constructor(
     private prisma: DatabaseProvider,
     private notificationService: INotificationService,
-    private emailService: EmailService,
   ) {
     super();
   }
@@ -157,7 +156,8 @@ export class AuthService extends BaseService {
       } catch (error) {
         logger.error(`Failed to verify ID token: ${error.message || error}`);
         return this.HandleError(
-          new UnauthorizedException('Failed to verify authentication token')
+          // new UnauthorizedException('Failed to verify authentication token')
+          new UnauthorizedException('User not found')
         );
       }
 
@@ -167,7 +167,7 @@ export class AuthService extends BaseService {
 
       if (!user) {
         return this.HandleError(
-          new UnauthorizedException('User profile not found')
+          new UnauthorizedException('User not found')
         );
       }
 
@@ -229,66 +229,18 @@ export class AuthService extends BaseService {
       });
 
       let firebaseUid: string;
-
-      if (!user) {
-        // User doesn't exist - create Firebase user first
-        try {
-          const firebaseUser = await auth().createUser({
-            email,
-            displayName: name,
-            photoURL: picture,
-            emailVerified: tokenInfo.email_verified === 'true',
-          });
-          firebaseUid = firebaseUser.uid;
-        } catch (error) {
-          if (error.code === 'auth/email-already-exists') {
-            // Email exists in Firebase, get the user
-            const firebaseUser = await auth().getUserByEmail(email);
-            firebaseUid = firebaseUser.uid;
-          } else {
-            logger.error(`Failed to create Firebase user: ${error.message || error}`);
-            return this.HandleError(
-              new UnauthorizedException('Failed to create user account')
-            );
-          }
-        }
-
-        // Create user in database
-        try {
-          user = await this.prisma.user.create({
-            data: {
-              firebaseId: firebaseUid,
-              email,
-              name,
-              avatar: picture,
-              lastLoggedInAt: new Date()
-            }
-          });
-        } catch (error) {
-          if (error.code === 'P2002') {
-            // Unique constraint violation - user might have been created between checks
-            user = await this.prisma.user.findUnique({
-              where: { email }
-            });
-            if (!user) {
-              return this.HandleError(
-                new ConflictException('Failed to create user account')
-              );
-            }
-            firebaseUid = user.firebaseId;
-          } else {
-            throw error;
-          }
-        }
-      } else {
-        // User exists - update last logged in time
-        firebaseUid = user.firebaseId;
-        await this.prisma.user.update({
-          where: { id: user.id },
-          data: {
-            lastLoggedInAt: new Date()
-          }
+      try {
+        const result = await this.createOrGetOAuthUser({
+          email,
+          name,
+          existingUser: user,
+          avatar: picture,
+          emailVerified: tokenInfo.email_verified === 'true'
         });
+        user = result.user;
+        firebaseUid = result.firebaseUid;
+      } catch (error) {
+        return this.HandleError(error);
       }
 
       // Generate Firebase tokens for API authentication
@@ -395,64 +347,17 @@ export class AuthService extends BaseService {
       });
 
       let firebaseUid: string;
-
-      if (!user) {
-        // User doesn't exist - create Firebase user first
-        try {
-          const firebaseUser = await auth().createUser({
-            email,
-            displayName: name || email.split('@')[0],
-            emailVerified: emailVerified,
-          });
-          firebaseUid = firebaseUser.uid;
-        } catch (error) {
-          if (error.code === 'auth/email-already-exists') {
-            // Email exists in Firebase, get the user
-            const firebaseUser = await auth().getUserByEmail(email);
-            firebaseUid = firebaseUser.uid;
-          } else {
-            logger.error(`Failed to create Firebase user: ${error.message || error}`);
-            return this.HandleError(
-              new UnauthorizedException('Failed to create user account')
-            );
-          }
-        }
-
-        // Create user in database
-        try {
-          user = await this.prisma.user.create({
-            data: {
-              firebaseId: firebaseUid,
-              email,
-              name: name || email.split('@')[0],
-              lastLoggedInAt: new Date()
-            }
-          });
-        } catch (error) {
-          if (error.code === 'P2002') {
-            // Unique constraint violation - user might have been created between checks
-            user = await this.prisma.user.findUnique({
-              where: { email }
-            });
-            if (!user) {
-              return this.HandleError(
-                new ConflictException('Failed to create user account')
-              );
-            }
-            firebaseUid = user.firebaseId;
-          } else {
-            throw error;
-          }
-        }
-      } else {
-        // User exists - update last logged in time
-        firebaseUid = user.firebaseId;
-        await this.prisma.user.update({
-          where: { id: user.id },
-          data: {
-            lastLoggedInAt: new Date()
-          }
+      try {
+        const result = await this.createOrGetOAuthUser({
+          email,
+          name: name || email.split('@')[0],
+          existingUser: user,
+          emailVerified
         });
+        user = result.user;
+        firebaseUid = result.firebaseUid;
+      } catch (error) {
+        return this.HandleError(error);
       }
 
       // Generate Firebase tokens for API authentication
@@ -978,7 +883,23 @@ export class AuthService extends BaseService {
 
       // Send confirmation email to notify user of password change
       try {
-        await this.emailService.sendPasswordResetConfirmation(email, user.name);
+        const requestId = `pwd-reset-confirm-${user.id}-${Date.now()}-${randomUUID()}`;
+        const results = await this.notificationService.notifyExternalUser({
+          email,
+          type: NotificationTypeEnum.PASSWORD_RESET_CONFIRMATION,
+          requestId,
+          channels: [{ type: NotificationChannelTypeEnum.EMAIL }],
+          metadata: {
+            title: 'Password Changed Successfully',
+            name: user.name,
+          },
+        });
+        const emailResult = results.find(
+          (r) => r.channel.type === NotificationChannelTypeEnum.EMAIL
+        );
+        if (emailResult?.status === NotificationStatusEnum.FAILED) {
+          logger.error(`Failed to send password reset confirmation: ${emailResult.error}`);
+        }
       } catch (emailError) {
         logger.error(`Failed to send password reset confirmation email: ${emailError.message || emailError}`);
         // Don't fail the request if email fails
@@ -994,6 +915,72 @@ export class AuthService extends BaseService {
       return this.HandleError(
         new UnauthorizedException('Failed to reset password. Please try again.')
       );
+    }
+  }
+
+  /**
+   * Ensures a user exists for OAuth (Google/Apple): creates Firebase + DB user if missing,
+   * or updates lastLoggedInAt if user exists. Handles auth/email-already-exists and P2002.
+   */
+  private async createOrGetOAuthUser(params: {
+    email: string;
+    name: string;
+    existingUser: User | null;
+    avatar?: string | null;
+    emailVerified?: boolean;
+  }): Promise<{ user: User; firebaseUid: string }> {
+    const { email, name, existingUser, avatar, emailVerified } = params;
+
+    if (existingUser) {
+      const firebaseUid = existingUser.firebaseId;
+      const user = await this.prisma.user.update({
+        where: { id: existingUser.id },
+        data: { lastLoggedInAt: new Date() }
+      });
+      return { user, firebaseUid };
+    }
+
+    let firebaseUid: string;
+    try {
+      const firebaseUser = await auth().createUser({
+        email,
+        displayName: name,
+        ...(avatar !== undefined && { photoURL: avatar ?? undefined }),
+        ...(emailVerified !== undefined && { emailVerified })
+      });
+      firebaseUid = firebaseUser.uid;
+    } catch (error) {
+      if (error.code === 'auth/email-already-exists') {
+        const firebaseUser = await auth().getUserByEmail(email);
+        firebaseUid = firebaseUser.uid;
+      } else {
+        logger.error(`Failed to create Firebase user: ${error.message || error}`);
+        throw new UnauthorizedException('Failed to create user account');
+      }
+    }
+
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          firebaseId: firebaseUid,
+          email,
+          name,
+          ...(avatar !== undefined && { avatar }),
+          lastLoggedInAt: new Date()
+        }
+      });
+      return { user, firebaseUid };
+    } catch (error) {
+      if (error.code === 'P2002') {
+        const user = await this.prisma.user.findUnique({
+          where: { email }
+        });
+        if (!user) {
+          throw new ConflictException('Failed to create user account');
+        }
+        return { user, firebaseUid: user.firebaseId };
+      }
+      throw error;
     }
   }
 }

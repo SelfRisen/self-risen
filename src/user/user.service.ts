@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 // import { CreateUserDto, LoginUserDto, UpdateUserDto } from './dto';
 import { User } from '@prisma/client';
 import { DatabaseProvider } from 'src/database/database.provider';
@@ -7,8 +7,20 @@ import { ChangeNameDto, ChangeUsernameDto, ChangeTtsVoicePreferenceDto, UpdateSt
 import { TextToSpeechService } from 'src/reflection/services/text-to-speech.service';
 import { UploadAvatarDto } from './dto/upload-avatar.dto';
 import { config } from 'src/common';
+
+const TTS_PERSONA_NAME_TO_ENUM: Record<string, string> = {
+  Sage: 'FEMALE_EMPATHETIC',
+  Phoenix: 'FEMALE_ENERGETIC',
+  River: 'MALE_CONFIDENT',
+  Quinn: 'MALE_FRIENDLY',
+  Alex: 'ANDROGYNOUS_CALM',
+  Robin: 'ANDROGYNOUS_WISE',
+};
+
 @Injectable()
 export class UserService extends BaseService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
     private prisma: DatabaseProvider,
     private storageService: StorageService,
@@ -38,10 +50,34 @@ export class UserService extends BaseService {
     };
   }
 
-  async findAll() { // add pagination
-    const users = await this.prisma.user.findMany();
+  async findAll(page: number = 1, limit: number = 10) {
+    const pageNumber = Math.max(1, Math.floor(page));
+    const pageSize = Math.max(1, Math.min(100, Math.floor(limit)));
+    const skip = (pageNumber - 1) * pageSize;
+
+    const [totalCount, users] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.user.findMany({
+        skip,
+        take: pageSize,
+        orderBy: { id: 'asc' },
+      }),
+    ]);
+
     const enrichedUsers = users.map(user => this.enrichUserWithPersonaDetails(user));
-    return this.Results(enrichedUsers);
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    return this.Results({
+      users: enrichedUsers,
+      pagination: {
+        page: pageNumber,
+        limit: pageSize,
+        totalCount,
+        totalPages,
+        hasNextPage: pageNumber < totalPages,
+        hasPreviousPage: pageNumber > 1,
+      },
+    });
   }
 
   async getUserProfile(firebaseId: string) {
@@ -85,86 +121,68 @@ export class UserService extends BaseService {
   async changeName(firebaseId: string, payload: ChangeNameDto) {
     const { name } = payload;
 
-    const user = await this.prisma.user.findUnique({
-      where: { firebaseId }
-    });
-
-    if (!user) {
-      return this.HandleError(
-        new NotFoundException('User not found')
-      )
-    };
-
-    const updatedUser = await this.prisma.user.update({
-      where: { firebaseId },
-      data: {
-        name,
+    try {
+      const updatedUser = await this.prisma.user.update({
+        where: { firebaseId },
+        data: { name },
+      });
+      const enrichedUser = this.enrichUserWithPersonaDetails(updatedUser);
+      return this.Results(enrichedUser);
+    } catch (error) {
+      if ((error as { code?: string })?.code === 'P2025') {
+        return this.HandleError(new NotFoundException('User not found'));
       }
-    })
-
-    const enrichedUser = this.enrichUserWithPersonaDetails(updatedUser);
-    return this.Results(enrichedUser);
+      throw error;
+    }
   }
 
   async changeUsername(firebaseId: string, payload: ChangeUsernameDto) {
     const { username } = payload;
 
-    const user = await this.prisma.user.findUnique({
-      where: { firebaseId }
-    });
-
-    if (!user) {
-      return this.HandleError(
-        new NotFoundException('User not found')
-      )
-    };
-
-    const updatedUser = await this.prisma.user.update({
-      where: { firebaseId },
-      data: {
-        username,
+    try {
+      const updatedUser = await this.prisma.user.update({
+        where: { firebaseId },
+        data: { username },
+      });
+      return this.Results(updatedUser);
+    } catch (error) {
+      if ((error as { code?: string })?.code === 'P2025') {
+        return this.HandleError(new NotFoundException('User not found'));
       }
-    })
-
-    return this.Results(updatedUser);
+      throw error;
+    }
   }
 
   async deleteUser(firebaseId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { firebaseId }
-    });
-
-    if (!user) {
-      return this.HandleError(
-        new NotFoundException('User not found')
-      )
-    };
-
-    await this.prisma.user.delete({
-      where: { firebaseId }
-    });
-
-    return this.Results(null);
+    try {
+      await this.prisma.user.delete({
+        where: { firebaseId },
+      });
+      return this.Results(null);
+    } catch (error) {
+      if ((error as { code?: string })?.code === 'P2025') {
+        return this.HandleError(new NotFoundException('User not found'));
+      }
+      throw error;
+    }
   }
 
   async uploadAvatar(
     firebaseId: string,
     file: Express.Multer.File
   ) {
-    console.log(`[UserService.uploadAvatar] Starting avatar upload for firebaseId: ${firebaseId}`);
+    this.logger.debug(`Starting avatar upload for firebaseId: ${firebaseId}`);
 
     const user = await this.prisma.user.findUnique({
       where: { firebaseId }
     });
 
     if (!user) {
-      console.error(`[UserService.uploadAvatar] User not found for firebaseId: ${firebaseId}`);
+      this.logger.warn(`User not found for firebaseId: ${firebaseId}`);
       return this.HandleError(
         new NotFoundException('User not found')
       )
     };
-
-    console.log(`[UserService.uploadAvatar] User found: ${user.id}, calling storageService.uploadFile...`);
 
     try {
       const upload = await this.storageService.uploadFile(
@@ -173,11 +191,7 @@ export class UserService extends BaseService {
         user.id,
         'avatars'
       );
-      console.log(`[UserService.uploadAvatar] Upload successful, URL: ${upload.url}`);
-
-      // if (user.avatar) {
-      //   await this.storageService.deleteFile(user.avatar);
-      // }
+      this.logger.debug(`Upload successful for user ${user.id}, URL: ${upload.url}`);
 
       const avatar = upload.url;
 
@@ -188,15 +202,10 @@ export class UserService extends BaseService {
         }
       });
 
-      console.log(`[UserService.uploadAvatar] User avatar updated successfully`);
       const enrichedUser = this.enrichUserWithPersonaDetails(updatedUser);
       return this.Results(enrichedUser);
     } catch (error) {
-      console.error(`[UserService.uploadAvatar] Error during upload:`, {
-        error: error.message,
-        stack: error.stack,
-        code: error.code,
-      });
+      this.logger.error(`Avatar upload failed for firebaseId ${firebaseId}: ${error?.message}`, error?.stack);
       throw error;
     }
   }
@@ -222,42 +231,26 @@ export class UserService extends BaseService {
   async changeTtsVoicePreference(firebaseId: string, payload: ChangeTtsVoicePreferenceDto) {
     const { ttsVoicePreference } = payload;
 
-    const user = await this.prisma.user.findUnique({
-      where: { firebaseId }
-    });
-
-    if (!user) {
-      return this.HandleError(
-        new NotFoundException('User not found')
-      )
-    };
-
-    // Convert persona name to enum value
-    const nameToEnumMap: Record<string, string> = {
-      'Sage': 'FEMALE_EMPATHETIC',
-      'Phoenix': 'FEMALE_ENERGETIC',
-      'River': 'MALE_CONFIDENT',
-      'Quinn': 'MALE_FRIENDLY',
-      'Alex': 'ANDROGYNOUS_CALM',
-      'Robin': 'ANDROGYNOUS_WISE',
-    };
-
-    const enumValue = nameToEnumMap[ttsVoicePreference];
+    const enumValue = TTS_PERSONA_NAME_TO_ENUM[ttsVoicePreference];
     if (!enumValue) {
       return this.HandleError(
         new BadRequestException(`Invalid persona name: ${ttsVoicePreference}`)
       );
     }
 
-    const updatedUser = await this.prisma.user.update({
-      where: { firebaseId },
-      data: {
-        ttsVoicePreference: enumValue as any,
+    try {
+      const updatedUser = await this.prisma.user.update({
+        where: { firebaseId },
+        data: { ttsVoicePreference: enumValue as any },
+      });
+      const enrichedUser = this.enrichUserWithPersonaDetails(updatedUser);
+      return this.Results(enrichedUser);
+    } catch (error) {
+      if ((error as { code?: string })?.code === 'P2025') {
+        return this.HandleError(new NotFoundException('User not found'));
       }
-    })
-
-    const enrichedUser = this.enrichUserWithPersonaDetails(updatedUser);
-    return this.Results(enrichedUser);
+      throw error;
+    }
   }
 
   async getAvailablePersonas() {
@@ -300,33 +293,31 @@ export class UserService extends BaseService {
   }
 
   async updateStreakReminderPreferences(firebaseId: string, payload: UpdateStreakReminderPreferencesDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { firebaseId },
-    });
-
-    if (!user) {
-      return this.HandleError(new NotFoundException('User not found'));
-    }
-
     const data: { streakReminderEnabled?: boolean; streakReminderTimes?: string[]; timezone?: string } = {};
     if (payload.enabled !== undefined) data.streakReminderEnabled = payload.enabled;
     if (payload.times !== undefined) data.streakReminderTimes = payload.times;
     if (payload.timezone !== undefined) data.timezone = payload.timezone;
 
-    const updated = await this.prisma.user.update({
-      where: { firebaseId },
-      data,
-      select: {
-        streakReminderEnabled: true,
-        streakReminderTimes: true,
-        timezone: true,
-      },
-    });
-
-    return this.Results({
-      enabled: updated.streakReminderEnabled,
-      times: updated.streakReminderTimes ?? [],
-      timezone: updated.timezone ?? 'UTC',
-    });
+    try {
+      const updated = await this.prisma.user.update({
+        where: { firebaseId },
+        data,
+        select: {
+          streakReminderEnabled: true,
+          streakReminderTimes: true,
+          timezone: true,
+        },
+      });
+      return this.Results({
+        enabled: updated.streakReminderEnabled,
+        times: updated.streakReminderTimes ?? [],
+        timezone: updated.timezone ?? 'UTC',
+      });
+    } catch (error) {
+      if ((error as { code?: string })?.code === 'P2025') {
+        return this.HandleError(new NotFoundException('User not found'));
+      }
+      throw error;
+    }
   }
 }

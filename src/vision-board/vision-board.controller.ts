@@ -155,6 +155,12 @@ export class VisionBoardController extends BaseController {
         description: 'Filter visions by vision board ID (optional - if not provided, returns visions from all user\'s vision boards)',
         example: 'vision-board-id-123',
     })
+    @ApiQuery({
+        name: 'includeTotalCount',
+        required: false,
+        type: Boolean,
+        description: 'When false, skips the total count query for faster responses (e.g. next page). Default: true',
+    })
     @ApiResponse({
         status: 200,
         description: 'Visions retrieved successfully',
@@ -168,15 +174,18 @@ export class VisionBoardController extends BaseController {
         @Query('page') page?: string,
         @Query('limit') limit?: string,
         @Query('visionBoardId') visionBoardId?: string,
+        @Query('includeTotalCount') includeTotalCount?: string,
     ) {
         const pageNumber = page ? parseInt(page, 10) : 1;
         const limitNumber = limit ? parseInt(limit, 10) : 10;
+        const includeTotal = includeTotalCount !== 'false';
 
         const result = await this.visionBoardService.getAllVisions(
             user.uid,
             pageNumber,
             limitNumber,
             visionBoardId,
+            includeTotal,
         );
         if (result.isError) throw result.error;
 

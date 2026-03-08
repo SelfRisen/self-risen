@@ -126,14 +126,14 @@ export class ReflectionService extends BaseService {
             return this.HandleError(new NotFoundException('Reflection session not found'));
         }
 
-        const music = this.staterVideosService.getMusicByName(name);
-        if (!music) {
+        const sound = this.staterVideosService.getSoundByName(name);
+        if (!sound) {
             return this.HandleError(new NotFoundException('Sound not found'));
         }
 
         const soundData = {
-            soundUrl: music.url,
-            name: music.name,
+            soundUrl: sound.url,
+            name: sound.name,
             fileSize: null as number | null,
             mimeType: null as string | null,
         };
@@ -371,195 +371,80 @@ export class ReflectionService extends BaseService {
             );
         }
 
+        let transformation;
         try {
-            const transformation = await this.nlpTransformationService.transformBelief(
+            transformation = await this.nlpTransformationService.transformBelief(
                 session.rawBeliefText,
                 user.id, // Pass userId for token tracking
             );
-
-            // Determine if this is the first affirmation
-            const isFirstAffirmation = session.affirmations.length === 0;
-            const nextOrder = session.affirmations.length;
-
-            // Resolve voice: optional per-affirmation override or user default; store enum on affirmation
-            const voiceForTts = dto?.voicePreference
-                ? (this.textToSpeechService.convertNameToEnum(dto.voicePreference) ?? user.ttsVoicePreference)
-                : user.ttsVoicePreference;
-            const voiceToStore = voiceForTts ?? null;
-
-            // Only generate audio if this is the first affirmation (which will be auto-selected)
-            let audioUrl: string | null = null;
-            if (isFirstAffirmation && transformation.generatedAffirmation) {
-                try {
-                    audioUrl = await this.textToSpeechService.generateAffirmationAudio(
-                        transformation.generatedAffirmation,
-                        user.id,
-                        voiceForTts ?? undefined,
-                    );
-                } catch (ttsError) {
-                    this.logger.warn(`TTS generation failed: ${ttsError.message}. Continuing without audio.`);
-                }
-            }
-
-            // Create new Affirmation record
-            const newAffirmation = await this.prisma.affirmation.create({
-                data: {
-                    sessionId: sessionId,
-                    affirmationText: transformation.generatedAffirmation,
-                    audioUrl,
-                    isSelected: isFirstAffirmation, // First affirmation is auto-selected
-                    order: nextOrder,
-                    ttsVoicePreference: voiceToStore,
-                },
-            });
-
-            // Update session with transformation results and status
-            const updateData: any = {
-                limitingBelief: transformation.limitingBelief,
-                status: 'AFFIRMATION_GENERATED',
-            };
-
-            // If this is the first affirmation, update the session's selected affirmation snapshot
-            if (isFirstAffirmation) {
-                updateData.selectedAffirmationText = transformation.generatedAffirmation;
-                updateData.selectedAffirmationAudioUrl = audioUrl;
-            }
-
-            const updatedSession = await this.prisma.reflectionSession.update({
-                where: { id: sessionId },
-                data: updateData,
-                include: {
-                    category: {
-                        select: {
-                            id: true,
-                            name: true,
-                        },
-                    },
-                    affirmations: {
-                        orderBy: { createdAt: 'desc' },
-                    },
-                },
-            });
-
-            // // Send push notification for affirmation generated
-            // try {
-            //     const requestId = `affirmation-generated-${user.id}-${Date.now()}-${randomUUID()}`;
-            //     await this.notificationService.notifyUser({
-            //         userId: user.id,
-            //         type: NotificationTypeEnum.AFFIRMATION_GENERATED,
-            //         requestId,
-            //         channels: [
-            //             { type: NotificationChannelTypeEnum.PUSH },
-            //             { type: NotificationChannelTypeEnum.IN_APP },
-            //         ],
-            //         metadata: {
-            //             title: 'Affirmation Generated!',
-            //             body: `Your affirmation for ${updatedSession.category.name} is ready!`,
-            //             sessionId: sessionId,
-            //             affirmation: transformation.generatedAffirmation,
-            //             categoryName: updatedSession.category.name,
-            //         },
-            //     });
-            // } catch (notificationError) {
-            //     this.logger.warn(`Failed to send affirmation notification: ${notificationError.message}`);
-            // }
-
-            this.logger.log(`Created affirmation ${newAffirmation.id} for session ${sessionId} (order: ${nextOrder}, selected: ${isFirstAffirmation})`);
-
-            return this.Results(updatedSession);
         } catch (error) {
-            // If token limit is exceeded, throw the error immediately
             if (error instanceof ForbiddenException) {
                 this.logger.warn(`Token limit exceeded for user ${user.id}`);
                 return this.HandleError(error);
             }
-
-            // Log error but don't fail the request - transformation service handles fallbacks
             this.logger.error(`Error generating affirmation: ${error.message}`, error.stack);
+            return this.HandleError(
+                new BadRequestException(`Failed to generate affirmation: ${error.message}`),
+            );
+        }
 
-            // Try to update with whatever we got (even if it's placeholder)
+        // Single path: create affirmation and update session (no second NLP call)
+        const isFirstAffirmation = session.affirmations.length === 0;
+        const nextOrder = session.affirmations.length;
+
+        const voiceForTts = dto?.voicePreference
+            ? (this.textToSpeechService.convertNameToEnum(dto.voicePreference) ?? user.ttsVoicePreference)
+            : user.ttsVoicePreference;
+        const voiceToStore = voiceForTts ?? null;
+
+        let audioUrl: string | null = null;
+        if (isFirstAffirmation && transformation.generatedAffirmation) {
             try {
-                const transformation = await this.nlpTransformationService.transformBelief(
-                    session.rawBeliefText,
-                    user.id, // Pass userId for token tracking
+                audioUrl = await this.textToSpeechService.generateAffirmationAudio(
+                    transformation.generatedAffirmation,
+                    user.id,
+                    voiceForTts ?? undefined,
                 );
-
-                // Determine if this is the first affirmation
-                const isFirstAffirmation = session.affirmations.length === 0;
-                const nextOrder = session.affirmations.length;
-
-                const voiceForTtsFallback = dto?.voicePreference
-                    ? (this.textToSpeechService.convertNameToEnum(dto.voicePreference) ?? user.ttsVoicePreference)
-                    : user.ttsVoicePreference;
-                // Create affirmation even with fallback data (store voice for when audio is generated later)
-                const newAffirmation = await this.prisma.affirmation.create({
-                    data: {
-                        sessionId: sessionId,
-                        affirmationText: transformation.generatedAffirmation,
-                        audioUrl: null,
-                        isSelected: isFirstAffirmation,
-                        order: nextOrder,
-                        ttsVoicePreference: voiceForTtsFallback ?? null,
-                    },
-                });
-
-                const updateData: any = {
-                    limitingBelief: transformation.limitingBelief,
-                    status: 'AFFIRMATION_GENERATED',
-                };
-
-                if (isFirstAffirmation) {
-                    updateData.selectedAffirmationText = transformation.generatedAffirmation;
-                }
-
-                const updatedSession = await this.prisma.reflectionSession.update({
-                    where: { id: sessionId },
-                    data: updateData,
-                    include: {
-                        category: {
-                            select: {
-                                id: true,
-                                name: true,
-                            },
-                        },
-                        affirmations: {
-                            orderBy: { createdAt: 'desc' },
-                        },
-                    },
-                });
-
-                // Send push notification for affirmation generated
-                // try {
-                //     const requestId = `affirmation-generated-${user.id}-${Date.now()}-${randomUUID()}`;
-                //     await this.notificationService.notifyUser({
-                //         userId: user.id,
-                //         type: NotificationTypeEnum.AFFIRMATION_GENERATED,
-                //         requestId,
-                //         channels: [
-                //             { type: NotificationChannelTypeEnum.PUSH },
-                //             { type: NotificationChannelTypeEnum.IN_APP },
-                //         ],
-                //         metadata: {
-                //             title: 'Affirmation Generated!',
-                //             body: `Your affirmation for ${updatedSession.category.name} is ready!`,
-                //             sessionId: sessionId,
-                //             affirmation: transformation.generatedAffirmation,
-                //             categoryName: updatedSession.category.name,
-                //         },
-                //     });
-                // } catch (notificationError) {
-                //     this.logger.warn(`Failed to send affirmation notification: ${notificationError.message}`);
-                // }
-
-                return this.Results(updatedSession);
-            } catch (fallbackError) {
-                return this.HandleError(
-                    new BadRequestException(
-                        `Failed to generate affirmation: ${fallbackError.message}`,
-                    ),
-                );
+            } catch (ttsError) {
+                this.logger.warn(`TTS generation failed: ${ttsError.message}. Continuing without audio.`);
             }
         }
+
+        const newAffirmation = await this.prisma.affirmation.create({
+            data: {
+                sessionId: sessionId,
+                affirmationText: transformation.generatedAffirmation,
+                audioUrl,
+                isSelected: isFirstAffirmation,
+                order: nextOrder,
+                ttsVoicePreference: voiceToStore,
+            },
+        });
+
+        const updateData: any = {
+            limitingBelief: transformation.limitingBelief,
+            status: 'AFFIRMATION_GENERATED',
+        };
+        if (isFirstAffirmation) {
+            updateData.selectedAffirmationText = transformation.generatedAffirmation;
+            updateData.selectedAffirmationAudioUrl = audioUrl;
+        }
+
+        const updatedSession = await this.prisma.reflectionSession.update({
+            where: { id: sessionId },
+            data: updateData,
+            include: {
+                category: {
+                    select: { id: true, name: true },
+                },
+                affirmations: {
+                    orderBy: { createdAt: 'desc' },
+                },
+            },
+        });
+
+        this.logger.log(`Created affirmation ${newAffirmation.id} for session ${sessionId} (order: ${nextOrder}, selected: ${isFirstAffirmation})`);
+        return this.Results(updatedSession);
     }
 
     /**
@@ -974,8 +859,8 @@ export class ReflectionService extends BaseService {
         const endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + durationDays);
 
-        // Create wave
-        await this.prisma.wave.create({
+        // Create wave and return session in one round-trip via include
+        const createdWave = await this.prisma.wave.create({
             data: {
                 sessionId: dto.sessionId,
                 startDate,
@@ -983,34 +868,23 @@ export class ReflectionService extends BaseService {
                 durationDays,
                 isActive: true,
             },
-        });
-
-        // Fetch session with updated waves for response
-        const sessionWithWave = await this.prisma.reflectionSession.findFirst({
-            where: {
-                id: dto.sessionId,
-                userId: user.id,
-            },
             include: {
-                category: {
-                    select: {
-                        id: true,
-                        name: true,
+                session: {
+                    include: {
+                        category: {
+                            select: { id: true, name: true },
+                        },
+                        waves: {
+                            where: { isActive: true },
+                            orderBy: { createdAt: 'desc' },
+                            take: 1,
+                        },
                     },
-                },
-                waves: {
-                    where: {
-                        isActive: true,
-                    },
-                    orderBy: {
-                        createdAt: 'desc',
-                    },
-                    take: 1,
                 },
             },
         });
 
-        return this.Results(sessionWithWave);
+        return this.Results(createdWave.session);
     }
 
     /**
@@ -1277,27 +1151,24 @@ export class ReflectionService extends BaseService {
             return this.HandleError(new NotFoundException('User not found'));
         }
 
-        // Validate session ownership
-        const session = await this.prisma.reflectionSession.findFirst({
-            where: {
-                id: sessionId,
-                userId: user.id,
-            },
-        });
-
-        if (!session) {
-            return this.HandleError(new NotFoundException('Reflection session not found'));
-        }
-
-        // Get all affirmations for the session
         const affirmations = await this.prisma.affirmation.findMany({
             where: {
-                sessionId: sessionId,
+                sessionId,
+                session: { userId: user.id },
             },
-            orderBy: {
-                createdAt: 'desc',
-            },
+            orderBy: { createdAt: 'desc' },
         });
+
+        // If empty, distinguish "session does not exist" from "session has no affirmations"
+        if (affirmations.length === 0) {
+            const sessionExists = await this.prisma.reflectionSession.findFirst({
+                where: { id: sessionId, userId: user.id },
+                select: { id: true },
+            });
+            if (!sessionExists) {
+                return this.HandleError(new NotFoundException('Reflection session not found'));
+            }
+        }
 
         return this.Results(affirmations);
     }
@@ -1436,14 +1307,20 @@ export class ReflectionService extends BaseService {
             return this.HandleError(new NotFoundException('User not found'));
         }
 
-        // Validate session ownership
+        // Validate session ownership and fetch only the target affirmation + count (no redundant query)
         const session = await this.prisma.reflectionSession.findFirst({
             where: {
                 id: sessionId,
                 userId: user.id,
             },
             include: {
-                affirmations: true,
+                affirmations: {
+                    where: { id: affirmationId },
+                    take: 1,
+                },
+                _count: {
+                    select: { affirmations: true },
+                },
             },
         });
 
@@ -1451,14 +1328,7 @@ export class ReflectionService extends BaseService {
             return this.HandleError(new NotFoundException('Reflection session not found'));
         }
 
-        // Validate affirmation belongs to this session
-        const affirmation = await this.prisma.affirmation.findFirst({
-            where: {
-                id: affirmationId,
-                sessionId: sessionId,
-            },
-        });
-
+        const affirmation = session.affirmations[0];
         if (!affirmation) {
             return this.HandleError(
                 new NotFoundException('Affirmation not found or does not belong to this session'),
@@ -1466,7 +1336,7 @@ export class ReflectionService extends BaseService {
         }
 
         // Prevent deletion if it's the only affirmation
-        if (session.affirmations.length === 1) {
+        if (session._count.affirmations === 1) {
             return this.HandleError(
                 new BadRequestException('Cannot delete the only affirmation. Session must have at least one affirmation.'),
             );

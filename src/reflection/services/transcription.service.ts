@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { config, BaseService } from 'src/common';
-import OpenAI from 'openai';
+import OpenAI, { toFile } from 'openai';
 
 @Injectable()
 export class TranscriptionService extends BaseService {
@@ -13,9 +13,13 @@ export class TranscriptionService extends BaseService {
             this.openai = new OpenAI({
                 apiKey: config.OPENAI_API_KEY,
             });
-            this.logger.log('OpenAI client initialized');
+            if (config.NODE_ENV === 'development') {
+                this.logger.log('OpenAI client initialized');
+            }
         } else {
-            this.logger.warn('OPENAI_API_KEY not configured. Transcription will return placeholder text.');
+            if (config.NODE_ENV === 'development') {
+                this.logger.warn('OPENAI_API_KEY not configured. Transcription will return placeholder text.');
+            }
         }
     }
 
@@ -26,64 +30,53 @@ export class TranscriptionService extends BaseService {
      */
     async transcribeAudio(audioInput: string | Express.Multer.File): Promise<string> {
         if (!this.openai) {
-            this.logger.warn('OpenAI not configured. Returning placeholder transcription.');
+            if (config.NODE_ENV === 'development') {
+                this.logger.warn('OpenAI not configured. Returning placeholder transcription.');
+            }
             return '[Transcription unavailable - OpenAI API key not configured]';
         }
+
+        const timeoutMs = config.OPENAI_REQUEST_TIMEOUT_MS;
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
 
         try {
             let audioBuffer: Buffer;
             let contentType: string;
             let fileExtension: string;
 
-            // Handle both URL string and file buffer inputs
             if (typeof audioInput === 'string') {
-                // Legacy support: fetch from URL
-                this.logger.log(`Starting transcription for audio URL: ${audioInput}`);
-                const response = await fetch(audioInput);
+                if (config.NODE_ENV === 'development') {
+                    this.logger.log(`Starting transcription for audio URL: ${audioInput}`);
+                }
+                const response = await fetch(audioInput, { signal: abortController.signal });
                 if (!response.ok) {
                     throw new Error(`Failed to fetch audio file: ${response.status} ${response.statusText}`);
                 }
 
                 audioBuffer = Buffer.from(await response.arrayBuffer());
                 contentType = response.headers.get('content-type') || 'audio/mpeg';
-                
-                // Determine file extension from content type or URL
-                fileExtension = 'mp3';
-                if (contentType.includes('wav')) fileExtension = 'wav';
-                else if (contentType.includes('ogg')) fileExtension = 'ogg';
-                else if (contentType.includes('m4a')) fileExtension = 'm4a';
-                else if (contentType.includes('webm')) fileExtension = 'webm';
+                fileExtension = this.getFileExtensionFromContentType(contentType);
             } else {
-                // Direct file buffer input
-                this.logger.log(`Starting transcription for audio file: ${audioInput.originalname || 'audio'}`);
+                if (config.NODE_ENV === 'development') {
+                    this.logger.log(`Starting transcription for audio file: ${audioInput.originalname || 'audio'}`);
+                }
                 
-                // Validate buffer exists and is not empty
                 if (!audioInput.buffer || audioInput.buffer.length === 0) {
                     throw new Error('Audio file buffer is empty or invalid');
                 }
                 
-                // Ensure buffer is a proper Buffer instance
-                audioBuffer = Buffer.isBuffer(audioInput.buffer) 
-                    ? audioInput.buffer 
+                audioBuffer = Buffer.isBuffer(audioInput.buffer)
+                    ? audioInput.buffer
                     : Buffer.from(audioInput.buffer);
                 
                 contentType = audioInput.mimetype || 'audio/mpeg';
-                
-                // Determine file extension from mimetype or originalname
-                fileExtension = 'mp3';
-                if (contentType.includes('wav')) fileExtension = 'wav';
-                else if (contentType.includes('ogg')) fileExtension = 'ogg';
-                else if (contentType.includes('m4a')) fileExtension = 'm4a';
-                else if (contentType.includes('webm')) fileExtension = 'webm';
-                else if (audioInput.originalname) {
-                    const ext = audioInput.originalname.split('.').pop()?.toLowerCase();
-                    if (ext && ['wav', 'ogg', 'm4a', 'webm', 'mp3'].includes(ext)) {
-                        fileExtension = ext;
-                    }
-                }
+                fileExtension = this.getFileExtensionFromContentType(contentType, audioInput.originalname);
             }
             
-            this.logger.debug(`Processing audio file, Size: ${audioBuffer.length} bytes, Type: ${contentType}`);
+            if (config.NODE_ENV === 'development') {
+                this.logger.debug(`Processing audio file, Size: ${audioBuffer.length} bytes, Type: ${contentType}`);
+            }
 
             // Validate buffer size (OpenAI has limits)
             if (audioBuffer.length === 0) {
@@ -95,11 +88,10 @@ export class TranscriptionService extends BaseService {
 
             // Use OpenAI Whisper API for transcription
             const model = config.OPENAI_TRANSCRIPTION_MODEL;
-            this.logger.debug(`Transcribing with model: ${model}`);
+            if (config.NODE_ENV === 'development') {
+                this.logger.debug(`Transcribing with model: ${model}`);
+            }
             
-            // Use OpenAI's toFile utility to create a proper file object from buffer
-            // This ensures compatibility with OpenAI SDK v6
-            const { toFile } = await import('openai');
             const fileName = `audio.${fileExtension}`;
             
             // Convert Buffer to Uint8Array for better compatibility with toFile
@@ -111,35 +103,63 @@ export class TranscriptionService extends BaseService {
                 type: contentType,
             });
 
-            this.logger.debug(`Created file object: ${fileName}, size: ${audioBuffer.length} bytes, type: ${contentType}`);
+            if (config.NODE_ENV === 'development') {
+                this.logger.debug(`Created file object: ${fileName}, size: ${audioBuffer.length} bytes, type: ${contentType}`);
+            }
 
-            const transcription = await this.openai.audio.transcriptions.create({
-                file: audioFile,
-                model: model,
-                language: 'en', // Optional: specify language for better accuracy
-            });
+            const transcription = await this.openai.audio.transcriptions.create(
+                {
+                    file: audioFile,
+                    model: model,
+                    language: 'en',
+                },
+                { signal: abortController.signal },
+            );
 
             const transcribedText = transcription.text;
-            this.logger.log(`Transcription completed. Length: ${transcribedText.length} characters`);
+            if (config.NODE_ENV === 'development') {
+                this.logger.log(`Transcription completed. Length: ${transcribedText.length} characters`);
+            }
 
             return transcribedText;
         } catch (error) {
             this.logger.error(`Error transcribing audio: ${error.message}`, error.stack);
-            
-            // Provide more detailed error information
-            if (error.message?.includes('404') || error.message?.includes('Invalid URL')) {
-                // This could be a file format issue or API endpoint issue
-                const errorDetails = error.response?.data || error.message;
-                throw new Error(`Failed to transcribe audio: Invalid file format or API error. Please ensure the audio file is in a supported format (mp3, wav, m4a, webm, ogg). Original error: ${errorDetails}`);
+
+            const message = error?.message ?? 'Unknown error occurred';
+            const errorDetails = (error as any)?.response?.data ?? message;
+
+            if (message.includes('404') || message.includes('Invalid URL')) {
+                throw new Error(
+                    `Failed to transcribe audio: Invalid file format or API error. Please ensure the audio file is in a supported format (mp3, wav, m4a, webm, ogg). Original error: ${errorDetails}`,
+                    { cause: error },
+                );
             }
-            
-            // Check for file size or format errors
-            if (error.message?.includes('file_size_exceeded') || error.message?.includes('too large')) {
-                throw new Error(`Failed to transcribe audio: File is too large. Maximum size is 25MB. Original error: ${error.message}`);
+
+            if (message.includes('file_size_exceeded') || message.includes('too large')) {
+                throw new Error(`Failed to transcribe audio: File is too large. Maximum size is 25MB. Original error: ${message}`, {
+                    cause: error,
+                });
             }
-            
-            throw new Error(`Failed to transcribe audio: ${error.message || 'Unknown error occurred'}`);
+
+            throw new Error(`Failed to transcribe audio: ${message}`, { cause: error });
+        } finally {
+            clearTimeout(timeoutId);
         }
+    }
+
+    /**
+     * Get file extension from content type and optional original filename.
+     */
+    private getFileExtensionFromContentType(contentType: string, originalName?: string): string {
+        if (contentType.includes('wav')) return 'wav';
+        if (contentType.includes('ogg')) return 'ogg';
+        if (contentType.includes('m4a')) return 'm4a';
+        if (contentType.includes('webm')) return 'webm';
+        if (originalName) {
+            const ext = originalName.split('.').pop()?.toLowerCase();
+            if (ext && ['wav', 'ogg', 'm4a', 'webm', 'mp3'].includes(ext)) return ext;
+        }
+        return 'mp3';
     }
 }
 
