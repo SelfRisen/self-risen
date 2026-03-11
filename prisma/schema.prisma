@@ -14,33 +14,33 @@ datasource db {
 }
 
 model User {
-  id                  String              @id @default(uuid(4))
-  firebaseId          String              @unique
-  name                String
-  username            String?
+  id                    String              @id @default(uuid(4))
+  firebaseId            String              @unique
+  name                  String
+  username              String?
   // password        String
-  email               String              @unique
-  avatar              String?
-  pushTokens          String[]            @default([])
-  streak              Int                 @default(0)
-  sessions            Int                 @default(0)
-  lastStreakDate      DateTime?
-  lastLoggedInAt      DateTime?
-  lastLoggedOutAt     DateTime?
-  ttsVoicePreference  TtsVoicePreference? @default(ANDROGYNOUS_CALM)
-  tokensUsedThisMonth Int                 @default(0)
-  tokenLimitPerMonth  Int                 @default(30000) // Default limit: 30k tokens per month
-  tokenResetDate      DateTime            @default(now())
-  streakReminderEnabled Boolean           @default(true)
-  streakReminderTimes String[]           @default([])
-  timezone            String              @default("UTC")
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  wheelOfLife         WheelOfLife?
-  reflectionSessions  ReflectionSession[]
-  visionBoards        VisionBoard[]
-  journals            Journal[]
-  streakHistory       StreakHistory[]
+  email                 String              @unique
+  avatar                String?
+  pushTokens            String[]            @default([])
+  streak                Int                 @default(0)
+  sessions              Int                 @default(0)
+  lastStreakDate        DateTime?
+  lastLoggedInAt        DateTime?
+  lastLoggedOutAt       DateTime?
+  ttsVoicePreference    TtsVoicePreference? @default(ANDROGYNOUS_CALM)
+  tokensUsedThisMonth   Int                 @default(0)
+  tokenLimitPerMonth    Int                 @default(30000) // Default limit: 30k tokens per month
+  tokenResetDate        DateTime            @default(now())
+  streakReminderEnabled Boolean             @default(true)
+  streakReminderTimes   String[]            @default([])
+  timezone              String              @default("UTC")
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  wheelOfLife           WheelOfLife?
+  reflectionSessions    ReflectionSession[]
+  visionBoards          VisionBoard[]
+  journals              Journal[]
+  streakHistory         StreakHistory[]
 }
 
 model StreakHistory {
@@ -213,34 +213,34 @@ model WheelFocus {
 }
 
 model ReflectionSession {
-  id                      String                  @id @default(uuid())
-  userId                  String
-  user                    User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  categoryId              String
-  category                WheelCategory           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  wheelFocusId            String?
-  wheelFocus              WheelFocus?             @relation(fields: [wheelFocusId], references: [id], onDelete: SetNull)
-  prompt                  String
-  rawBeliefText           String?
-  audioUrl                String?
-  transcriptionText       String?
-  limitingBelief               String?
+  id                          String                  @id @default(uuid())
+  userId                      String
+  user                        User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId                  String?
+  category                    WheelCategory?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  wheelFocusId                String?
+  wheelFocus                  WheelFocus?             @relation(fields: [wheelFocusId], references: [id], onDelete: SetNull)
+  prompt                      String?
+  rawBeliefText               String?
+  audioUrl                    String?
+  transcriptionText           String?
+  limitingBelief              String?
   selectedAffirmationText     String?
-  selectedAffirmationAudioUrl  String?
-  userAffirmationAudioUrl      String?
-  playbackCount           Int                     @default(0)
-  lastPlayedAt            DateTime?
-  beliefRerecordedAt      DateTime?
-  beliefRerecordCount     Int                     @default(0)
-  status                  ReflectionSessionStatus @default(PENDING)
-  isVision                Boolean                 @default(false)
-  createdAt               DateTime                @default(now())
-  updatedAt               DateTime                @updatedAt
-  completedAt             DateTime?
-  vision                  Vision?
-  waves                   Wave[]
-  affirmations            Affirmation[]
-  reflectionSound         ReflectionSound?
+  selectedAffirmationAudioUrl String?
+  userAffirmationAudioUrl     String?
+  playbackCount               Int                     @default(0)
+  lastPlayedAt                DateTime?
+  beliefRerecordedAt          DateTime?
+  beliefRerecordCount         Int                     @default(0)
+  status                      ReflectionSessionStatus @default(PENDING)
+  isVision                    Boolean                 @default(false)
+  createdAt                   DateTime                @default(now())
+  updatedAt                   DateTime                @updatedAt
+  completedAt                 DateTime?
+  vision                      Vision?
+  waves                       Wave[]
+  affirmations                Affirmation[]
+  reflectionSound             ReflectionSound?
 
   @@index([userId])
   @@index([categoryId])
@@ -331,15 +331,15 @@ model Journal {
 }
 
 model ReflectionSound {
-  id                 String             @id @default(uuid())
+  id                  String            @id @default(uuid())
   reflectionSessionId String            @unique
-  reflectionSession  ReflectionSession  @relation(fields: [reflectionSessionId], references: [id], onDelete: Cascade)
-  soundUrl           String
-  name               String?
-  fileSize           Int?
-  mimeType           String?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  reflectionSession   ReflectionSession @relation(fields: [reflectionSessionId], references: [id], onDelete: Cascade)
+  soundUrl            String
+  name                String?
+  fileSize            Int?
+  mimeType            String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 }
 
 model VisionSound {
@@ -352,6 +352,7 @@ model VisionSound {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   visions   Vision[]
+
   @@map("VisionBoardSound")
 }
 

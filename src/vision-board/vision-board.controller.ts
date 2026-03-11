@@ -29,7 +29,7 @@ import { FirebaseUser, StreakInterceptor } from 'src/common';
 import { auth } from 'firebase-admin';
 import { BaseController } from 'src/common';
 import { VisionBoardService } from './vision-board.service';
-import { AddVisionDto, AddVisionToGlobalBoardDto, UpdateVisionDto, SetVisionSoundDto, ReorderVisionDto, ReorderSoundDto } from './dto';
+import { AddVisionDto, AddVisionToGlobalBoardDto, UpdateVisionDto, SetVisionSoundDto, ReorderVisionDto, ReorderSoundDto, CreateVisionBoardForCategoryDto } from './dto';
 
 @UseGuards(FirebaseGuard)
 @UseInterceptors(StreakInterceptor)
@@ -602,6 +602,33 @@ export class VisionBoardController extends BaseController {
 
         return this.response({
             message: 'Sound reordered successfully',
+            data: result.data,
+        });
+    }
+
+    @Post('boards')
+    @ApiOperation({
+        summary: 'Create a vision board for a category',
+        description: 'Creates a vision board for a specific Wheel of Life category. If the category already has a vision board, returns the existing one. Category must belong to the user\'s wheel.',
+    })
+    @ApiBody({ type: CreateVisionBoardForCategoryDto })
+    @ApiResponse({
+        status: 201,
+        description: 'Vision board created or existing board returned',
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'User or category not found',
+    })
+    async createVisionBoardForCategory(
+        @FirebaseUser() user: auth.DecodedIdToken,
+        @Body() dto: CreateVisionBoardForCategoryDto,
+    ) {
+        const result = await this.visionBoardService.createVisionBoard(user.uid, dto.categoryId);
+        if (result.isError) throw result.error;
+
+        return this.response({
+            message: result.data.created ? 'Vision board created' : 'Vision board already exists for this category',
             data: result.data,
         });
     }

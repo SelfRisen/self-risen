@@ -65,11 +65,11 @@ export class WheelOfLifeService extends BaseService {
                     create: this.DEFAULT_CATEGORIES.map((name, index) => ({
                         name,
                         order: index,
-                        visionBoard: {
-                            create: {
-                                userId: user.id,
-                            },
-                        },
+                        // visionBoard: {
+                        //     create: {
+                        //         userId: user.id,
+                        //     },
+                        // },
                     })),
                 },
             },

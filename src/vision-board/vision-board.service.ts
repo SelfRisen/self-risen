@@ -47,7 +47,7 @@ type VisionResponse = {
         category: {
             id: string;
             name: string;
-        };
+        } | null;
     } | null;
     visionSoundId: string | null;
     visionSound: {
@@ -132,11 +132,11 @@ export class VisionBoardService extends BaseService {
             id: string;
             status: ReflectionSessionStatus;
             selectedAffirmationText: string | null;
-            prompt: string;
+            prompt: string | null;
             category: {
                 id: string;
                 name: string;
-            };
+            } | null;
             reflectionSound: { id: string; soundUrl: string; name: string | null; fileSize: number | null; mimeType: string | null } | null;
         } | null = null;
 
@@ -841,6 +841,81 @@ export class VisionBoardService extends BaseService {
     }
 
     /**
+     * Create a vision board for a specific Wheel of Life category.
+     * If the category already has a vision board, returns the existing one.
+     */
+    async createVisionBoard(firebaseId: string, categoryId: string) {
+        const user = await this.getUserByFirebaseId(firebaseId);
+        if (!user) {
+            return this.HandleError(new NotFoundException('User not found'));
+        }
+
+        const category = await this.prisma.wheelCategory.findFirst({
+            where: {
+                id: categoryId,
+                wheel: { userId: user.id },
+            },
+            include: { visionBoard: true },
+        });
+
+        if (!category) {
+            return this.HandleError(new NotFoundException('Category not found or does not belong to user'));
+        }
+
+        if (category.visionBoard) {
+            const existing = await this.prisma.visionBoard.findUnique({
+                where: { id: category.visionBoard.id },
+                include: {
+                    category: {
+                        select: { id: true, name: true, order: true },
+                    },
+                    _count: { select: { visions: true } },
+                },
+            });
+            if (existing) {
+                return this.Results({
+                    board: {
+                        id: existing.id,
+                        categoryId: existing.categoryId,
+                        category: existing.category,
+                        visionCount: existing._count.visions,
+                        isGlobal: existing.isGloabal,
+                        createdAt: existing.createdAt,
+                        updatedAt: existing.updatedAt,
+                    },
+                    created: false,
+                });
+            }
+        }
+
+        const board = await this.prisma.visionBoard.create({
+            data: {
+                userId: user.id,
+                categoryId: category.id,
+            },
+            include: {
+                category: {
+                    select: { id: true, name: true, order: true },
+                },
+                _count: { select: { visions: true } },
+            },
+        });
+
+        return this.Results({
+            board: {
+                id: board.id,
+                categoryId: board.categoryId,
+                category: board.category,
+                visionCount: board._count.visions,
+                isGlobal: board.isGloabal,
+                createdAt: board.createdAt,
+                updatedAt: board.updatedAt,
+            },
+            created: true,
+        });
+    }
+
+    /**
      * Reorder a vision within its vision board
      */
     async reorderVision(firebaseId: string, visionId: string, newOrder: number) {
@@ -1009,7 +1084,7 @@ export class VisionBoardService extends BaseService {
             response.affirmation = vision.reflectionSession.selectedAffirmationText;
             response.reflectionSession = {
                 id: vision.reflectionSession.id,
-                prompt: vision.reflectionSession.prompt,
+                prompt: vision.reflectionSession.prompt ?? '',
                 category: vision.reflectionSession.category,
             };
         }

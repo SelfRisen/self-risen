@@ -60,6 +60,21 @@ export class ReflectionController extends BaseController {
         });
     }
 
+    @Post('sessions/without-category')
+    @ApiOperation({
+        summary: 'Create a reflection session without a category',
+        description: 'Creates a new reflection session not tied to any Wheel of Life category.',
+    })
+    async createSessionWithoutCategory(@FirebaseUser() user: auth.DecodedIdToken) {
+        const result = await this.reflectionService.createSessionWithOutCategory(user.uid);
+        if (result.isError) throw result.error;
+
+        return this.response({
+            message: 'Reflection session created (no category)',
+            data: result.data,
+        });
+    }
+
     @Get('sessions/:sessionId')
     @ApiOperation({
         summary: 'Get reflection session details',
@@ -102,10 +117,18 @@ export class ReflectionController extends BaseController {
         description: 'Number of items per page (default: 10, max: 100)',
         example: 10,
     })
+    @ApiQuery({
+        name: 'categoryId',
+        required: false,
+        type: String,
+        description: 'Filter sessions by Wheel of Life category ID (optional)',
+        example: 'category-id-123',
+    })
     async getAllSessions(
         @FirebaseUser() user: auth.DecodedIdToken,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
+        @Query('categoryId') categoryId?: string,
     ) {
         const pageNumber = page ? parseInt(page, 10) : 1;
         const limitNumber = limit ? parseInt(limit, 10) : 10;
@@ -114,6 +137,7 @@ export class ReflectionController extends BaseController {
             user.uid,
             pageNumber,
             limitNumber,
+            categoryId,
         );
         if (result.isError) throw result.error;
 

@@ -74,6 +74,25 @@ export class ReflectionService extends BaseService {
         return this.Results(session);
     }
 
+    async createSessionWithOutCategory(firebaseId: string) {
+        const user = await this.getUserByFirebaseId(firebaseId);
+        if (!user) {
+            return this.HandleError(new NotFoundException('User not found'));
+        }
+
+        // const prompt = 'An area of my life I want to improve is...';
+
+        const session = await this.prisma.reflectionSession.create({
+            data: {
+                userId: user.id,
+                // prompt,
+                status: 'PENDING',
+            },
+        });
+
+        return this.Results(session);
+    }
+
     async getSessionById(firebaseId: string, sessionId: string) {
         const user = await this.getUserByFirebaseId(firebaseId);
         if (!user) {
@@ -198,6 +217,7 @@ export class ReflectionService extends BaseService {
         firebaseId: string,
         page: number = 1,
         limit: number = 10,
+        categoryId?: string
     ) {
         const user = await this.getUserByFirebaseId(firebaseId);
         if (!user) {
@@ -208,7 +228,10 @@ export class ReflectionService extends BaseService {
         const pageSize = Math.max(1, Math.min(100, Math.floor(limit)));
         const skip = (pageNumber - 1) * pageSize;
 
-        const whereClause = { userId: user.id };
+        const whereClause: any = { userId: user.id };
+        if (categoryId) {
+            whereClause.categoryId = categoryId;
+        }
 
         const totalCount = await this.prisma.reflectionSession.count({
             where: whereClause,
