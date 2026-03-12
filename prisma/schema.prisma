@@ -220,6 +220,7 @@ model ReflectionSession {
   category                    WheelCategory?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   wheelFocusId                String?
   wheelFocus                  WheelFocus?             @relation(fields: [wheelFocusId], references: [id], onDelete: SetNull)
+  isGlobal                    Boolean                 @default(false)
   prompt                      String?
   rawBeliefText               String?
   audioUrl                    String?

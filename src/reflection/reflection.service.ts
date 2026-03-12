@@ -85,7 +85,7 @@ export class ReflectionService extends BaseService {
         const session = await this.prisma.reflectionSession.create({
             data: {
                 userId: user.id,
-                // prompt,
+                isGlobal: true,
                 status: 'PENDING',
             },
         });

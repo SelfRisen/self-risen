@@ -18,7 +18,7 @@ export class WheelOfLifeService extends BaseService {
         'Health & Well-being',
         'Relationships & Intimacy',
         'Career & Work',
-        'Finances Management',
+        'Finances',
         'Spirituality',
         'Personal Growth',
         'Leisure & Fun',

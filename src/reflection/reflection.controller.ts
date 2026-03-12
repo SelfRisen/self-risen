@@ -534,7 +534,7 @@ export class ReflectionController extends BaseController {
     @Post('sessions/:sessionId/regenerate-voice')
     @ApiOperation({
         summary: 'Regenerate AI affirmation voice',
-        description: 'Regenerates the AI-generated affirmation audio. Optionally accepts a voice preference (MALE, FEMALE, ANDROGYNOUS). If not provided, uses the user\'s saved preference. Session must have a selected affirmation and be in AFFIRMATION_GENERATED status.',
+        description: 'Regenerates the AI-generated affirmation audio. Optionally accepts a voice persona (Sage, Phoenix, River, Quinn, Alex, Robin). If not provided, uses the affirmation\'s or user\'s saved preference. Session must have a selected affirmation and be in AFFIRMATION_GENERATED status.',
     })
     @ApiParam({
         name: 'sessionId',
@@ -544,17 +544,17 @@ export class ReflectionController extends BaseController {
     @ApiBody({
         type: RegenerateVoiceDto,
         required: false,
-        description: 'Optional voice preference for regeneration',
+        description: 'Optional voice persona for regeneration. Valid values: Sage, Phoenix, River, Quinn, Alex, Robin.',
         examples: {
             withPreference: {
-                summary: 'Regenerate with specific voice',
-                value: { voicePreference: 'FEMALE' }
+                summary: 'Regenerate with specific persona',
+                value: { voicePreference: 'Sage' },
             },
-            useUserPreference: {
-                summary: 'Regenerate using user\'s saved preference',
-                value: {}
-            }
-        }
+            useSavedPreference: {
+                summary: 'Regenerate using affirmation\'s or user\'s saved preference',
+                value: {},
+            },
+        },
     })
     @ApiResponse({
         status: 200,
