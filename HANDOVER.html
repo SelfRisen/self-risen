@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Self-Risen — Handover Documentation</title>
+  <style>
+    :root {
+      --primary: #6C47FF;
+      --primary-dark: #5534D4;
+      --primary-light: #EDE8FF;
+      --accent: #FF6B6B;
+      --bg: #F7F8FC;
+      --surface: #FFFFFF;
+      --text: #1A1A2E;
+      --text-secondary: #6B7280;
+      --border: #E5E7EB;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --info: #3B82F6;
+      --code-bg: #1E1E2E;
+      --code-text: #CDD6F4;
+      --sidebar-width: 280px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    /* ─── Sidebar ─── */
+    .sidebar {
+      position: fixed;
+      top: 0; left: 0;
+      width: var(--sidebar-width);
+      height: 100vh;
+      background: linear-gradient(180deg, #1A1A2E 0%, #16213E 100%);
+      color: #fff;
+      overflow-y: auto;
+      z-index: 100;
+      padding: 24px 0;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,.15) transparent;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 2px; }
+
+    .sidebar-brand {
+      padding: 0 24px 24px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      margin-bottom: 16px;
+    }
+    .sidebar-brand h2 {
+      font-size: 20px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #A78BFA, #6C47FF);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .sidebar-brand span {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: rgba(255,255,255,.45);
+      margin-top: 4px;
+    }
+
+    .sidebar nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 24px;
+      color: rgba(255,255,255,.6);
+      text-decoration: none;
+      font-size: 13px;
+      transition: all .2s;
+      border-left: 3px solid transparent;
+    }
+    .sidebar nav a:hover,
+    .sidebar nav a.active {
+      color: #fff;
+      background: rgba(108,71,255,.15);
+      border-left-color: var(--primary);
+    }
+    .sidebar nav a .num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px; height: 22px;
+      border-radius: 6px;
+      background: rgba(255,255,255,.08);
+      font-size: 10px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    /* ─── Main ─── */
+    .main {
+      margin-left: var(--sidebar-width);
+      padding: 40px 48px 80px;
+      max-width: 1100px;
+    }
+
+    /* ─── Cover ─── */
+    .cover {
+      background: linear-gradient(135deg, #6C47FF 0%, #4F28C8 50%, #3B1F99 100%);
+      border-radius: 20px;
+      padding: 56px 48px;
+      color: #fff;
+      margin-bottom: 40px;
+      position: relative;
+      overflow: hidden;
+    }
+    .cover::after {
+      content: '';
+      position: absolute;
+      top: -40%; right: -15%;
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(255,255,255,.08) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+    .cover h1 { font-size: 36px; font-weight: 800; margin-bottom: 8px; position: relative; z-index: 1; }
+    .cover .subtitle { font-size: 16px; opacity: .8; margin-bottom: 32px; position: relative; z-index: 1; }
+
+    .cover-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      position: relative; z-index: 1;
+    }
+    .cover-meta-item {
+      background: rgba(255,255,255,.1);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .cover-meta-item label {
+      display: block;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      opacity: .7;
+      margin-bottom: 4px;
+    }
+    .cover-meta-item span {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    /* ─── Sections ─── */
+    section {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 40px;
+      margin-bottom: 24px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    }
+
+    section h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--primary-light);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    section h2 .section-num {
+      background: var(--primary);
+      color: #fff;
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    h3 {
+      font-size: 17px;
+      font-weight: 600;
+      margin: 28px 0 12px;
+      color: var(--primary-dark);
+    }
+
+    h4 {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 20px 0 8px;
+      color: var(--text);
+    }
+
+    p, li { color: var(--text); }
+    p { margin-bottom: 12px; }
+    ul, ol { margin-left: 20px; margin-bottom: 16px; }
+    li { margin-bottom: 6px; }
+
+    /* ─── Tables ─── */
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin: 16px 0;
+      font-size: 13px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    thead th {
+      background: var(--primary);
+      color: #fff;
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    tbody td {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--primary-light); }
+
+    /* ─── Code ─── */
+    code {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 12.5px;
+      background: #F3F4F6;
+      padding: 2px 7px;
+      border-radius: 5px;
+      color: var(--primary-dark);
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 20px 24px;
+      border-radius: 12px;
+      overflow-x: auto;
+      margin: 16px 0;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+    }
+
+    /* ─── Badges / Tags ─── */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .badge-primary { background: var(--primary-light); color: var(--primary); }
+    .badge-success { background: #D1FAE5; color: #065F46; }
+    .badge-warning { background: #FEF3C7; color: #92400E; }
+    .badge-danger { background: #FEE2E2; color: #991B1B; }
+    .badge-info { background: #DBEAFE; color: #1E40AF; }
+
+    /* ─── Cards Grid ─── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin: 16px 0;
+    }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      transition: box-shadow .2s, transform .2s;
+    }
+    .card:hover {
+      box-shadow: 0 4px 12px rgba(108,71,255,.1);
+      transform: translateY(-2px);
+    }
+    .card h4 { margin: 0 0 8px; font-size: 15px; }
+    .card p { font-size: 13px; color: var(--text-secondary); margin: 0; }
+
+    /* ─── Info boxes ─── */
+    .info-box {
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin: 16px 0;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      font-size: 13px;
+    }
+    .info-box.warning { background: #FEF3C7; border-left: 4px solid var(--warning); }
+    .info-box.danger  { background: #FEE2E2; border-left: 4px solid var(--danger); }
+    .info-box.success { background: #D1FAE5; border-left: 4px solid var(--success); }
+    .info-box.info    { background: #DBEAFE; border-left: 4px solid var(--info); }
+    .info-box .icon { font-size: 18px; flex-shrink: 0; }
+
+    /* ─── Architecture diagram ─── */
+    .arch-diagram {
+      background: linear-gradient(135deg, #F8F7FF 0%, #EDE8FF 100%);
+      border-radius: 16px;
+      padding: 32px;
+      margin: 20px 0;
+      text-align: center;
+    }
+    .arch-row {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin: 12px 0;
+      flex-wrap: wrap;
+    }
+    .arch-box {
+      background: #fff;
+      border: 2px solid var(--primary);
+      border-radius: 10px;
+      padding: 12px 20px;
+      font-size: 12px;
+      font-weight: 600;
+      min-width: 130px;
+      box-shadow: 0 2px 8px rgba(108,71,255,.1);
+    }
+    .arch-box.external { border-color: var(--accent); color: var(--accent); }
+    .arch-box.data { border-color: var(--success); color: #065F46; }
+    .arch-arrow { color: var(--primary); font-size: 20px; margin: 4px 0; }
+    .arch-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-secondary);
+      margin: 16px 0 6px;
+      font-weight: 600;
+    }
+
+    /* ─── Flow steps ─── */
+    .flow-steps {
+      display: flex;
+      gap: 0;
+      margin: 16px 0;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .flow-step {
+      background: var(--primary-light);
+      border: 1px solid rgba(108,71,255,.2);
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--primary-dark);
+    }
+    .flow-arrow { padding: 0 8px; color: var(--primary); font-size: 18px; }
+
+    /* ─── Status indicator ─── */
+    .status-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .status-dot.green { background: var(--success); }
+    .status-dot.yellow { background: var(--warning); }
+    .status-dot.red { background: var(--danger); }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 900px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 20px; }
+      .cover { padding: 32px 24px; }
+      .cover h1 { font-size: 24px; }
+      section { padding: 24px; }
+    }
+
+    @media print {
+      .sidebar { display: none; }
+      .main { margin-left: 0; }
+      section { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════ SIDEBAR ═══════════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <h2>Self-Risen</h2>
+    <span>Handover Documentation</span>
+  </div>
+  <nav>
+    <a href="#cover"><span class="num">0</span> Cover</a>
+    <a href="#executive-summary"><span class="num">1</span> Executive Summary</a>
+    <a href="#architecture"><span class="num">2</span> Architecture Overview</a>
+    <a href="#service-catalog"><span class="num">3</span> Service Catalog</a>
+    <a href="#data-integration"><span class="num">4</span> Data &amp; Integration</a>
+    <a href="#api-docs"><span class="num">5</span> API Documentation</a>
+    <a href="#local-dev"><span class="num">6</span> Local Dev &amp; Onboarding</a>
+    <a href="#cicd"><span class="num">7</span> CI/CD &amp; Release</a>
+    <a href="#observability"><span class="num">8</span> Observability</a>
+    <a href="#runbooks"><span class="num">9</span> Operations Runbooks</a>
+    <a href="#security"><span class="num">10</span> Security &amp; Access</a>
+    <a href="#cost-overview"><span class="num">11</span> Cost Overview</a>
+    <a href="#appendices"><span class="num">12</span> Appendices</a>
+  </nav>
+</aside>
+
+<!-- ═══════════════════════ MAIN CONTENT ═══════════════════════ -->
+<div class="main">
+
+  <!-- Cover Page -->
+  <div class="cover" id="cover">
+    <h1>Self-Risen Backend</h1>
+    <p class="subtitle">Handover Documentation &mdash; Backend API &amp; Services</p>
+    <div class="cover-meta">
+      <div class="cover-meta-item">
+        <label>Project Name</label>
+        <span>Self-Risen</span>
+      </div>
+      <div class="cover-meta-item">
+        <label>Owner / Author</label>
+        <span>Isaac</span>
+      </div>
+      <div class="cover-meta-item">
+        <label>Environments</label>
+        <span>Development &middot; Staging &middot; Production</span>
+      </div>
+      <div class="cover-meta-item">
+        <label>Runtime</label>
+        <span>NestJS v11 &middot; Node 20 &middot; TypeScript 5.7</span>
+      </div>
+      <div class="cover-meta-item">
+        <label>Database</label>
+        <span>PostgreSQL 16 &middot; Prisma ORM v6.3</span>
+      </div>
+      <div class="cover-meta-item">
+        <label>Deployment</label>
+        <span>Railway &middot; Docker</span>
+      </div>
+      <div class="cover-meta-item">
+        <label>Document Version</label>
+        <span>v1.0 &mdash; March 2026</span>
+      </div>
+      <div class="cover-meta-item">
+        <label>Branch</label>
+        <span>staging (main for PRs)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────────────────── 1. EXECUTIVE SUMMARY ────────────────────── -->
+  <section id="executive-summary">
+    <h2><span class="section-num">1</span> Executive Summary</h2>
+
+    <h3>What the System Does</h3>
+    <p>
+      Self-Risen is a <strong>personal growth and self-development platform</strong>. The backend API powers a mobile application that helps users transform limiting beliefs into positive affirmations through AI-powered reflection sessions, track life balance with a Wheel of Life assessment tool, create vision boards, and maintain journals. The platform uses OpenAI for audio transcription, natural language processing to reframe beliefs, and text-to-speech with six distinct voice personas for personalized affirmation playback.
+    </p>
+
+    <h3>Current Scope</h3>
+    <ul>
+      <li><strong>Reflection Sessions</strong> &mdash; Full lifecycle: audio upload &rarr; transcription (Whisper) &rarr; NLP affirmation generation (GPT-3.5) &rarr; TTS audio (6 voice personas) &rarr; wave-based listening periods</li>
+      <li><strong>Wheel of Life</strong> &mdash; Category-based life assessment with scoring, imbalance detection, and focus areas</li>
+      <li><strong>Vision Boards</strong> &mdash; Per-category and global boards with image uploads and background sounds</li>
+      <li><strong>Journaling</strong> &mdash; CRUD with image attachments</li>
+      <li><strong>Multi-channel Notifications</strong> &mdash; Email (Mailjet/Gmail/Mailgun), SMS (Twilio), Push (Expo), In-App via Bull queue</li>
+      <li><strong>Streak Tracking</strong> &mdash; Daily usage streaks with timezone-aware reminders</li>
+      <li><strong>Token Usage Limiting</strong> &mdash; Monthly quota system for AI token consumption</li>
+      <li><strong>Authentication</strong> &mdash; Firebase Auth with Google, Apple, and Facebook OAuth</li>
+    </ul>
+
+    <h3>Out of Scope</h3>
+    <ul>
+      <li>Admin dashboard / CMS</li>
+      <li>Payment processing / subscriptions</li>
+      <li>Real-time collaborative features (WebSocket gateway is present but not broadly used)</li>
+    </ul>
+
+    <h3>Current Status</h3>
+    <div class="card-grid">
+      <div class="card">
+        <h4><span class="status-dot green"></span> Stable Areas</h4>
+        <p>Auth flows, Reflection sessions, Wheel of Life, Journal, Vision Boards, Notification dispatch pipeline</p>
+      </div>
+      <div class="card">
+        <h4><span class="status-dot yellow"></span> Monitor</h4>
+        <p>OpenAI API usage / token limits, session expiration cron jobs, streak reminder scheduling</p>
+      </div>
+    </div>
+
+    <div class="info-box danger">
+      <span class="icon">&#9888;</span>
+      <div>
+        <strong>Top 5 Things a New Dev Must Not Break</strong>
+        <ol style="margin-top: 8px;">
+          <li><strong>Reflection session state machine</strong> (PENDING &rarr; BELIEF_CAPTURED &rarr; AFFIRMATION_GENERATED &rarr; COMPLETED) &mdash; any break here corrupts user sessions.</li>
+          <li><strong>Firebase authentication guard</strong> &mdash; protects every user-facing endpoint.</li>
+          <li><strong>Prisma migrations</strong> &mdash; always run <code>prisma migrate deploy</code> before startup; never edit existing migrations.</li>
+          <li><strong>OpenAI integration pipeline</strong> (transcription &rarr; NLP &rarr; TTS) &mdash; the core value proposition.</li>
+          <li><strong>Notification Bull queue</strong> &mdash; failed jobs go to DLQ; retry policy must remain exponential backoff.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ────────────────────── 2. ARCHITECTURE OVERVIEW ────────────────────── -->
+  <section id="architecture">
+    <h2><span class="section-num">2</span> System Architecture Overview</h2>
+
+    <h3>High-Level Diagram</h3>
+    <div class="arch-diagram">
+      <div class="arch-label">Client Layer</div>
+      <div class="arch-row">
+        <div class="arch-box">Mobile App (Expo/React Native)</div>
+      </div>
+      <div class="arch-arrow">&darr;</div>
+      <div class="arch-label">API Layer</div>
+      <div class="arch-row">
+        <div class="arch-box">NestJS API (Express)</div>
+        <div class="arch-box">Swagger / OpenAPI</div>
+        <div class="arch-box">WebSocket Gateway</div>
+      </div>
+      <div class="arch-arrow">&darr;</div>
+      <div class="arch-label">Service Layer (NestJS Modules)</div>
+      <div class="arch-row">
+        <div class="arch-box">Auth</div>
+        <div class="arch-box">Reflection</div>
+        <div class="arch-box">Wheel of Life</div>
+        <div class="arch-box">Vision Board</div>
+        <div class="arch-box">Journal</div>
+        <div class="arch-box">Notifications</div>
+        <div class="arch-box">User</div>
+        <div class="arch-box">Storage</div>
+      </div>
+      <div class="arch-arrow">&darr;</div>
+      <div class="arch-label">Data &amp; Infrastructure</div>
+      <div class="arch-row">
+        <div class="arch-box data">PostgreSQL 16</div>
+        <div class="arch-box data">Redis 7 (Bull Queue)</div>
+      </div>
+      <div class="arch-arrow">&darr;</div>
+      <div class="arch-label">External Services</div>
+      <div class="arch-row">
+        <div class="arch-box external">OpenAI (Whisper / GPT / TTS)</div>
+        <div class="arch-box external">Firebase Auth + Storage</div>
+        <div class="arch-box external">Supabase Storage</div>
+      </div>
+      <div class="arch-row">
+        <div class="arch-box external">Mailjet / Gmail / Mailgun</div>
+        <div class="arch-box external">Twilio SMS</div>
+        <div class="arch-box external">Expo Push</div>
+      </div>
+    </div>
+
+    <h3>Architectural Decisions</h3>
+    <ul>
+      <li><strong>Modular monolith</strong> (not microservices) &mdash; all modules live in a single NestJS app. Clean module boundaries enable future extraction if needed.</li>
+      <li><strong>Sync API + async queue</strong> &mdash; HTTP request/response for most operations; Bull queue for notification dispatch with retry + DLQ.</li>
+      <li><strong>Firebase-first auth</strong> &mdash; leverages Firebase for identity management, with custom JWT as fallback.</li>
+      <li><strong>Dual storage providers</strong> &mdash; Firebase Storage and Supabase are interchangeable via <code>STORAGE_PROVIDER</code> env var.</li>
+      <li><strong>Prisma ORM</strong> &mdash; type-safe database access, auto-generated client, migration-first schema changes.</li>
+      <li><strong>OpenAI pipeline</strong> &mdash; sequential: Whisper transcription &rarr; GPT-3.5 affirmation reframing &rarr; TTS-1 voice synthesis.</li>
+    </ul>
+
+    <h3>Non-Functional Requirements</h3>
+    <table>
+      <thead>
+        <tr><th>Requirement</th><th>Target</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Availability</td><td>99.5%+</td><td>Railway auto-restarts on failure (max 10 retries)</td></tr>
+        <tr><td>API Latency (p95)</td><td>&lt; 500ms</td><td>Excluding OpenAI pipeline calls (those are async/long-running)</td></tr>
+        <tr><td>Token Limit</td><td>30,000/month/user</td><td>Configurable per user via <code>tokenLimitPerMonth</code></td></tr>
+        <tr><td>Image Compression</td><td>Configurable</td><td>3 tiers: Small (85%), Medium (75%), Large (65%) quality via Sharp</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ────────────────────── 3. SERVICE CATALOG ────────────────────── -->
+  <section id="service-catalog">
+    <h2><span class="section-num">3</span> Service Catalog (Module Inventory)</h2>
+    <p>Self-Risen is a modular monolith. Each NestJS module acts as an autonomous service boundary.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Module</th>
+          <th>Purpose</th>
+          <th>Key Files</th>
+          <th>Dependencies</th>
+          <th>Failure Impact</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>AuthModule</strong></td>
+          <td>Sign up, login, password reset, OAuth (Google/Apple/Facebook)</td>
+          <td><code>src/auth/</code></td>
+          <td>Firebase Admin, Passport, JWT, Database</td>
+          <td><span class="badge badge-danger">Critical</span> &mdash; All endpoints blocked</td>
+        </tr>
+        <tr>
+          <td><strong>UserModule</strong></td>
+          <td>Profile management, avatar upload, token usage, streak tracking, reminders</td>
+          <td><code>src/user/</code></td>
+          <td>Database, Storage, Notifications, @nestjs/schedule</td>
+          <td><span class="badge badge-danger">Critical</span> &mdash; No user operations</td>
+        </tr>
+        <tr>
+          <td><strong>ReflectionModule</strong></td>
+          <td>Core reflection sessions: audio &rarr; transcription &rarr; NLP &rarr; TTS &rarr; waves</td>
+          <td><code>src/reflection/</code></td>
+          <td>OpenAI, Storage, Database</td>
+          <td><span class="badge badge-danger">Critical</span> &mdash; Core feature unavailable</td>
+        </tr>
+        <tr>
+          <td><strong>WheelOfLifeModule</strong></td>
+          <td>Life assessment wheel with categories, scores, and focus areas</td>
+          <td><code>src/wheel-of-life/</code></td>
+          <td>Database</td>
+          <td><span class="badge badge-warning">High</span> &mdash; Assessment unavailable</td>
+        </tr>
+        <tr>
+          <td><strong>VisionBoardModule</strong></td>
+          <td>Vision boards with images and background sounds</td>
+          <td><code>src/vision-board/</code></td>
+          <td>Database, Storage</td>
+          <td><span class="badge badge-warning">High</span> &mdash; Vision boards unavailable</td>
+        </tr>
+        <tr>
+          <td><strong>JournalModule</strong></td>
+          <td>Journal entries with image attachments</td>
+          <td><code>src/journal/</code></td>
+          <td>Database, Storage</td>
+          <td><span class="badge badge-info">Medium</span> &mdash; Journaling unavailable</td>
+        </tr>
+        <tr>
+          <td><strong>NotificationsModule</strong></td>
+          <td>Multi-channel notifications via Bull queue (Email, SMS, Push, In-App)</td>
+          <td><code>src/notifications/</code></td>
+          <td>Redis/Bull, Mailjet, Gmail, Mailgun, Twilio, Expo</td>
+          <td><span class="badge badge-warning">High</span> &mdash; No notifications, reminders stop</td>
+        </tr>
+        <tr>
+          <td><strong>StorageModule</strong></td>
+          <td>File upload/download (Firebase or Supabase), image/video compression</td>
+          <td><code>src/storage/</code></td>
+          <td>Firebase SDK, Supabase SDK, Sharp, FFmpeg</td>
+          <td><span class="badge badge-danger">Critical</span> &mdash; No file uploads</td>
+        </tr>
+        <tr>
+          <td><strong>StaterVideosModule</strong></td>
+          <td>Background audio/music track management</td>
+          <td><code>src/stater-videos/</code></td>
+          <td>Database</td>
+          <td><span class="badge badge-info">Low</span> &mdash; Background audio unavailable</td>
+        </tr>
+        <tr>
+          <td><strong>DatabaseModule</strong></td>
+          <td>Prisma client connection management</td>
+          <td><code>src/database/</code></td>
+          <td>PostgreSQL</td>
+          <td><span class="badge badge-danger">Critical</span> &mdash; Entire app down</td>
+        </tr>
+        <tr>
+          <td><strong>CommonModule</strong></td>
+          <td>Shared guards, interceptors, utilities</td>
+          <td><code>src/common/</code></td>
+          <td>None</td>
+          <td><span class="badge badge-danger">Critical</span> &mdash; Guards/interceptors fail</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Key Services within Reflection Module</h3>
+    <table>
+      <thead>
+        <tr><th>Service</th><th>Responsibility</th><th>External Dependency</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>TranscriptionService</code></td><td>Audio &rarr; text via OpenAI Whisper-1</td><td>OpenAI API</td></tr>
+        <tr><td><code>NlpTransformationService</code></td><td>Limiting belief &rarr; positive affirmations via GPT-3.5-turbo</td><td>OpenAI API</td></tr>
+        <tr><td><code>TextToSpeechService</code></td><td>Affirmation text &rarr; audio with 6 voice personas</td><td>OpenAI TTS-1</td></tr>
+        <tr><td><code>SessionExpirationService</code></td><td>Cron-based cleanup of expired/incomplete sessions</td><td>@nestjs/schedule</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ────────────────────── 4. DATA & INTEGRATION ────────────────────── -->
+  <section id="data-integration">
+    <h2><span class="section-num">4</span> Data &amp; Integration Documentation</h2>
+
+    <h3>Datastore</h3>
+    <table>
+      <thead><tr><th>Property</th><th>Details</th></tr></thead>
+      <tbody>
+        <tr><td>Engine</td><td>PostgreSQL 16 (Alpine)</td></tr>
+        <tr><td>ORM</td><td>Prisma v6.3.0 with <code>prisma-client-js</code> generator</td></tr>
+        <tr><td>Schema</td><td><code>prisma/schema.prisma</code></td></tr>
+        <tr><td>Migration Strategy</td><td>Prisma Migrate &mdash; <code>prisma migrate dev</code> (local), <code>prisma migrate deploy</code> (prod, runs at container startup)</td></tr>
+        <tr><td>Connection String</td><td><code>DATABASE_URL</code> env var</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Database Models (19 models)</h3>
+    <table>
+      <thead><tr><th>Model</th><th>Owner Module</th><th>Key Fields</th></tr></thead>
+      <tbody>
+        <tr><td>User</td><td>UserModule</td><td>firebaseId, email, streak, ttsVoicePreference, tokensUsedThisMonth</td></tr>
+        <tr><td>StreakHistory</td><td>UserModule</td><td>userId, date, streak (unique: userId+date)</td></tr>
+        <tr><td>ReflectionSession</td><td>ReflectionModule</td><td>userId, status (enum FSM), rawBeliefText, audioUrl, affirmations[]</td></tr>
+        <tr><td>Affirmation</td><td>ReflectionModule</td><td>sessionId, affirmationText, audioUrl, ttsVoicePreference</td></tr>
+        <tr><td>Wave</td><td>ReflectionModule</td><td>sessionId, startDate, endDate, durationDays, isActive</td></tr>
+        <tr><td>ReflectionSound</td><td>ReflectionModule</td><td>reflectionSessionId, soundUrl</td></tr>
+        <tr><td>WheelOfLife</td><td>WheelModule</td><td>userId (unique), categories[], assessments[], focuses[]</td></tr>
+        <tr><td>WheelCategory</td><td>WheelModule</td><td>wheelId, name, order</td></tr>
+        <tr><td>WheelAssessment</td><td>WheelModule</td><td>wheelId, scores (JSON), strongestArea, weakestArea, imbalanceScore</td></tr>
+        <tr><td>WheelFocus</td><td>WheelModule</td><td>wheelId, categoryId, isActive</td></tr>
+        <tr><td>VisionBoard</td><td>VisionBoardModule</td><td>userId, categoryId (optional, unique), isGloabal</td></tr>
+        <tr><td>Vision</td><td>VisionBoardModule</td><td>visionBoardId, imageUrl, reflectionSessionId (optional)</td></tr>
+        <tr><td>VisionSound</td><td>VisionBoardModule</td><td>soundUrl, name (mapped: VisionBoardSound)</td></tr>
+        <tr><td>Journal</td><td>JournalModule</td><td>userId, title, text, imageUrl, date</td></tr>
+        <tr><td>Notification</td><td>NotificationsModule</td><td>type, title, body, channels[], requestId</td></tr>
+        <tr><td>NotificationRecipient</td><td>NotificationsModule</td><td>notificationId, recipientId, isRead</td></tr>
+        <tr><td>NotificationAuditLog</td><td>NotificationsModule</td><td>requestId, channel, provider, status</td></tr>
+        <tr><td>NotificationDeadLetterQueue</td><td>NotificationsModule</td><td>requestId, channel, lastError, attempts</td></tr>
+        <tr><td>PasswordResetOtp</td><td>AuthModule</td><td>email, otp, expiresAt, isUsed</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Enums</h3>
+    <div class="card-grid">
+      <div class="card">
+        <h4>ReflectionSessionStatus</h4>
+        <p><code>PENDING</code> &rarr; <code>BELIEF_CAPTURED</code> &rarr; <code>AFFIRMATION_GENERATED</code> &rarr; <code>COMPLETED</code></p>
+      </div>
+      <div class="card">
+        <h4>NotificationChannelType</h4>
+        <p><code>EMAIL</code> &middot; <code>SMS</code> &middot; <code>PUSH</code> &middot; <code>IN_APP</code></p>
+      </div>
+      <div class="card">
+        <h4>NotificationStatus</h4>
+        <p><code>QUEUED</code> &middot; <code>SENT</code> &middot; <code>FAILED</code></p>
+      </div>
+      <div class="card">
+        <h4>TtsVoicePreference</h4>
+        <p>
+          <code>MALE_CONFIDENT</code> (Onyx) &middot; <code>MALE_FRIENDLY</code> (Echo)<br>
+          <code>FEMALE_EMPATHETIC</code> (Nova) &middot; <code>FEMALE_ENERGETIC</code> (Shimmer)<br>
+          <code>ANDROGYNOUS_CALM</code> (Alloy) &middot; <code>ANDROGYNOUS_WISE</code> (Fable)
+        </p>
+      </div>
+    </div>
+
+    <h3>Messaging / Queues</h3>
+    <table>
+      <thead><tr><th>Property</th><th>Details</th></tr></thead>
+      <tbody>
+        <tr><td>Broker</td><td>Redis 7 (via <code>ioredis</code>)</td></tr>
+        <tr><td>Queue Library</td><td>Bull v4.12.2 (<code>@nestjs/bull</code>)</td></tr>
+        <tr><td>Queue Name</td><td><code>notification_dispatch</code></td></tr>
+        <tr><td>Retry Policy</td><td>3 attempts, exponential backoff (5s initial, 2x multiplier)</td></tr>
+        <tr><td>DLQ</td><td><code>NotificationDeadLetterQueue</code> model in PostgreSQL</td></tr>
+        <tr><td>Cleanup</td><td>Auto-remove completed jobs</td></tr>
+      </tbody>
+    </table>
+
+    <h3>External Integrations</h3>
+    <table>
+      <thead>
+        <tr><th>Integration</th><th>Purpose</th><th>Auth Method</th><th>Key Env Vars</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>OpenAI</strong></td>
+          <td>Whisper (transcription), GPT-3.5-turbo (NLP), TTS-1 (voice)</td>
+          <td>API Key (Bearer)</td>
+          <td><code>OPENAI_API_KEY</code>, <code>OPENAI_ORGANIZATION</code></td>
+        </tr>
+        <tr>
+          <td><strong>Firebase Admin</strong></td>
+          <td>Auth token validation, user management, file storage</td>
+          <td>Service account JSON</td>
+          <td><code>FIREBASE_PROJECT_ID</code>, <code>FIREBASE_CLIENT_EMAIL</code>, <code>FIREBASE_PRIVATE_KEY</code></td>
+        </tr>
+        <tr>
+          <td><strong>Supabase</strong></td>
+          <td>Alternative file storage</td>
+          <td>API Key</td>
+          <td><code>SUPABASE_URL</code>, <code>SUPABASE_KEY</code>, <code>SUPABASE_BUCKET</code></td>
+        </tr>
+        <tr>
+          <td><strong>Mailjet</strong></td>
+          <td>Primary email delivery</td>
+          <td>API Key + Secret</td>
+          <td><code>MAILJET_API_KEY</code>, <code>MAILJET_API_SECRET</code>, <code>MAILJET_FROM_EMAIL</code></td>
+        </tr>
+        <tr>
+          <td><strong>Gmail OAuth</strong></td>
+          <td>Secondary email (nodemailer)</td>
+          <td>OAuth2 refresh token</td>
+          <td><code>OAUTH_CLIENTID</code>, <code>OAUTH_CLIENT_SECRET</code>, <code>OAUTH_REFRESH_TOKEN</code></td>
+        </tr>
+        <tr>
+          <td><strong>Mailgun</strong></td>
+          <td>Tertiary email fallback</td>
+          <td>API Key</td>
+          <td><code>MAILGUN_API_KEY</code>, <code>MAILGUN_DOMAIN</code></td>
+        </tr>
+        <tr>
+          <td><strong>Twilio</strong></td>
+          <td>SMS notifications</td>
+          <td>Account SID + Auth Token</td>
+          <td><code>TWILIO_ACCOUNT_SID</code>, <code>TWILIO_AUTH_TOKEN</code>, <code>TWILIO_PHONE_NUMBER</code></td>
+        </tr>
+        <tr>
+          <td><strong>Expo Push</strong></td>
+          <td>Mobile push notifications</td>
+          <td>Expo Server SDK (token-based)</td>
+          <td>Push tokens stored per user (<code>pushTokens[]</code>)</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ────────────────────── 5. API DOCUMENTATION ────────────────────── -->
+  <section id="api-docs">
+    <h2><span class="section-num">5</span> API Documentation</h2>
+
+    <h3>Auth Model</h3>
+    <table>
+      <thead><tr><th>Property</th><th>Details</th></tr></thead>
+      <tbody>
+        <tr><td>Primary Auth</td><td>Firebase ID Tokens (Bearer token in <code>Authorization</code> header)</td></tr>
+        <tr><td>Secondary Auth</td><td>Custom JWT (via <code>@nestjs/jwt</code>)</td></tr>
+        <tr><td>Token Lifetime</td><td>Configurable via <code>JWT_EXPIRATION</code> (default: 7d)</td></tr>
+        <tr><td>Guard</td><td><code>FirebaseGuard</code> &mdash; validates Firebase ID token on every protected route</td></tr>
+        <tr><td>User Extraction</td><td><code>@FirebaseUser()</code> parameter decorator</td></tr>
+        <tr><td>OAuth Providers</td><td>Google Sign-In, Apple Sign-In, Facebook (Passport strategy)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>API Conventions</h3>
+    <ul>
+      <li><strong>Swagger/OpenAPI</strong> &mdash; Auto-generated at <code>/api</code> endpoint via <code>@nestjs/swagger</code>. All controllers are decorated with <code>@ApiOperation</code>, <code>@ApiBody</code>, <code>@ApiResponse</code>.</li>
+      <li><strong>Validation</strong> &mdash; Request DTOs validated with <code>class-validator</code> + <code>class-transformer</code>.</li>
+      <li><strong>Sanitization</strong> &mdash; HTML input sanitized via <code>isomorphic-dompurify</code>.</li>
+      <li><strong>File Uploads</strong> &mdash; Handled via <code>Multer</code> middleware.</li>
+    </ul>
+
+    <h3>Key API Endpoints</h3>
+    <table>
+      <thead><tr><th>Controller</th><th>Base Path</th><th>Key Operations</th></tr></thead>
+      <tbody>
+        <tr><td>AuthController</td><td><code>/auth</code></td><td>POST /signup, POST /login, POST /reset-password, POST /google, POST /apple, POST /facebook</td></tr>
+        <tr><td>UserController</td><td><code>/user</code></td><td>GET /profile, PATCH /profile, POST /avatar, GET /stats, GET /token-usage</td></tr>
+        <tr><td>ReflectionController</td><td><code>/reflection</code></td><td>POST /session, POST /transcribe, POST /generate-affirmations, POST /tts, GET /sessions, PATCH /session/:id</td></tr>
+        <tr><td>WheelOfLifeController</td><td><code>/wheel-of-life</code></td><td>POST /create, POST /assess, GET /categories, POST /focus</td></tr>
+        <tr><td>VisionBoardController</td><td><code>/vision-board</code></td><td>POST /create, POST /vision, GET /boards, DELETE /vision/:id</td></tr>
+        <tr><td>JournalController</td><td><code>/journal</code></td><td>POST /create, GET /entries, PATCH /:id, DELETE /:id</td></tr>
+        <tr><td>NotificationsController</td><td><code>/notifications</code></td><td>GET /list, PATCH /read/:id, POST /send</td></tr>
+        <tr><td>StorageController</td><td><code>/storage</code></td><td>POST /upload, GET /download/:key</td></tr>
+        <tr><td>StaterVideosController</td><td><code>/stater-videos</code></td><td>GET /list (background audio tracks)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Reflection Session Flow</h3>
+    <div class="flow-steps">
+      <div class="flow-step">1. Create Session</div>
+      <span class="flow-arrow">&rarr;</span>
+      <div class="flow-step">2. Upload Audio</div>
+      <span class="flow-arrow">&rarr;</span>
+      <div class="flow-step">3. Transcribe (Whisper)</div>
+      <span class="flow-arrow">&rarr;</span>
+      <div class="flow-step">4. NLP Transform (GPT)</div>
+      <span class="flow-arrow">&rarr;</span>
+      <div class="flow-step">5. Generate TTS Audio</div>
+      <span class="flow-arrow">&rarr;</span>
+      <div class="flow-step">6. Select Affirmation</div>
+      <span class="flow-arrow">&rarr;</span>
+      <div class="flow-step">7. Complete + Waves</div>
+    </div>
+  </section>
+
+  <!-- ────────────────────── 6. LOCAL DEV ────────────────────── -->
+  <section id="local-dev">
+    <h2><span class="section-num">6</span> Local Development &amp; Onboarding</h2>
+
+    <h3>Prerequisites</h3>
+    <table>
+      <thead><tr><th>Tool</th><th>Version</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Node.js</td><td>v20+</td><td>LTS recommended</td></tr>
+        <tr><td>pnpm</td><td>Latest</td><td>Package manager (<code>npm install -g pnpm</code>)</td></tr>
+        <tr><td>Docker + Docker Compose</td><td>Latest</td><td>For PostgreSQL &amp; Redis</td></tr>
+        <tr><td>FFmpeg</td><td>Any</td><td>Required for video/audio compression</td></tr>
+        <tr><td>Git</td><td>Any</td><td>Version control</td></tr>
+      </tbody>
+    </table>
+
+    <h3>How to Run Locally (Step-by-Step)</h3>
+    <pre><code># 1. Clone the repository
+git clone &lt;repo-url&gt;
+cd self-risen
+
+# 2. Install dependencies
+pnpm install
+
+# 3. Set up environment variables
+cp .env.example .env   # or configure .env manually
+
+# 4. Start infrastructure (PostgreSQL + Redis)
+docker-compose up -d postgres redis
+
+# 5. Generate Prisma client
+pnpm prisma generate
+
+# 6. Run database migrations
+pnpm prisma migrate dev
+
+# 7. Start development server (hot reload)
+pnpm start:dev
+
+# Server runs on http://localhost:8080
+# Swagger docs at http://localhost:8080/api</code></pre>
+
+    <h3>Alternative: Full Docker Stack</h3>
+    <pre><code># Start everything (DB + Redis + App)
+docker-compose up --build
+
+# Or use dev compose for hot-reload
+docker-compose -f docker-compose.dev.yml up</code></pre>
+
+    <h3>Useful Commands</h3>
+    <table>
+      <thead><tr><th>Command</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>pnpm start:dev</code></td><td>Start dev server with hot reload</td></tr>
+        <tr><td><code>pnpm start:debug</code></td><td>Start with debugger attached</td></tr>
+        <tr><td><code>pnpm build</code></td><td>Compile TypeScript to <code>dist/</code></td></tr>
+        <tr><td><code>pnpm start:prod</code></td><td>Run compiled production build</td></tr>
+        <tr><td><code>pnpm lint</code></td><td>ESLint with auto-fix</td></tr>
+        <tr><td><code>pnpm format</code></td><td>Prettier formatting</td></tr>
+        <tr><td><code>pnpm test</code></td><td>Run unit tests (Jest)</td></tr>
+        <tr><td><code>pnpm test:cov</code></td><td>Run tests with coverage report</td></tr>
+        <tr><td><code>pnpm test:e2e</code></td><td>Run end-to-end tests</td></tr>
+        <tr><td><code>pnpm prisma studio</code></td><td>Open Prisma visual DB explorer</td></tr>
+        <tr><td><code>pnpm prisma migrate dev</code></td><td>Create &amp; apply new migration</td></tr>
+        <tr><td><code>pnpm prisma migrate deploy</code></td><td>Apply pending migrations (prod)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Common First-Day Problems</h3>
+    <div class="info-box warning">
+      <span class="icon">&#9888;</span>
+      <div>
+        <strong>Prisma generate fails:</strong> Make sure PostgreSQL is running and <code>DATABASE_URL</code> is set correctly. Run <code>pnpm prisma generate</code> before <code>pnpm start:dev</code>.
+      </div>
+    </div>
+    <div class="info-box warning">
+      <span class="icon">&#9888;</span>
+      <div>
+        <strong>Redis connection refused:</strong> Ensure Redis is running on port 6379. Check <code>REDIS_HOST</code> and <code>REDIS_PORT</code> env vars.
+      </div>
+    </div>
+    <div class="info-box warning">
+      <span class="icon">&#9888;</span>
+      <div>
+        <strong>FFmpeg not found:</strong> Install FFmpeg system-wide. On macOS: <code>brew install ffmpeg</code>. On Ubuntu: <code>apt install ffmpeg</code>. On Windows: download from ffmpeg.org and add to PATH.
+      </div>
+    </div>
+    <div class="info-box info">
+      <span class="icon">&#9432;</span>
+      <div>
+        <strong>Firebase credentials:</strong> You need a <code>firebase-credentials.json</code> file or the corresponding <code>FIREBASE_*</code> env vars set for auth to work.
+      </div>
+    </div>
+  </section>
+
+  <!-- ────────────────────── 7. CI/CD ────────────────────── -->
+  <section id="cicd">
+    <h2><span class="section-num">7</span> CI/CD and Release Process</h2>
+
+    <h3>Branching Strategy</h3>
+    <ul>
+      <li><code>main</code> &mdash; Production-ready code, PR target</li>
+      <li><code>staging</code> &mdash; Active development branch (current default)</li>
+      <li>Feature branches &mdash; Branch off <code>staging</code>, merge back via PR</li>
+    </ul>
+
+    <h3>Deployment Platform: Railway</h3>
+    <table>
+      <thead><tr><th>Property</th><th>Details</th></tr></thead>
+      <tbody>
+        <tr><td>Platform</td><td>Railway.app</td></tr>
+        <tr><td>Builder</td><td>Dockerfile (multi-stage, Node 20 Alpine)</td></tr>
+        <tr><td>Restart Policy</td><td>On failure, max 10 retries</td></tr>
+        <tr><td>Config</td><td><code>railway.json</code></td></tr>
+        <tr><td>Port</td><td>8080 (Railway sets <code>PORT</code> automatically)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Docker Build Pipeline</h3>
+    <div class="flow-steps">
+      <div class="flow-step">Stage 1: Install deps (pnpm)</div>
+      <span class="flow-arrow">&rarr;</span>
+      <div class="flow-step">Stage 2: Build (Prisma generate + nest build)</div>
+      <span class="flow-arrow">&rarr;</span>
+      <div class="flow-step">Stage 3: Production image (prod deps only)</div>
+      <span class="flow-arrow">&rarr;</span>
+      <div class="flow-step">Startup: migrate deploy + run</div>
+    </div>
+
+    <h3>Startup Command</h3>
+    <pre><code>pnpm prisma migrate deploy && node dist/src/main.js</code></pre>
+
+    <h3>Health Check</h3>
+    <pre><code>HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3
+  CMD node -e "require('http').get('http://localhost:${PORT}/', (r) => {
+    process.exit(r.statusCode === 200 ? 0 : 1)
+  })" || exit 1</code></pre>
+
+    <h3>Rollback Procedure</h3>
+    <ol>
+      <li>In Railway dashboard: redeploy the previous successful deployment.</li>
+      <li>Or via Git: <code>git revert &lt;commit&gt;</code> and push to trigger rebuild.</li>
+      <li>Database rollback: Use Prisma's migration rollback or restore from backup.</li>
+    </ol>
+
+    <div class="info-box danger">
+      <span class="icon">&#9888;</span>
+      <div>
+        <strong>No CI pipeline exists yet.</strong> There are no GitHub Actions or automated test/lint stages configured. Tests must be run manually before merging. Setting up CI is recommended.
+      </div>
+    </div>
+  </section>
+
+  <!-- ────────────────────── 8. OBSERVABILITY ────────────────────── -->
+  <section id="observability">
+    <h2><span class="section-num">8</span> Observability</h2>
+
+    <h3>Logging</h3>
+    <ul>
+      <li><strong>Logger</strong>: NestJS built-in logger (console-based)</li>
+      <li><strong>Format</strong>: Structured with timestamp, context (module name), message</li>
+      <li><strong>Notification Audit Trail</strong>: All notification delivery attempts logged to <code>NotificationAuditLog</code> table with requestId, channel, provider, status, and error details</li>
+    </ul>
+
+    <h3>Metrics</h3>
+    <ul>
+      <li><strong>Token Usage</strong>: Tracked per user in <code>tokensUsedThisMonth</code> field with monthly reset</li>
+      <li><strong>Streak Data</strong>: <code>StreakHistory</code> table provides daily engagement metrics</li>
+      <li><strong>Session Completion Rate</strong>: Derivable from <code>ReflectionSession.status</code> distribution</li>
+      <li><strong>Notification Delivery Rate</strong>: Via <code>NotificationAuditLog</code> status counts</li>
+    </ul>
+
+    <h3>Health Endpoint</h3>
+    <ul>
+      <li><code>GET /</code> &mdash; Root endpoint returns 200 if app is healthy</li>
+      <li>Docker HEALTHCHECK polls every 30s with 3s timeout</li>
+    </ul>
+
+    <div class="info-box info">
+      <span class="icon">&#9432;</span>
+      <div>
+        <strong>No external observability stack configured.</strong> Consider adding: structured JSON logging, APM integration (Datadog/New Relic), and centralized log aggregation. Railway provides basic deploy logs.
+      </div>
+    </div>
+  </section>
+
+  <!-- ────────────────────── 9. RUNBOOKS ────────────────────── -->
+  <section id="runbooks">
+    <h2><span class="section-num">9</span> Operations Runbooks</h2>
+
+    <h3>Service Won't Start</h3>
+    <table>
+      <thead><tr><th>Step</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>Symptoms</td><td>Container exits immediately, health check fails, Railway shows "crashed"</td></tr>
+        <tr><td>Quick Check</td><td>Check Railway logs for startup errors. Most common: <code>DATABASE_URL</code> not set, Prisma migration failure, missing env vars.</td></tr>
+        <tr><td>Mitigation</td><td>1) Verify all required env vars in Railway. 2) Check if PostgreSQL is reachable. 3) Run <code>prisma migrate deploy</code> manually if migration stuck.</td></tr>
+        <tr><td>Escalation</td><td>If DB is unreachable &rarr; check Railway PostgreSQL service. If code error &rarr; revert last deploy.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>DB Connection Exhaustion</h3>
+    <table>
+      <thead><tr><th>Step</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>Symptoms</td><td><code>PrismaClientKnownRequestError: Can't reach database server</code>, timeouts on all endpoints</td></tr>
+        <tr><td>Quick Check</td><td>Check Prisma connection pool settings. Default pool size is 10 connections.</td></tr>
+        <tr><td>Mitigation</td><td>1) Restart the app container. 2) Add <code>?connection_limit=5</code> to DATABASE_URL if needed. 3) Check for uncommitted transactions.</td></tr>
+        <tr><td>Root Cause</td><td>Long-running queries, unclosed connections, or too many concurrent requests for pool size.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Notification Queue Backlog</h3>
+    <table>
+      <thead><tr><th>Step</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>Symptoms</td><td>Notifications delayed, DLQ growing, Redis memory increasing</td></tr>
+        <tr><td>Quick Check</td><td>Connect to Redis and check queue length: <code>redis-cli LLEN bull:notification_dispatch:wait</code></td></tr>
+        <tr><td>Mitigation</td><td>1) Check if email/SMS providers are responding (Mailjet, Twilio status pages). 2) Restart notification consumer. 3) Check DLQ entries for error patterns.</td></tr>
+        <tr><td>Escalation</td><td>If provider is down &rarr; wait or switch to backup provider. If code bug &rarr; hotfix and deploy.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>OpenAI API Errors / Rate Limits</h3>
+    <table>
+      <thead><tr><th>Step</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>Symptoms</td><td>Reflection sessions stuck at PENDING or BELIEF_CAPTURED, 429 errors in logs</td></tr>
+        <tr><td>Quick Check</td><td>Check OpenAI API status page. Check token usage at platform.openai.com.</td></tr>
+        <tr><td>Mitigation</td><td>1) Rate limited &rarr; wait for reset or increase limits on OpenAI dashboard. 2) Check <code>OPENAI_API_KEY</code> validity. 3) If billing issue &rarr; add credits.</td></tr>
+        <tr><td>User Impact</td><td>Users cannot complete reflection sessions. Existing completed sessions still work.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Elevated 5xx / Latency Spikes</h3>
+    <table>
+      <thead><tr><th>Step</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>Symptoms</td><td>Railway logs show 500 errors, users report slow/failed requests</td></tr>
+        <tr><td>Quick Check</td><td>1) Check Railway deploy logs. 2) Check DB connection health. 3) Check Redis connectivity. 4) Check external API status (OpenAI, Firebase).</td></tr>
+        <tr><td>Mitigation</td><td>1) Restart container in Railway. 2) If DB-related &rarr; check connection pool. 3) If external API &rarr; check provider status pages.</td></tr>
+        <tr><td>Escalation</td><td>If persistent &rarr; rollback to last known good deploy.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ────────────────────── 10. SECURITY ────────────────────── -->
+  <section id="security">
+    <h2><span class="section-num">10</span> Security &amp; Access</h2>
+
+    <h3>Authentication &amp; Authorization</h3>
+    <ul>
+      <li><strong>Identity Provider</strong>: Firebase Authentication (manages user identities)</li>
+      <li><strong>API Protection</strong>: <code>FirebaseGuard</code> validates Firebase ID tokens on all protected routes</li>
+      <li><strong>OAuth Flows</strong>: Google, Apple, Facebook sign-in supported</li>
+      <li><strong>Token Revocation</strong>: Revoked token checking enabled</li>
+      <li><strong>Password Reset</strong>: OTP-based flow with expiration and single-use enforcement</li>
+    </ul>
+
+    <h3>Data Security</h3>
+    <ul>
+      <li><strong>Input Sanitization</strong>: HTML input sanitized with <code>isomorphic-dompurify</code> to prevent XSS</li>
+      <li><strong>Request Validation</strong>: All DTOs validated with <code>class-validator</code></li>
+      <li><strong>Password Hashing</strong>: <code>bcryptjs</code> for any locally-stored credentials</li>
+      <li><strong>CORS</strong>: Restricted to <code>FRONTEND_URL</code> origin</li>
+    </ul>
+
+    <h3>Secrets Management</h3>
+    <table>
+      <thead><tr><th>Secret Type</th><th>Storage</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>API Keys (OpenAI, Mailjet, etc.)</td><td>Railway environment variables</td><td>Never committed to Git</td></tr>
+        <tr><td>Firebase Service Account</td><td><code>firebase-credentials.json</code> or env vars</td><td>Mounted read-only in Docker</td></tr>
+        <tr><td>Database URL</td><td>Railway env var</td><td>Contains credentials</td></tr>
+        <tr><td>JWT Secret</td><td>Railway env var</td><td>Used for custom JWT signing</td></tr>
+      </tbody>
+    </table>
+
+  </section>
+
+  <!-- ────────────────────── 11. COST OVERVIEW ────────────────────── -->
+  <section id="cost-overview">
+    <h2><span class="section-num">11</span> Cost Overview</h2>
+
+    <h3>A) Cost Model Summary</h3>
+    <p>Self-Risen runs as a single containerized service on Railway with managed PostgreSQL and Redis add-ons. The primary cost drivers are:</p>
+
+    <table>
+      <thead><tr><th>Rank</th><th>Cost Driver</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><strong>OpenAI API</strong></td><td>Per-request cost: Whisper ($0.006/min), GPT-3.5 (~$0.002/1K tokens), TTS-1 ($0.015/1K chars). Scales linearly with user sessions.</td></tr>
+        <tr><td>2</td><td><strong>Railway Compute</strong></td><td>Single container: CPU + RAM usage-based billing. Includes app, PostgreSQL, and Redis services.</td></tr>
+        <tr><td>3</td><td><strong>Storage (Firebase/Supabase)</strong></td><td>Audio files (affirmation recordings, user uploads), images (avatars, journal, vision boards). Grows with user base.</td></tr>
+        <tr><td>4</td><td><strong>Email/SMS Providers</strong></td><td>Mailjet (free tier: 200 emails/day), Twilio (per-SMS), Expo Push (free)</td></tr>
+        <tr><td>5</td><td><strong>Network Egress</strong></td><td>Audio file serving, API responses. Railway includes some egress in plans.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>B) Cost Breakdown (Per Environment)</h3>
+    <table>
+      <thead>
+        <tr><th>Component</th><th>Dev (Local)</th><th>Staging (Railway)</th><th>Production (Railway)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Compute (App)</td><td>$0 (local Docker)</td><td>~$5&ndash;10/mo</td><td>~$10&ndash;25/mo (usage-based)</td></tr>
+        <tr><td>PostgreSQL</td><td>$0 (local Docker)</td><td>~$5/mo</td><td>~$10&ndash;20/mo</td></tr>
+        <tr><td>Redis</td><td>$0 (local Docker)</td><td>~$5/mo</td><td>~$5&ndash;10/mo</td></tr>
+        <tr><td>OpenAI API</td><td>~$1&ndash;5/mo (testing)</td><td>~$5&ndash;10/mo</td><td>Variable: ~$0.05&ndash;0.10/session</td></tr>
+        <tr><td>Storage (Firebase/Supabase)</td><td>Free tier</td><td>Free tier</td><td>~$0&ndash;25/mo (scales with data)</td></tr>
+        <tr><td>Email (Mailjet)</td><td>Free</td><td>Free tier</td><td>Free (up to 200/day) or ~$15/mo</td></tr>
+        <tr><td>SMS (Twilio)</td><td>$0</td><td>$0</td><td>~$0.01/SMS</td></tr>
+        <tr><td><strong>Estimated Total</strong></td><td><strong>$1&ndash;5/mo</strong></td><td><strong>$20&ndash;30/mo</strong></td><td><strong>$30&ndash;80+/mo</strong></td></tr>
+      </tbody>
+    </table>
+
+    <h3>C) Per-Session Cost Attribution (Reflection)</h3>
+    <p>Each reflection session triggers the most expensive pipeline:</p>
+    <table>
+      <thead><tr><th>Step</th><th>API Call</th><th>Estimated Cost per Call</th></tr></thead>
+      <tbody>
+        <tr><td>Transcription</td><td>OpenAI Whisper-1</td><td>~$0.006/min of audio</td></tr>
+        <tr><td>NLP Transformation</td><td>OpenAI GPT-3.5-turbo</td><td>~$0.002&ndash;0.005 per request</td></tr>
+        <tr><td>Text-to-Speech (x3&ndash;5 affirmations)</td><td>OpenAI TTS-1</td><td>~$0.015/1K chars &times; number of affirmations</td></tr>
+        <tr><td>Storage Upload</td><td>Firebase/Supabase</td><td>Negligible per file</td></tr>
+        <tr><td><strong>Total per session</strong></td><td></td><td><strong>~$0.05&ndash;0.15</strong></td></tr>
+      </tbody>
+    </table>
+
+    <h3>D) Optimization Opportunities</h3>
+    <div class="card-grid">
+      <div class="card" style="border-left: 4px solid var(--success);">
+        <h4>Cache Affirmation Audio</h4>
+        <p>If users regenerate audio for the same text with the same voice, cache and reuse. Could save 30&ndash;50% of TTS costs.</p>
+      </div>
+      <div class="card" style="border-left: 4px solid var(--success);">
+        <h4>Token Usage Limits</h4>
+        <p>Already implemented (30K tokens/month/user). Monitor and tune the limit based on actual usage patterns.</p>
+      </div>
+      <div class="card" style="border-left: 4px solid var(--success);">
+        <h4>Batch TTS Generation</h4>
+        <p>Generate all affirmation audios in parallel rather than sequential to reduce wall-clock time (latency, not cost).</p>
+      </div>
+      <div class="card" style="border-left: 4px solid var(--success);">
+        <h4>Image Compression Tuning</h4>
+        <p>Already enabled via Sharp with 3-tier quality. Consider WebP format for smaller file sizes and lower storage costs.</p>
+      </div>
+    </div>
+
+    <h3>E) Aggregated Cost Projections by User Count</h3>
+    <p>Estimates below assume each active user averages <strong>4 reflection sessions/month</strong>, <strong>2 journal entries/month</strong>, <strong>5 image uploads/month</strong>, and <strong>10 notification events/month</strong>. Infrastructure costs are fixed baseline + variable per-user load.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Cost Component</th>
+          <th>50 Users</th>
+          <th>100+ Users</th>
+          <th>Scaling Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td colspan="4" style="background: var(--primary-light); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .5px;">Infrastructure (Fixed + Variable)</td>
+        </tr>
+        <tr>
+          <td>Railway Compute (App)</td>
+          <td>$10&ndash;15/mo</td>
+          <td>$20&ndash;35/mo</td>
+          <td>Single container handles both loads; may need CPU/RAM increase at 100+</td>
+        </tr>
+        <tr>
+          <td>PostgreSQL (Railway)</td>
+          <td>$10&ndash;15/mo</td>
+          <td>$15&ndash;25/mo</td>
+          <td>Grows with row count; indexes keep queries fast</td>
+        </tr>
+        <tr>
+          <td>Redis (Railway)</td>
+          <td>$5/mo</td>
+          <td>$5&ndash;10/mo</td>
+          <td>Queue depth scales with notification volume</td>
+        </tr>
+        <tr>
+          <td colspan="4" style="background: var(--primary-light); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .5px;">AI / OpenAI API (Variable &mdash; Largest Cost Driver)</td>
+        </tr>
+        <tr>
+          <td>Whisper Transcription</td>
+          <td>$6&ndash;12/mo<br><span style="font-size:11px;color:var(--text-secondary)">200 sessions &times; ~1 min avg</span></td>
+          <td>$12&ndash;30/mo<br><span style="font-size:11px;color:var(--text-secondary)">400+ sessions &times; ~1 min avg</span></td>
+          <td>$0.006/min &mdash; scales linearly with session count</td>
+        </tr>
+        <tr>
+          <td>GPT-3.5-turbo (NLP)</td>
+          <td>$1&ndash;2/mo<br><span style="font-size:11px;color:var(--text-secondary)">200 requests</span></td>
+          <td>$2&ndash;5/mo<br><span style="font-size:11px;color:var(--text-secondary)">400+ requests</span></td>
+          <td>~$0.005/request &mdash; cheapest AI component</td>
+        </tr>
+        <tr>
+          <td>TTS-1 (Voice Generation)</td>
+          <td>$12&ndash;24/mo<br><span style="font-size:11px;color:var(--text-secondary)">200 sessions &times; 3&ndash;5 affirmations</span></td>
+          <td>$24&ndash;60/mo<br><span style="font-size:11px;color:var(--text-secondary)">400+ sessions &times; 3&ndash;5 affirmations</span></td>
+          <td>$0.015/1K chars &mdash; largest per-session cost; caching can cut 30&ndash;50%</td>
+        </tr>
+        <tr>
+          <td colspan="4" style="background: var(--primary-light); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .5px;">Storage &amp; Media</td>
+        </tr>
+        <tr>
+          <td>Firebase / Supabase Storage</td>
+          <td>$0&ndash;5/mo<br><span style="font-size:11px;color:var(--text-secondary)">~2&ndash;5 GB total</span></td>
+          <td>$5&ndash;25/mo<br><span style="font-size:11px;color:var(--text-secondary)">~5&ndash;15 GB total</span></td>
+          <td>Audio files + images; grows over time, never shrinks unless purged</td>
+        </tr>
+        <tr>
+          <td>Network Egress</td>
+          <td>Included/minimal</td>
+          <td>$2&ndash;10/mo</td>
+          <td>Audio file downloads dominate; Railway includes some bandwidth</td>
+        </tr>
+        <tr>
+          <td colspan="4" style="background: var(--primary-light); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .5px;">Communications</td>
+        </tr>
+        <tr>
+          <td>Email (Mailjet)</td>
+          <td>$0 (free tier)<br><span style="font-size:11px;color:var(--text-secondary)">~500 emails/mo</span></td>
+          <td>$0&ndash;15/mo<br><span style="font-size:11px;color:var(--text-secondary)">~1,000+ emails/mo</span></td>
+          <td>Free up to 6,000/mo (200/day); paid tier at higher volumes</td>
+        </tr>
+        <tr>
+          <td>SMS (Twilio)</td>
+          <td>$2&ndash;5/mo<br><span style="font-size:11px;color:var(--text-secondary)">~200&ndash;500 SMS</span></td>
+          <td>$5&ndash;15/mo<br><span style="font-size:11px;color:var(--text-secondary)">~500&ndash;1,500 SMS</span></td>
+          <td>$0.0079/SMS (US); international rates higher</td>
+        </tr>
+        <tr>
+          <td>Push Notifications (Expo)</td>
+          <td>$0</td>
+          <td>$0</td>
+          <td>Free &mdash; no cost regardless of volume</td>
+        </tr>
+        <tr style="background: #F0EDFF; font-weight: 700;">
+          <td>ESTIMATED MONTHLY TOTAL</td>
+          <td>$46&ndash;83/mo</td>
+          <td>$90&ndash;230/mo</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="info-box info">
+      <span class="icon">&#9432;</span>
+      <div>
+        <strong>Key Assumptions:</strong>
+        <ul style="margin: 8px 0 0 16px;">
+          <li>Active user = at least 1 reflection session per month</li>
+          <li>Average audio recording length: ~1 minute</li>
+          <li>Average 3&ndash;5 affirmations generated per session, ~150 chars each</li>
+
+          <li>Storage is cumulative &mdash; grows each month as audio/images are stored</li>
+          <li>"100+ users" column models 100&ndash;250 active users; beyond 250, consider scaling compute and upgrading DB plan</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>F) Cost Per User Breakdown</h3>
+    <table>
+      <thead>
+        <tr><th>Metric</th><th>50 Users</th><th>100+ Users</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Cost per user / month</td>
+          <td><strong>$0.92&ndash;$1.66</strong></td>
+          <td><strong>$0.90&ndash;$1.53</strong></td>
+        </tr>
+        <tr>
+          <td>Cost per reflection session</td>
+          <td>$0.10&ndash;$0.19</td>
+          <td>$0.09&ndash;$0.17</td>
+        </tr>
+        <tr>
+          <td>Infrastructure cost per user</td>
+          <td>$0.50</td>
+          <td>$0.40 (economies of scale)</td>
+        </tr>
+        <tr>
+          <td>AI cost per user (OpenAI)</td>
+          <td>$0.38&ndash;$0.76</td>
+          <td>$0.38&ndash;$0.76</td>
+        </tr>
+        <tr>
+          <td>Comms cost per user</td>
+          <td>$0.04&ndash;$0.10</td>
+          <td>$0.05&ndash;$0.12</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="info-box success">
+      <span class="icon">&#10003;</span>
+      <div>
+        <strong>Takeaway:</strong> OpenAI API costs (especially TTS) are the dominant variable cost at ~50&ndash;60% of total spend. Infrastructure costs benefit from economies of scale &mdash; they grow sub-linearly. At both 50 and 100+ users, the per-user cost stays well under $2/month, making the platform cost-efficient for a subscription model priced at $5&ndash;10+/month.
+      </div>
+    </div>
+  </section>
+
+  <!-- ────────────────────── 12. APPENDICES ────────────────────── -->
+  <section id="appendices">
+    <h2><span class="section-num">12</span> Appendices</h2>
+
+    <h3>A. Glossary</h3>
+    <table>
+      <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+      <tbody>
+        <tr><td>Reflection Session</td><td>Core user flow: record a limiting belief &rarr; AI transforms it into positive affirmations &rarr; listen via TTS</td></tr>
+        <tr><td>Wave</td><td>A listening period (duration in days) within a reflection session. Users listen to affirmations daily during a wave.</td></tr>
+        <tr><td>Wheel of Life</td><td>A life-balance assessment tool with 8+ customizable categories, each scored 1&ndash;10</td></tr>
+        <tr><td>Focus</td><td>A selected Wheel of Life category that the user is actively working on improving</td></tr>
+        <tr><td>Vision Board</td><td>A collection of visual inspirations (images) tied to a Wheel category or global</td></tr>
+        <tr><td>TTS Voice Persona</td><td>One of 6 OpenAI voices mapped to personality types (e.g., MALE_CONFIDENT = Onyx)</td></tr>
+        <tr><td>Streak</td><td>Consecutive daily usage count. Resets if a day is missed.</td></tr>
+        <tr><td>Token Usage</td><td>Monthly quota of OpenAI API tokens consumed by a user's reflection sessions</td></tr>
+        <tr><td>DLQ</td><td>Dead Letter Queue &mdash; failed notifications stored for manual review/replay</td></tr>
+        <tr><td>Stater Videos</td><td>Background audio/music tracks available for reflection sessions (naming quirk: "stater" not "starter")</td></tr>
+      </tbody>
+    </table>
+
+    <h3>B. Environment Variable Reference</h3>
+    <table>
+      <thead><tr><th>Variable</th><th>Required</th><th>Default</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>PORT</code></td><td>No</td><td>8080</td><td>HTTP server port</td></tr>
+        <tr><td><code>NODE_ENV</code></td><td>No</td><td>development</td><td>Environment mode</td></tr>
+        <tr><td><code>BASE_URL</code></td><td>Yes</td><td>&mdash;</td><td>API base URL</td></tr>
+        <tr><td><code>FRONTEND_URL</code></td><td>Yes</td><td>&mdash;</td><td>Frontend URL for CORS</td></tr>
+        <tr><td><code>DATABASE_URL</code></td><td>Yes</td><td>&mdash;</td><td>PostgreSQL connection string</td></tr>
+        <tr><td><code>JWT_SECRET</code></td><td>Yes</td><td>&mdash;</td><td>JWT signing secret</td></tr>
+        <tr><td><code>JWT_EXPIRATION</code></td><td>No</td><td>7d</td><td>JWT token expiration</td></tr>
+        <tr><td><code>REDIS_HOST</code></td><td>Yes</td><td>&mdash;</td><td>Redis hostname</td></tr>
+        <tr><td><code>REDIS_PORT</code></td><td>No</td><td>6379</td><td>Redis port</td></tr>
+        <tr><td><code>REDIS_PASSWORD</code></td><td>No</td><td>&mdash;</td><td>Redis password (Railway)</td></tr>
+        <tr><td><code>FIREBASE_PROJECT_ID</code></td><td>Yes</td><td>&mdash;</td><td>Firebase project identifier</td></tr>
+        <tr><td><code>FIREBASE_CLIENT_EMAIL</code></td><td>Yes</td><td>&mdash;</td><td>Firebase service account email</td></tr>
+        <tr><td><code>FIREBASE_PRIVATE_KEY</code></td><td>Yes</td><td>&mdash;</td><td>Firebase private key (escaped newlines)</td></tr>
+        <tr><td><code>STORAGE_PROVIDER</code></td><td>No</td><td>firebase</td><td>"firebase" or "supabase"</td></tr>
+        <tr><td><code>SUPABASE_URL</code></td><td>If supabase</td><td>&mdash;</td><td>Supabase project URL</td></tr>
+        <tr><td><code>SUPABASE_KEY</code></td><td>If supabase</td><td>&mdash;</td><td>Supabase API key</td></tr>
+        <tr><td><code>SUPABASE_BUCKET</code></td><td>If supabase</td><td>&mdash;</td><td>Supabase storage bucket name</td></tr>
+        <tr><td><code>OPENAI_API_KEY</code></td><td>Yes</td><td>&mdash;</td><td>OpenAI API key</td></tr>
+        <tr><td><code>OPENAI_ORGANIZATION</code></td><td>No</td><td>&mdash;</td><td>OpenAI organization ID</td></tr>
+        <tr><td><code>MAILJET_API_KEY</code></td><td>Yes</td><td>&mdash;</td><td>Mailjet API key</td></tr>
+        <tr><td><code>MAILJET_API_SECRET</code></td><td>Yes</td><td>&mdash;</td><td>Mailjet API secret</td></tr>
+        <tr><td><code>MAILJET_FROM_EMAIL</code></td><td>Yes</td><td>&mdash;</td><td>Sender email for Mailjet</td></tr>
+        <tr><td><code>TWILIO_ACCOUNT_SID</code></td><td>No</td><td>&mdash;</td><td>Twilio SID (if SMS enabled)</td></tr>
+        <tr><td><code>TWILIO_AUTH_TOKEN</code></td><td>No</td><td>&mdash;</td><td>Twilio auth token</td></tr>
+        <tr><td><code>TWILIO_PHONE_NUMBER</code></td><td>No</td><td>&mdash;</td><td>Twilio sender phone number</td></tr>
+        <tr><td><code>APPLE_CLIENT_ID</code></td><td>No</td><td>&mdash;</td><td>Apple Sign-In client ID</td></tr>
+        <tr><td><code>ENABLE_IMAGE_COMPRESSION</code></td><td>No</td><td>false</td><td>Toggle image compression</td></tr>
+        <tr><td><code>ENABLE_VIDEO_COMPRESSION</code></td><td>No</td><td>false</td><td>Toggle video compression</td></tr>
+      </tbody>
+    </table>
+
+    <h3>C. Key File Paths</h3>
+    <table>
+      <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>src/main.ts</code></td><td>Application bootstrap (port, Swagger setup, CORS)</td></tr>
+        <tr><td><code>src/app.module.ts</code></td><td>Root module &mdash; imports all feature modules</td></tr>
+        <tr><td><code>prisma/schema.prisma</code></td><td>Database schema definition</td></tr>
+        <tr><td><code>prisma/migrations/</code></td><td>Database migration files</td></tr>
+        <tr><td><code>Dockerfile</code></td><td>Multi-stage Docker build</td></tr>
+        <tr><td><code>docker-compose.yml</code></td><td>Full stack local setup</td></tr>
+        <tr><td><code>docker-compose.dev.yml</code></td><td>Dev-specific compose overrides</td></tr>
+        <tr><td><code>railway.json</code></td><td>Railway deployment config</td></tr>
+        <tr><td><code>nest-cli.json</code></td><td>NestJS CLI configuration</td></tr>
+        <tr><td><code>tsconfig.json</code></td><td>TypeScript compiler options</td></tr>
+      </tbody>
+    </table>
+
+    <h3>D. Dependencies Summary</h3>
+    <table>
+      <thead><tr><th>Category</th><th>Packages</th></tr></thead>
+      <tbody>
+        <tr><td>Framework</td><td>@nestjs/core, @nestjs/common, @nestjs/platform-express, @nestjs/config</td></tr>
+        <tr><td>Database</td><td>@prisma/client, prisma</td></tr>
+        <tr><td>Auth</td><td>firebase-admin, passport, @nestjs/passport, @nestjs/jwt, jose, bcryptjs</td></tr>
+        <tr><td>AI/ML</td><td>openai</td></tr>
+        <tr><td>Queue</td><td>bull, @nestjs/bull, ioredis</td></tr>
+        <tr><td>Email</td><td>node-mailjet, nodemailer, mailgun.js</td></tr>
+        <tr><td>SMS</td><td>twilio</td></tr>
+        <tr><td>Push</td><td>expo-server-sdk</td></tr>
+        <tr><td>Storage</td><td>firebase, @supabase/supabase-js</td></tr>
+        <tr><td>Media</td><td>sharp, fluent-ffmpeg</td></tr>
+        <tr><td>Validation</td><td>class-validator, class-transformer, isomorphic-dompurify</td></tr>
+        <tr><td>API Docs</td><td>@nestjs/swagger, swagger-ui-express</td></tr>
+        <tr><td>WebSocket</td><td>@nestjs/websockets, @nestjs/platform-socket.io, socket.io</td></tr>
+        <tr><td>Testing</td><td>jest, ts-jest, supertest, @nestjs/testing</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Footer -->
+  <div style="text-align: center; padding: 40px 0 20px; color: var(--text-secondary); font-size: 12px;">
+    <p>Self-Risen Backend Handover Documentation &middot; v1.0 &middot; March 2026</p>
+
+  </div>
+</div>
+
+<script>
+  // Sidebar active link highlighting on scroll
+  const sections = document.querySelectorAll('section, .cover');
+  const navLinks = document.querySelectorAll('.sidebar nav a');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(link => link.classList.remove('active'));
+        const activeLink = document.querySelector(`.sidebar nav a[href="#${entry.target.id}"]`);
+        if (activeLink) activeLink.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -80% 0px' });
+
+  sections.forEach(section => observer.observe(section));
+</script>
+</body>
+</html>

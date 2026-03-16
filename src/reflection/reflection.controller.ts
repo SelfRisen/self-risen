@@ -758,15 +758,10 @@ export class ReflectionController extends BaseController {
         });
     }
 
-    @Delete('sessions/:sessionId/affirmations/:affirmationId')
+    @Delete('sessions/affirmations/:affirmationId')
     @ApiOperation({
         summary: 'Delete an affirmation',
         description: 'Removes an affirmation from the session. Cannot delete if it\'s the only affirmation or if it\'s currently selected.',
-    })
-    @ApiParam({
-        name: 'sessionId',
-        description: 'The unique identifier of the reflection session',
-        example: 'session-id-123',
     })
     @ApiParam({
         name: 'affirmationId',
