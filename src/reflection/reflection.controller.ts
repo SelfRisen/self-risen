@@ -788,10 +788,9 @@ export class ReflectionController extends BaseController {
     })
     async deleteAffirmation(
         @FirebaseUser() user: auth.DecodedIdToken,
-        @Param('sessionId') sessionId: string,
         @Param('affirmationId') affirmationId: string,
     ) {
-        const result = await this.reflectionService.deleteAffirmation(user.uid, sessionId, affirmationId);
+        const result = await this.reflectionService.deleteAffirmation(user.uid, affirmationId);
         if (result.isError) throw result.error;
 
         return this.response({
