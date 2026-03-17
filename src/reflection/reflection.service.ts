@@ -1373,6 +1373,9 @@ export class ReflectionService extends BaseService {
             where: {
                 id: affirmationId,
             },
+            include: {
+                session: true
+            }
         });
 
         if (!affirmation) {
@@ -1382,11 +1385,20 @@ export class ReflectionService extends BaseService {
         }
 
         // Prevent deletion if it's the selected affirmation
-        if (affirmation.isSelected) {
-            return this.HandleError(
-                new BadRequestException('Cannot delete the selected affirmation. Please select a different affirmation first.'),
-            );
-        }
+        // if (affirmation.isSelected) {
+        //     return this.HandleError(
+        //         new BadRequestException('Cannot delete the selected affirmation. Please select a different affirmation first.'),
+        //     );
+        // }
+
+        if (affirmation.isSelected)
+            await this.prisma.reflectionSession.update({
+                where: { id: affirmation.sessionId },
+                data: {
+                    selectedAffirmationText: null,
+                    selectedAffirmationAudioUrl: null,
+                },
+            });
 
         try {
             // Delete the affirmation
