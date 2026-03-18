@@ -1211,14 +1211,21 @@ export class ReflectionService extends BaseService {
                           include: {
                               session: {
                                   select: {
-                                      userAffirmationAudioUrl: true,
                                       isGlobal: true,
+                                      reflectionSound: {
+                                          select: {
+                                              id: true,
+                                              soundUrl: true,
+                                          },
+                                      },
                                   },
                               },
                           },
                       }),
             }),
         ]);
+
+        
 
         const totalPages = Math.ceil(totalCount / pageSize);
 
