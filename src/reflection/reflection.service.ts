@@ -1211,7 +1211,7 @@ export class ReflectionService extends BaseService {
                           include: {
                               session: {
                                   select: {
-                                      isGlobal: true,
+                                      isVision: true,
                                       reflectionSound: {
                                           select: {
                                               id: true,
