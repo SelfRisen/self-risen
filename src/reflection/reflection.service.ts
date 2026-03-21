@@ -891,23 +891,23 @@ export class ReflectionService extends BaseService {
                 durationDays,
                 isActive: true,
             },
-            include: {
-                session: {
-                    include: {
-                        category: {
-                            select: { id: true, name: true },
-                        },
-                        waves: {
-                            where: { isActive: true },
-                            orderBy: { createdAt: 'desc' },
-                            take: 1,
-                        },
-                    },
-                },
-            },
+            // include: {
+            //     session: {
+            //         include: {
+            //             category: {
+            //                 select: { id: true, name: true },
+            //             },
+            //             waves: {
+            //                 where: { isActive: true },
+            //                 orderBy: { createdAt: 'desc' },
+            //                 take: 1,
+            //             },
+            //         },
+            //     },
+            // },
         });
 
-        return this.Results(createdWave.session);
+        return this.Results(createdWave);
     }
 
     /**
@@ -1031,6 +1031,26 @@ export class ReflectionService extends BaseService {
         return this.Results(updatedWave);
     }
 
+    async getWave(firebaseId: string, waveId: string) {
+        const user = await this.getUserByFirebaseId(firebaseId);
+        if (!user) {
+            return this.HandleError(new NotFoundException('User not found'));
+        }
+
+        const wave = await this.prisma.wave.findFirst({
+            where: {
+                id: waveId,
+            },
+        });
+        console.log(wave);
+
+        if (!wave) {
+            return this.HandleError(new NotFoundException('Wave not found'));
+        }
+
+        return this.Results(wave);
+    }
+
     /**
      * Delete a wave
      */
@@ -1044,23 +1064,24 @@ export class ReflectionService extends BaseService {
             where: {
                 id: waveId,
             },
-            include: {
-                session: {
-                    select: {
-                        id: true,
-                        userId: true,
-                    },
-                },
-            },
+            // include: {
+            //     session: {
+            //         select: {
+            //             id: true,
+            //             userId: true,
+            //         },
+            //     },
+            // },
         });
+        console.log(wave);
 
         if (!wave) {
             return this.HandleError(new NotFoundException('Wave not found'));
         }
 
-        if (wave.session.userId !== user.id) {
-            return this.HandleError(new NotFoundException('Wave not found'));
-        }
+        // if (wave.session.userId !== user.id) {
+        //     return this.HandleError(new NotFoundException('Wave not found'));
+        // }
 
         // Delete wave
         await this.prisma.wave.delete({

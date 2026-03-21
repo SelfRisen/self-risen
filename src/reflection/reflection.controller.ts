@@ -818,5 +818,35 @@ export class ReflectionController extends BaseController {
             data: result.data,
         });
     }
+
+    @Get('waves/:waveId')
+    @ApiOperation({
+        summary: 'Get a wave',
+        description: 'Retrieves a wave by ID. User must own the wave.',
+    })
+    @ApiParam({
+        name: 'waveId',
+        description: 'The unique identifier of the wave',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Wave retrieved successfully',
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'Wave not found',
+    })
+    async getWave(
+        @FirebaseUser() user: auth.DecodedIdToken,
+        @Param('waveId') waveId: string,
+    ) {
+        const result = await this.reflectionService.getWave(user.uid, waveId);
+        if (result.isError) throw result.error;
+
+        return this.response({
+            message: 'Wave retrieved successfully',
+            data: result.data,
+        });
+    }
 }
 
