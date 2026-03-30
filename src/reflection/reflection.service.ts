@@ -54,33 +54,25 @@ export class ReflectionService extends BaseService {
             return this.HandleError(new NotFoundException('User not found'));
         }
 
-        const category = await this.validateCategoryOwnership(user.id, dto.categoryId);
-        if (!category) {
-            return this.HandleError(new NotFoundException('Category not found or does not belong to user'));
+        if (dto.categoryId) {
+            const category = await this.validateCategoryOwnership(user.id, dto.categoryId);
+            if (!category) {
+                return this.HandleError(new NotFoundException('Category not found or does not belong to user'));
+            }
+
+            const prompt = this.generatePrompt(category.name);
+
+            const session = await this.prisma.reflectionSession.create({
+                data: {
+                    userId: user.id,
+                    categoryId: dto.categoryId,
+                    prompt,
+                    status: 'PENDING',
+                },
+            });
+
+            return this.Results(session);
         }
-
-        const prompt = this.generatePrompt(category.name);
-
-        const session = await this.prisma.reflectionSession.create({
-            data: {
-                userId: user.id,
-                categoryId: dto.categoryId,
-                prompt,
-                status: 'PENDING',
-            },
-        });
-
-
-        return this.Results(session);
-    }
-
-    async createSessionWithOutCategory(firebaseId: string) {
-        const user = await this.getUserByFirebaseId(firebaseId);
-        if (!user) {
-            return this.HandleError(new NotFoundException('User not found'));
-        }
-
-        // const prompt = 'An area of my life I want to improve is...';
 
         const session = await this.prisma.reflectionSession.create({
             data: {
@@ -122,6 +114,69 @@ export class ReflectionService extends BaseService {
         }
 
         return this.Results(session);
+    }
+
+    async getAllSessions(
+        firebaseId: string,
+        page: number = 1,
+        limit: number = 10,
+        categoryId?: string
+    ) {
+        const user = await this.getUserByFirebaseId(firebaseId);
+        if (!user) {
+            return this.HandleError(new NotFoundException('User not found'));
+        }
+
+        const pageNumber = Math.max(1, Math.floor(page));
+        const pageSize = Math.max(1, Math.min(100, Math.floor(limit)));
+        const skip = (pageNumber - 1) * pageSize;
+
+        const whereClause: any = { userId: user.id };
+        if (categoryId) {
+            whereClause.categoryId = categoryId;
+        }
+
+        const totalCount = await this.prisma.reflectionSession.count({
+            where: whereClause,
+        });
+
+        const sessions = await this.prisma.reflectionSession.findMany({
+            where: whereClause,
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: pageSize,
+            include: {
+                category: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
+                reflectionSound: {
+                    select: {
+                        id: true,
+                        soundUrl: true,
+                        name: true,
+                        fileSize: true,
+                        mimeType: true,
+                    },
+                },
+            },
+        });
+
+        const totalPages = Math.ceil(totalCount / pageSize);
+
+        return this.Results({
+            data: sessions,
+            pagination: {
+                page: pageNumber,
+                limit: pageSize,
+                total: totalCount,
+                totalPages,
+                hasNextPage: pageNumber < totalPages,
+                hasPreviousPage: pageNumber > 1,
+            },
+        });
     }
 
     /**
@@ -210,69 +265,6 @@ export class ReflectionService extends BaseService {
 
         return this.Results({
             sound: session.reflectionSound ?? null,
-        });
-    }
-
-    async getAllSessions(
-        firebaseId: string,
-        page: number = 1,
-        limit: number = 10,
-        categoryId?: string
-    ) {
-        const user = await this.getUserByFirebaseId(firebaseId);
-        if (!user) {
-            return this.HandleError(new NotFoundException('User not found'));
-        }
-
-        const pageNumber = Math.max(1, Math.floor(page));
-        const pageSize = Math.max(1, Math.min(100, Math.floor(limit)));
-        const skip = (pageNumber - 1) * pageSize;
-
-        const whereClause: any = { userId: user.id };
-        if (categoryId) {
-            whereClause.categoryId = categoryId;
-        }
-
-        const totalCount = await this.prisma.reflectionSession.count({
-            where: whereClause,
-        });
-
-        const sessions = await this.prisma.reflectionSession.findMany({
-            where: whereClause,
-            orderBy: { createdAt: 'desc' },
-            skip,
-            take: pageSize,
-            include: {
-                category: {
-                    select: {
-                        id: true,
-                        name: true,
-                    },
-                },
-                reflectionSound: {
-                    select: {
-                        id: true,
-                        soundUrl: true,
-                        name: true,
-                        fileSize: true,
-                        mimeType: true,
-                    },
-                },
-            },
-        });
-
-        const totalPages = Math.ceil(totalCount / pageSize);
-
-        return this.Results({
-            data: sessions,
-            pagination: {
-                page: pageNumber,
-                limit: pageSize,
-                total: totalCount,
-                totalPages,
-                hasNextPage: pageNumber < totalPages,
-                hasPreviousPage: pageNumber > 1,
-            },
         });
     }
 

@@ -29,7 +29,7 @@ import { FirebaseUser, StreakInterceptor } from 'src/common';
 import { auth } from 'firebase-admin';
 import { BaseController } from 'src/common';
 import { VisionBoardService } from './vision-board.service';
-import { AddVisionDto, AddVisionToGlobalBoardDto, UpdateVisionDto, SetVisionSoundDto, ReorderVisionDto, ReorderSoundDto, CreateVisionBoardForCategoryDto } from './dto';
+import { AddVisionDto, AddVisionToGlobalBoardDto, CreateBoardDto, UpdateVisionDto, SetVisionSoundDto, ReorderVisionDto, ReorderSoundDto } from './dto';
 
 @UseGuards(FirebaseGuard)
 @UseInterceptors(StreakInterceptor)
@@ -102,32 +102,32 @@ export class VisionBoardController extends BaseController {
         });
     }
 
-    @Post('visions/global')
-    @ApiOperation({
-        summary: 'Duplicate a vision onto the global vision board',
-        description: 'Creates a copy of an existing vision (same image and background sound) on the user\'s global vision board. The source vision must belong to the user. Reflection session is not copied (one session can only link to one vision).',
-    })
-    @ApiBody({ type: AddVisionToGlobalBoardDto })
-    @ApiResponse({
-        status: 201,
-        description: 'Vision duplicated to global board successfully',
-    })
-    @ApiResponse({
-        status: 404,
-        description: 'User, vision board, or source vision not found',
-    })
-    async addVisionToGlobalBoard(
-        @FirebaseUser() user: auth.DecodedIdToken,
-        @Body() dto: AddVisionToGlobalBoardDto,
-    ) {
-        const result = await this.visionBoardService.addVisionToGlobalBoard(user.uid, dto.visionId);
-        if (result.isError) throw result.error;
+    // @Post('visions/global')
+    // @ApiOperation({
+    //     summary: 'Duplicate a vision onto the global vision board',
+    //     description: 'Creates a copy of an existing vision (same image and background sound) on the user\'s global vision board. The source vision must belong to the user. Reflection session is not copied (one session can only link to one vision).',
+    // })
+    // @ApiBody({ type: AddVisionToGlobalBoardDto })
+    // @ApiResponse({
+    //     status: 201,
+    //     description: 'Vision duplicated to global board successfully',
+    // })
+    // @ApiResponse({
+    //     status: 404,
+    //     description: 'User, vision board, or source vision not found',
+    // })
+    // async addVisionToGlobalBoard(
+    //     @FirebaseUser() user: auth.DecodedIdToken,
+    //     @Body() dto: AddVisionToGlobalBoardDto,
+    // ) {
+    //     const result = await this.visionBoardService.addVisionToGlobalBoard(user.uid, dto.visionId);
+    //     if (result.isError) throw result.error;
 
-        return this.response({
-            message: 'Vision added to global board successfully',
-            data: result.data,
-        });
-    }
+    //     return this.response({
+    //         message: 'Vision added to global board successfully',
+    //         data: result.data,
+    //     });
+    // }
 
     @Get('visions')
     @ApiOperation({
@@ -608,27 +608,27 @@ export class VisionBoardController extends BaseController {
 
     @Post('boards')
     @ApiOperation({
-        summary: 'Create a vision board for a category',
-        description: 'Creates a vision board for a specific Wheel of Life category. If the category already has a vision board, returns the existing one. Category must belong to the user\'s wheel.',
+        summary: 'Create a vision board',
+        description: 'Creates a new vision board with a given name.',
     })
-    @ApiBody({ type: CreateVisionBoardForCategoryDto })
+    @ApiBody({ type: CreateBoardDto })
     @ApiResponse({
         status: 201,
-        description: 'Vision board created or existing board returned',
+        description: 'Vision board created',
     })
     @ApiResponse({
         status: 404,
-        description: 'User or category not found',
+        description: 'User not found',
     })
-    async createVisionBoardForCategory(
+    async createVisionBoard(
         @FirebaseUser() user: auth.DecodedIdToken,
-        @Body() dto: CreateVisionBoardForCategoryDto,
+        @Body() dto: CreateBoardDto,
     ) {
-        const result = await this.visionBoardService.createVisionBoard(user.uid, dto.categoryId);
+        const result = await this.visionBoardService.createVisionBoard(user.uid, dto);
         if (result.isError) throw result.error;
 
         return this.response({
-            message: result.data.created ? 'Vision board created' : 'Vision board already exists for this category',
+            message: 'Vision board created',
             data: result.data,
         });
     }

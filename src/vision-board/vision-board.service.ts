@@ -3,7 +3,7 @@ import { DatabaseProvider } from 'src/database/database.provider';
 import { BaseService } from 'src/common';
 import { StorageService, FileType } from 'src/common/storage/storage.service';
 import { StaterVideosService } from 'src/stater-videos/stater-videos.service';
-import { AddVisionDto } from './dto';
+import { AddVisionDto, CreateBoardDto } from './dto';
 import { ReflectionSessionStatus, Prisma } from '@prisma/client';
 
 const visionInclude = {
@@ -238,57 +238,57 @@ export class VisionBoardService extends BaseService {
         return this.Results(this.mapVisionToResponse(visionItem));
     }
 
-    async addVisionToGlobalBoard(
-        firebaseId: string,
-        visionId: string,
-    ) {
-        const user = await this.getUserByFirebaseId(firebaseId);
-        if (!user) {
-            return this.HandleError(new NotFoundException('User not found'));
-        }
+    // async addVisionToGlobalBoard(
+    //     firebaseId: string,
+    //     visionId: string,
+    // ) {
+    //     const user = await this.getUserByFirebaseId(firebaseId);
+    //     if (!user) {
+    //         return this.HandleError(new NotFoundException('User not found'));
+    //     }
 
-        const [visionBoard, sourceVision] = await Promise.all([
-            this.prisma.visionBoard.findFirst({
-                where: {
-                    userId: user.id,
-                    isGloabal: true,
-                },
-            }),
-            this.prisma.vision.findFirst({
-                where: {
-                    id: visionId,
-                    visionBoard: { userId: user.id },
-                },
-            }),
-        ]);
+    //     const [visionBoard, sourceVision] = await Promise.all([
+    //         this.prisma.visionBoard.findFirst({
+    //             where: {
+    //                 userId: user.id,
+    //                 isGloabal: true,
+    //             },
+    //         }),
+    //         this.prisma.vision.findFirst({
+    //             where: {
+    //                 id: visionId,
+    //                 visionBoard: { userId: user.id },
+    //             },
+    //         }),
+    //     ]);
 
-        if (!visionBoard) {
-            return this.HandleError(new NotFoundException('Vision board not found'));
-        }
-        if (!sourceVision) {
-            return this.HandleError(new NotFoundException('Vision not found'));
-        }
+    //     if (!visionBoard) {
+    //         return this.HandleError(new NotFoundException('Vision board not found'));
+    //     }
+    //     if (!sourceVision) {
+    //         return this.HandleError(new NotFoundException('Vision not found'));
+    //     }
 
-        const maxOrderItem = await this.prisma.vision.findFirst({
-            where: { visionBoardId: visionBoard.id },
-            orderBy: { order: 'desc' },
-        });
-        const order = maxOrderItem ? (maxOrderItem.order || 0) + 1 : 1;
+    //     const maxOrderItem = await this.prisma.vision.findFirst({
+    //         where: { visionBoardId: visionBoard.id },
+    //         orderBy: { order: 'desc' },
+    //     });
+    //     const order = maxOrderItem ? (maxOrderItem.order || 0) + 1 : 1;
 
-        const visionItem = await this.prisma.vision.create({
-            data: {
-                visionBoard: { connect: { id: visionBoard.id } },
-                order,
-                ...(sourceVision.imageUrl && { imageUrl: sourceVision.imageUrl }),
-                ...(sourceVision.visionSoundId && {
-                    visionSound: { connect: { id: sourceVision.visionSoundId } },
-                }),
-            },
-            include: visionInclude,
-        });
+    //     const visionItem = await this.prisma.vision.create({
+    //         data: {
+    //             visionBoard: { connect: { id: visionBoard.id } },
+    //             order,
+    //             ...(sourceVision.imageUrl && { imageUrl: sourceVision.imageUrl }),
+    //             ...(sourceVision.visionSoundId && {
+    //                 visionSound: { connect: { id: sourceVision.visionSoundId } },
+    //             }),
+    //         },
+    //         include: visionInclude,
+    //     });
 
-        return this.Results(this.mapVisionToResponse(visionItem));
-    }
+    //     return this.Results(this.mapVisionToResponse(visionItem));
+    // }
 
     /**
      * Get all visions for user's vision board (paginated).
@@ -840,63 +840,19 @@ export class VisionBoardService extends BaseService {
         });
     }
 
-    /**
-     * Create a vision board for a specific Wheel of Life category.
-     * If the category already has a vision board, returns the existing one.
-     */
-    async createVisionBoard(firebaseId: string, categoryId: string) {
+    async createVisionBoard(firebaseId: string, createBoardDto: CreateBoardDto) {
         const user = await this.getUserByFirebaseId(firebaseId);
         if (!user) {
             return this.HandleError(new NotFoundException('User not found'));
         }
 
-        const category = await this.prisma.wheelCategory.findFirst({
-            where: {
-                id: categoryId,
-                wheel: { userId: user.id },
-            },
-            include: { visionBoard: true },
-        });
-
-        if (!category) {
-            return this.HandleError(new NotFoundException('Category not found or does not belong to user'));
-        }
-
-        if (category.visionBoard) {
-            const existing = await this.prisma.visionBoard.findUnique({
-                where: { id: category.visionBoard.id },
-                include: {
-                    category: {
-                        select: { id: true, name: true, order: true },
-                    },
-                    _count: { select: { visions: true } },
-                },
-            });
-            if (existing) {
-                return this.Results({
-                    board: {
-                        id: existing.id,
-                        categoryId: existing.categoryId,
-                        category: existing.category,
-                        visionCount: existing._count.visions,
-                        isGlobal: existing.isGloabal,
-                        createdAt: existing.createdAt,
-                        updatedAt: existing.updatedAt,
-                    },
-                    created: false,
-                });
-            }
-        }
-
         const board = await this.prisma.visionBoard.create({
             data: {
                 userId: user.id,
-                categoryId: category.id,
+                isGloabal: false,
+                name: createBoardDto.name,
             },
             include: {
-                category: {
-                    select: { id: true, name: true, order: true },
-                },
                 _count: { select: { visions: true } },
             },
         });
@@ -904,14 +860,11 @@ export class VisionBoardService extends BaseService {
         return this.Results({
             board: {
                 id: board.id,
-                categoryId: board.categoryId,
-                category: board.category,
-                visionCount: board._count.visions,
+                name: board.name,
                 isGlobal: board.isGloabal,
                 createdAt: board.createdAt,
                 updatedAt: board.updatedAt,
             },
-            created: true,
         });
     }
 

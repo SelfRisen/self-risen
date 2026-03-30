@@ -44,7 +44,7 @@ export class ReflectionController extends BaseController {
     @Post('sessions')
     @ApiOperation({
         summary: 'Create a new reflection session',
-        description: 'Creates a new reflection session for a specific Wheel of Life category. Returns the session with a generated prompt. Note: Reflection sessions do not have durations. To create a listening period with duration, use the waves endpoint after generating an affirmation.',
+        description: 'Creates a new reflection session. If categoryId is provided, the session is tied to that Wheel of Life category and a prompt is generated. If omitted, a global session (no category) is created.',
     })
     @ApiBody({ type: CreateSessionDto })
     async createSession(
@@ -56,21 +56,6 @@ export class ReflectionController extends BaseController {
 
         return this.response({
             message: 'Reflection session created',
-            data: result.data,
-        });
-    }
-
-    @Post('sessions/without-category')
-    @ApiOperation({
-        summary: 'Create a reflection session without a category',
-        description: 'Creates a new reflection session not tied to any Wheel of Life category.',
-    })
-    async createSessionWithoutCategory(@FirebaseUser() user: auth.DecodedIdToken) {
-        const result = await this.reflectionService.createSessionWithOutCategory(user.uid);
-        if (result.isError) throw result.error;
-
-        return this.response({
-            message: 'Reflection session created (no category)',
             data: result.data,
         });
     }

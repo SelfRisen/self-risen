@@ -289,12 +289,13 @@ model VisionBoard {
   userId     String
   user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   visions    Vision[]
+  name       String?
   isGloabal  Boolean        @default(false)
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
 
-  @@index([categoryId])
-  @@index([userId])
+  @@index([userId, isGloabal])
+  @@index([userId, name])
 }
 
 model Vision {

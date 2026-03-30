@@ -3,12 +3,11 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateSessionDto {
     @ApiProperty({
-        description: 'The ID of the Wheel of Life category to reflect on',
+        description: 'The ID of the Wheel of Life category to reflect on. If omitted, a global session (no category) is created.',
         example: 'cat-id-123',
-        required: true
+        required: false,
     })
     @IsString()
-    @IsNotEmpty()
-    categoryId: string;
+    @IsOptional()
+    categoryId?: string;
 }
-
