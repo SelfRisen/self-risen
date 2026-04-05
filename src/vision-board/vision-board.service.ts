@@ -826,6 +826,7 @@ export class VisionBoardService extends BaseService {
 
         const boards = visionBoards.map((board) => ({
             id: board.id,
+            name: board.name,
             categoryId: board.categoryId,
             category: board.category,
             visionCount: board._count.visions,
