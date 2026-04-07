@@ -758,7 +758,8 @@ export class ReflectionService extends BaseService {
             const updatedSession = await this.prisma.reflectionSession.update({
                 where: { id: sessionId },
                 data: {
-                    userAffirmationAudioUrl: uploadResult.url,
+                    // userAffirmationAudioUrl: uploadResult.url,
+                    audioUrl: uploadResult.url,
                 },
                 include: {
                     category: {
