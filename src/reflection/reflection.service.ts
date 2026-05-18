@@ -10,6 +10,7 @@ import { INotificationService } from 'src/notifications/interfaces/notification.
 import { NotificationTypeEnum, NotificationChannelTypeEnum } from 'src/notifications/enums/notification.enum';
 import { randomUUID } from 'crypto';
 import { StaterVideosService } from 'src/stater-videos/stater-videos.service';
+import type { OmniCbtResponse } from './services/nlp-transformation.service';
 
 @Injectable()
 export class ReflectionService extends BaseService {
@@ -403,6 +404,40 @@ export class ReflectionService extends BaseService {
             );
         }
 
+        // OMNI-CBT safety intercept: if the model flags a safety issue, do not persist the model payload.
+        if (transformation.omni?.isSafetyIssue === true) {
+            const hardcodedSafetyPayload = this.getHardcodedSafetyPayload(transformation.omni);
+
+            const updateData: any = {
+                limitingBelief: transformation.limitingBelief,
+                status: 'AFFIRMATION_GENERATED',
+                selectedAffirmationText: hardcodedSafetyPayload,
+                selectedAffirmationAudioUrl: null,
+            };
+
+            const updatedSession = await this.prisma.reflectionSession.update({
+                where: { id: sessionId },
+                data: updateData,
+                include: {
+                    category: {
+                        select: { id: true, name: true },
+                    },
+                    affirmations: {
+                        orderBy: { createdAt: 'desc' },
+                    },
+                },
+            });
+
+            this.logger.warn(
+                `OMNI safety gate triggered; returning hardcoded payload for session ${sessionId} (riskType=${transformation.omni.riskType}, riskLevel=${transformation.omni.riskLevel})`,
+            );
+            return this.Results({
+                ...updatedSession,
+                isSafetyOverride: true,
+                userMessage: hardcodedSafetyPayload,
+            });
+        }
+
         // Single path: create affirmation and update session (no second NLP call)
         const isFirstAffirmation = session.affirmations.length === 0;
         const nextOrder = session.affirmations.length;
@@ -460,6 +495,40 @@ export class ReflectionService extends BaseService {
 
         this.logger.log(`Created affirmation ${newAffirmation.id} for session ${sessionId} (order: ${nextOrder}, selected: ${isFirstAffirmation})`);
         return this.Results(updatedSession);
+    }
+
+    private getHardcodedSafetyPayload(omni: OmniCbtResponse): string {
+        const fallback =
+            'Please contact your local emergency services, go to the nearest emergency room, or reach out to a trusted person who can help you right now.';
+
+        const urgency =
+            omni.riskLevel === 'imminent'
+                ? 'This sounds urgent.'
+                : omni.riskLevel === 'elevated'
+                    ? 'This sounds serious.'
+                    : 'I’m concerned by what you shared.';
+
+        if (omni.isThirdPartyConcern) {
+            return `${urgency} If you can contact them safely, stay connected with them now, involve someone who can physically reach them, and use local emergency services if they may act soon. ${fallback}`;
+        }
+
+        switch (omni.riskType) {
+            case 'self_harm':
+                return `${urgency} I’m concerned about your immediate safety. ${fallback}`;
+            case 'harm_to_others':
+                return `${urgency} Put distance between yourself and the person you might hurt, move away from any weapons, and contact local emergency services or urgent crisis support. ${fallback}`;
+            case 'abuse':
+                return `${urgency} Your safety comes first. If you can do so without escalating the situation, move toward a safer place and contact local emergency services or a trusted person. Avoid confronting them if that could increase danger. ${fallback}`;
+            case 'immediate_danger':
+                return `${urgency} Move to the safest place you can and contact local emergency services right now. ${fallback}`;
+            case 'psychosis_or_reality_testing':
+                return `${urgency} That sounds frightening. I can’t verify what’s happening, but I do want you to stay safe. If you feel at risk of harming yourself or someone else, contact local emergency services now, and consider reaching out to a trusted person or qualified professional. ${fallback}`;
+            case 'eating_disorder_risk':
+                return `${urgency} This sounds like a risky pattern around food or your body. Your safety matters more than pushing further right now—consider reaching out to a trusted person or medical support soon. ${fallback}`;
+            case 'none':
+            default:
+                return `${urgency} ${fallback}`;
+        }
     }
 
     /**

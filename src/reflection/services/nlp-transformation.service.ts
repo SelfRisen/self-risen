@@ -2,44 +2,55 @@ import { Injectable, Logger } from '@nestjs/common';
 import { config, BaseService } from 'src/common';
 import OpenAI from 'openai';
 import { TokenUsageService } from 'src/user/token-usage.service';
+import { OMNI_CBT_V6_4_PROMPT } from '../prompts/omni-cbt-v6_4.prompt';
 
+export type OmniCbtRiskType =
+    | 'none'
+    | 'self_harm'
+    | 'harm_to_others'
+    | 'abuse'
+    | 'immediate_danger'
+    | 'psychosis_or_reality_testing'
+    | 'eating_disorder_risk';
+
+export type OmniCbtRiskLevel = 'none' | 'unclear' | 'elevated' | 'imminent';
+
+export type OmniCbtInputType = 'personal_belief' | 'mental_health_education' | 'unrelated' | 'gibberish' | 'safety';
+
+export type OmniCbtIntensity = 'High' | 'Medium' | 'Low';
+
+export type OmniCbtSupportType = 'reframe' | 'validation' | 'celebration' | 'grounding' | 'safety' | 'fallback';
+
+export type OmniCbtConfidence = 'High' | 'Medium' | 'Low';
+
+export interface OmniCbtResponse {
+    isSafetyIssue: boolean;
+    isThirdPartyConcern: boolean;
+    riskType: OmniCbtRiskType;
+    riskLevel: OmniCbtRiskLevel;
+    isPersonalBelief: boolean;
+    inputType: OmniCbtInputType;
+    intensity: OmniCbtIntensity;
+    detectedDistortion: string | null;
+    primaryEmotion: string;
+    supportType: OmniCbtSupportType;
+    reflectiveSummary: string;
+    generatedAffirmation: string | null;
+    socraticPivot: string | null;
+    confidence: OmniCbtConfidence;
+}
+
+export type TransformBeliefResult = {
+    limitingBelief: string;
+    generatedAffirmation: string;
+    omni?: OmniCbtResponse;
+};
+ 
 @Injectable()
 export class NlpTransformationService extends BaseService {
     private readonly logger = new Logger(NlpTransformationService.name);
     private openai: OpenAI | null = null;
-    private readonly systemPrompt = `You are a cognitive reframing assistant specializing in transforming limiting beliefs into empowering affirmations.
-
-Your role is to:
-1. Identify and extract the core belief pattern from the user's statement (which may be limiting, neutral, or already positive)
-2. Transform it into a positive, empowering affirmation that:
-   - Is written in first person (I am, I have, I can, etc.)
-   - Is present tense and actionable
-   - DIRECTLY addresses the specific topic/domain of the original belief (e.g., body image, relationships, work, etc.)
-   - Uses language and concepts from the same domain as the original statement
-   - Is specific and meaningful (not generic)
-   - Maintains psychological authenticity
-   - Empowers the user to see new possibilities
-   - Is not a generic statement like "I choose to see new possibilities"
-   - Is not a cliché
-   - Focuses on the user's specific situation and concern
-
-Guidelines:
-- If the user's statement contains a limiting belief, extract it as a clear, concise statement of the negative pattern
-- If the user's statement is already positive, identify the core belief or intention and strengthen/refine it
-- If the user's statement is neutral, identify the core belief or intention and actively emphasize positive aspects, opportunities, and empowering perspectives
-- The affirmation MUST stay on topic with the original belief. For example:
-  * Body image belief → affirmation about body acceptance/appreciation
-  * Work/career belief → affirmation about professional capability/success
-  * Relationship belief → affirmation about connection/worthiness in relationships
-- AVOID generic affirmations that could apply to any situation
-- The affirmation should directly counter limiting beliefs when present, strengthen positive statements, or transform neutral statements into positive, empowering affirmations
-- Keep affirmations realistic and achievable
-- Use empowering language that inspires action
-- Avoid clichés or overly generic statements
-
-Return your response as a JSON object with exactly these two fields:
-- "limitingBelief": A clear statement of the belief pattern (may be limiting, neutral, or positive)
-- "generatedAffirmation": The empowering affirmation in first person that DIRECTLY addresses the same topic as the limiting belief`;
+    private readonly systemPrompt = OMNI_CBT_V6_4_PROMPT;
 
     constructor(private tokenUsageService: TokenUsageService) {
         super();
@@ -58,7 +69,7 @@ Return your response as a JSON object with exactly these two fields:
      * @param userId - The user's database ID for token tracking
      * @returns Object containing limiting belief and generated affirmation
      */
-    async transformBelief(beliefText: string, userId?: string): Promise<{ limitingBelief: string; generatedAffirmation: string }> {
+    async transformBelief(beliefText: string, userId?: string): Promise<TransformBeliefResult> {
         if (!this.openai) {
             if (config.NODE_ENV === 'development') {
                 this.logger.warn('OpenAI not configured. Returning placeholder transformation.');
@@ -131,7 +142,7 @@ Return your response as a JSON object with exactly these two fields:
             }
 
             // Parse JSON response
-            let parsedResponse: { limitingBelief: string; generatedAffirmation: string };
+            let parsedResponse: OmniCbtResponse;
             try {
                 parsedResponse = JSON.parse(content);
             } catch (parseError) {
@@ -139,17 +150,24 @@ Return your response as a JSON object with exactly these two fields:
                 throw new Error('Invalid JSON response from OpenAI');
             }
 
-            // Validate response structure
-            if (!parsedResponse.limitingBelief || !parsedResponse.generatedAffirmation) {
+            // Sanitize and validate
+            const limitingBelief = this.sanitizeText(beliefText);
+            const generatedAffirmation = this.sanitizeText(parsedResponse.generatedAffirmation ?? '');
+
+            // Validate response structure (minimum required for downstream app flow)
+            if (
+                typeof parsedResponse?.isSafetyIssue !== 'boolean' ||
+                typeof parsedResponse?.reflectiveSummary !== 'string' ||
+                (typeof parsedResponse?.generatedAffirmation !== 'string' && parsedResponse?.generatedAffirmation !== null)
+            ) {
                 throw new Error('Missing required fields in OpenAI response');
             }
 
-            // Sanitize and validate
-            const limitingBelief = this.sanitizeText(parsedResponse.limitingBelief);
-            const generatedAffirmation = this.sanitizeText(parsedResponse.generatedAffirmation);
-
-            if (limitingBelief.length === 0 || generatedAffirmation.length === 0) {
-                throw new Error('Empty fields after sanitization');
+            // Non-safety flows must provide a usable affirmation for the existing app contract.
+            if (!parsedResponse.isSafetyIssue) {
+                if (generatedAffirmation.length === 0) {
+                    throw new Error('Empty generatedAffirmation after sanitization');
+                }
             }
 
             if (generatedAffirmation.length > 500 && config.NODE_ENV === 'development') {
@@ -163,6 +181,7 @@ Return your response as a JSON object with exactly these two fields:
             return {
                 limitingBelief,
                 generatedAffirmation,
+                omni: parsedResponse,
             };
         } catch (error) {
             this.logger.error(`Error in NLP transformation: ${error.message}`, error.stack);
@@ -206,7 +225,7 @@ Return your response as a JSON object with exactly these two fields:
     /**
      * Get placeholder transformation when OpenAI is unavailable or fails
      */
-    private getPlaceholderTransformation(beliefText: string): { limitingBelief: string; generatedAffirmation: string } {
+    private getPlaceholderTransformation(beliefText: string): TransformBeliefResult {
         const limitingBelief = beliefText || 'Belief pattern not identified';
         const generatedAffirmation = 'I am transforming my relationship with this belief. I choose to see new possibilities and create positive change in my life.';
 

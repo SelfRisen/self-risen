@@ -41,6 +41,10 @@ export class CompressionService {
   // Minimum file size to compress (skip very small files)
   private readonly MIN_COMPRESS_SIZE = 10 * 1024; // 10KB
 
+  // Maximum output size for compressed videos
+  private readonly MAX_VIDEO_OUTPUT_SIZE = 50 * 1024 * 1024; // 50MB
+  private readonly MAX_COMPRESSION_ATTEMPTS = 3;
+
   /**
    * Compress an image using Sharp
    * Converts to WebP format with adaptive quality
@@ -149,42 +153,85 @@ export class CompressionService {
       return null;
     }
 
+    const inputExt = this.getExtensionFromMime(file.mimetype);
+    const tmpDir = os.tmpdir();
+    const inputPath = path.join(tmpDir, `ffmpeg-input-${Date.now()}${inputExt}`);
+
     try {
-      // Determine bitrate based on file size
-      // Larger files get lower bitrate for more compression
-      let targetBitrate: string;
-      if (originalSize < 5 * 1024 * 1024) {
-        // < 5MB: 1M bitrate
-        targetBitrate = '1M';
-      } else if (originalSize < 50 * 1024 * 1024) {
-        // 5MB - 50MB: 2M bitrate
-        targetBitrate = '2M';
+      // Write input to temp file for probing and compression
+      fs.writeFileSync(inputPath, file.buffer);
+
+      // Get video duration to calculate target bitrate
+      const durationSecs = await this.getVideoDuration(inputPath);
+      this.logger.debug(`Video duration: ${durationSecs.toFixed(1)}s`);
+
+      // Calculate bitrate to fit within MAX_VIDEO_OUTPUT_SIZE
+      // Formula: bitrate (bits/s) = target_size_bits / duration
+      // Reserve ~128kbps for audio
+      const audioBitrate = 128 * 1024; // 128kbps in bits/s
+      const maxVideoBitrate = Math.floor(
+        (this.MAX_VIDEO_OUTPUT_SIZE * 8) / durationSecs - audioBitrate,
+      );
+
+      // Start with either the calculated bitrate or a reasonable default
+      let targetBitrateNum: number;
+      if (originalSize <= this.MAX_VIDEO_OUTPUT_SIZE) {
+        // Already under limit — use moderate compression
+        targetBitrateNum = Math.min(2_000_000, maxVideoBitrate);
       } else {
-        // > 50MB: 3M bitrate
-        targetBitrate = '3M';
+        // Use 90% of calculated max to leave margin
+        targetBitrateNum = Math.floor(maxVideoBitrate * 0.9);
+      }
+      // Floor at 200kbps to avoid unwatchable output
+      targetBitrateNum = Math.max(targetBitrateNum, 200_000);
+
+      let compressedBuffer: Buffer | null = null;
+
+      for (let attempt = 1; attempt <= this.MAX_COMPRESSION_ATTEMPTS; attempt++) {
+        const targetBitrate = `${Math.floor(targetBitrateNum / 1000)}k`;
+        this.logger.debug(
+          `Compression attempt ${attempt}/${this.MAX_COMPRESSION_ATTEMPTS}: ${file.originalname}, Original: ${(originalSize / (1024 * 1024)).toFixed(2)}MB, Target bitrate: ${targetBitrate}`,
+        );
+
+        compressedBuffer = await this.compressVideoWithFfmpeg(
+          inputPath,
+          targetBitrate,
+        );
+
+        const compressedSize = compressedBuffer.length;
+        this.logger.debug(
+          `Attempt ${attempt} result: ${(compressedSize / (1024 * 1024)).toFixed(2)}MB`,
+        );
+
+        if (compressedSize <= this.MAX_VIDEO_OUTPUT_SIZE) {
+          break;
+        }
+
+        // Reduce bitrate proportionally for next attempt
+        const ratio = this.MAX_VIDEO_OUTPUT_SIZE / compressedSize;
+        targetBitrateNum = Math.floor(targetBitrateNum * ratio * 0.9);
+        targetBitrateNum = Math.max(targetBitrateNum, 200_000);
+        this.logger.warn(
+          `Compressed size ${(compressedSize / (1024 * 1024)).toFixed(2)}MB exceeds ${(this.MAX_VIDEO_OUTPUT_SIZE / (1024 * 1024)).toFixed(0)}MB limit, retrying with lower bitrate`,
+        );
       }
 
-      this.logger.debug(
-        `Compressing video: ${file.originalname}, Original size: ${(originalSize / (1024 * 1024)).toFixed(2)}MB, Target bitrate: ${targetBitrate}`,
-      );
-
-      // Compress video using ffmpeg
-      const compressedBuffer = await this.compressVideoWithFfmpeg(
-        file.buffer,
-        targetBitrate,
-        file.mimetype,
-      );
-
-      const compressedSize = compressedBuffer.length;
+      const compressedSize = compressedBuffer!.length;
       const reductionPercentage =
         ((originalSize - compressedSize) / originalSize) * 100;
+
+      if (compressedSize > this.MAX_VIDEO_OUTPUT_SIZE) {
+        this.logger.warn(
+          `Could not compress ${file.originalname} below ${(this.MAX_VIDEO_OUTPUT_SIZE / (1024 * 1024)).toFixed(0)}MB after ${this.MAX_COMPRESSION_ATTEMPTS} attempts (final: ${(compressedSize / (1024 * 1024)).toFixed(2)}MB)`,
+        );
+      }
 
       this.logger.log(
         `Video compressed: ${file.originalname} - ${(originalSize / (1024 * 1024)).toFixed(2)}MB → ${(compressedSize / (1024 * 1024)).toFixed(2)}MB (${reductionPercentage.toFixed(1)}% reduction)`,
       );
 
       return {
-        buffer: compressedBuffer,
+        buffer: compressedBuffer!,
         mimetype: 'video/mp4',
         originalSize,
         compressedSize,
@@ -194,7 +241,9 @@ export class CompressionService {
       this.logger.warn(
         `Failed to compress video ${file.originalname}: ${error.message}. Using original file.`,
       );
-      return null; // Return null to indicate compression failed, use original
+      return null;
+    } finally {
+      try { fs.unlinkSync(inputPath); } catch {}
     }
   }
 
@@ -232,23 +281,37 @@ export class CompressionService {
   }
 
   /**
-   * Compress video buffer using ffmpeg with temp files
+   * Get video duration in seconds using ffprobe
+   */
+  private async getVideoDuration(inputPath: string): Promise<number> {
+    return new Promise((resolve, reject) => {
+      ffmpeg.ffprobe(inputPath, (err, metadata) => {
+        if (err) {
+          reject(new Error(`ffprobe error: ${err.message}`));
+          return;
+        }
+        const duration = metadata?.format?.duration;
+        if (!duration || duration <= 0) {
+          reject(new Error('Could not determine video duration'));
+          return;
+        }
+        resolve(duration);
+      });
+    });
+  }
+
+  /**
+   * Compress video using ffmpeg with temp files
    * Uses temp files instead of streams so ffmpeg can seek (required for MOV, AVI, etc.)
    */
   private async compressVideoWithFfmpeg(
-    inputBuffer: Buffer,
+    inputPath: string,
     targetBitrate: string,
-    mimetype: string = 'video/mp4',
   ): Promise<Buffer> {
-    const inputExt = this.getExtensionFromMime(mimetype);
     const tmpDir = os.tmpdir();
-    const inputPath = path.join(tmpDir, `ffmpeg-input-${Date.now()}${inputExt}`);
     const outputPath = path.join(tmpDir, `ffmpeg-output-${Date.now()}.mp4`);
 
     try {
-      // Write input buffer to temp file so ffmpeg can seek
-      fs.writeFileSync(inputPath, inputBuffer);
-
       const compressedBuffer = await new Promise<Buffer>((resolve, reject) => {
         ffmpeg(inputPath)
           .videoCodec('libx264')
@@ -256,8 +319,9 @@ export class CompressionService {
           .outputOptions([
             '-preset fast',
             `-b:v ${targetBitrate}`,
+            '-maxrate', targetBitrate,
+            '-bufsize', `${parseInt(targetBitrate) * 2}k`,
             '-movflags +faststart',
-            '-crf 23',
           ])
           .format('mp4')
           .on('error', (err) => {
@@ -276,8 +340,6 @@ export class CompressionService {
 
       return compressedBuffer;
     } finally {
-      // Clean up temp files
-      try { fs.unlinkSync(inputPath); } catch {}
       try { fs.unlinkSync(outputPath); } catch {}
     }
   }

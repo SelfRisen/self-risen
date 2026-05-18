@@ -271,6 +271,7 @@ export class WheelOfLifeService extends BaseService {
         return this.Results(breakdown);
     }
 
+    // Edit this to show pervious results
     async getAssessmentHistory(firebaseId: string) {
         const user = await this.getUserByFirebaseId(firebaseId);
         if (!user) {

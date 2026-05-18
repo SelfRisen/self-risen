@@ -49,6 +49,18 @@ export class ReflectionSessionResponseDto {
     @ApiProperty({ required: false, description: 'Text of the currently selected affirmation (snapshot on session)' })
     selectedAffirmationText?: string;
 
+    @ApiProperty({
+        required: false,
+        description: 'Set to true when the server overrides AI output due to a safety issue',
+    })
+    isSafetyOverride?: boolean;
+
+    @ApiProperty({
+        required: false,
+        description: 'User-visible message to display immediately (used for safety override responses)',
+    })
+    userMessage?: string;
+
     @ApiProperty({ enum: ['PENDING', 'BELIEF_CAPTURED', 'AFFIRMATION_GENERATED', 'COMPLETED'] })
     status: string;
 
