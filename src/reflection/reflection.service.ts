@@ -448,7 +448,7 @@ export class ReflectionService extends BaseService {
         const voiceToStore = voiceForTts ?? null;
 
         let audioUrl: string | null = null;
-        if (isFirstAffirmation && transformation.generatedAffirmation) {
+        if (transformation.generatedAffirmation) {
             try {
                 audioUrl = await this.textToSpeechService.generateAffirmationAudio(
                     transformation.generatedAffirmation,

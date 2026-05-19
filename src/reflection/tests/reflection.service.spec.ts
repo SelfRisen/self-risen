@@ -429,6 +429,71 @@ describe('ReflectionService', () => {
       expect(result.isError).toBe(false);
       expect(result.data?.status).toBe('AFFIRMATION_GENERATED');
       expect(mockPrisma.affirmation.create).toHaveBeenCalled();
+      expect(mockTextToSpeechService.generateAffirmationAudio).toHaveBeenCalledWith(
+        'I am healthy and vibrant',
+        mockUser.id,
+        expect.anything(),
+      );
+    });
+
+    it('should generate TTS on subsequent affirmation generations', async () => {
+      const sessionWithExistingAffirmation = {
+        ...sessionWithBelief,
+        status: 'AFFIRMATION_GENERATED',
+        affirmations: [
+          {
+            id: 'affirmation-existing',
+            sessionId: 'session-123',
+            affirmationText: 'I am healthy and vibrant',
+            audioUrl: 'https://audio-url.com/old.mp3',
+            isSelected: true,
+            order: 0,
+            ttsVoicePreference: TtsVoicePreference.MALE_CONFIDENT,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
+      };
+
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.reflectionSession.findFirst.mockResolvedValue(sessionWithExistingAffirmation);
+      mockNlpTransformationService.transformBelief.mockResolvedValue({
+        limitingBelief: 'I am not healthy',
+        generatedAffirmation: 'I choose health every day',
+      });
+      mockTextToSpeechService.generateAffirmationAudio.mockResolvedValue('https://audio-url.com/new.mp3');
+      mockPrisma.affirmation.create.mockResolvedValue({
+        id: 'affirmation-new',
+        sessionId: 'session-123',
+        affirmationText: 'I choose health every day',
+        audioUrl: 'https://audio-url.com/new.mp3',
+        isSelected: false,
+        order: 1,
+        ttsVoicePreference: TtsVoicePreference.MALE_CONFIDENT,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      mockPrisma.reflectionSession.update.mockResolvedValue({
+        ...sessionWithExistingAffirmation,
+        category: mockCategory,
+      });
+
+      const result = await service.generateAffirmation('firebase-uid-123', 'session-123');
+
+      expect(result.isError).toBe(false);
+      expect(mockTextToSpeechService.generateAffirmationAudio).toHaveBeenCalledWith(
+        'I choose health every day',
+        mockUser.id,
+        expect.anything(),
+      );
+      expect(mockPrisma.affirmation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            audioUrl: 'https://audio-url.com/new.mp3',
+            isSelected: false,
+          }),
+        }),
+      );
     });
 
     it('should override payload and not persist when OMNI safety gate triggers', async () => {
