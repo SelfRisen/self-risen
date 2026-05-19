@@ -81,7 +81,10 @@ export class AudioMergeService {
         durationSeconds: number,
         fadeStartSeconds: number,
     ): Promise<void> {
-        const filterComplex = `[0:a]volume=${BACKGROUND_VOLUME}[bg];[1:a][bg]amix=inputs=2:duration=first:dropout_transition=0[out]`;
+        const filterComplex =
+            `[0:a]volume=${BACKGROUND_VOLUME}[bg];` +
+            `[1:a][bg]amix=inputs=2:duration=first:dropout_transition=0[mixed];` +
+            `[mixed]afade=t=out:st=${fadeStartSeconds}:d=${FADE_SECONDS}[out]`;
 
         await this.runFfmpeg((command) =>
             command
@@ -92,7 +95,6 @@ export class AudioMergeService {
                 .outputOptions([
                     '-map', '[out]',
                     '-t', String(durationSeconds),
-                    `-af`, `afade=t=out:st=${fadeStartSeconds}:d=${FADE_SECONDS}`,
                     '-c:a', 'libmp3lame',
                     '-b:a', '192k',
                     '-ar', '44100',

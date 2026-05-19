@@ -76,8 +76,6 @@ export class AffirmationLoopService extends BaseService {
             },
             include: { session: { select: { userId: true } } },
         });
-        console.log(affirmations);
-
         if (affirmations.length !== dto.affirmationIds.length) {
             return this.HandleError(
                 new BadRequestException('One or more affirmations were not found'),

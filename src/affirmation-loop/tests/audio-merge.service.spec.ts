@@ -57,10 +57,13 @@ describe('AudioMergeService', () => {
         );
 
         expect(mockCommand.complexFilter).toHaveBeenCalledWith(
-            expect.stringContaining('volume=0.25'),
+            expect.stringMatching(/volume=0\.25.*afade=t=out/),
         );
         expect(mockCommand.complexFilter).toHaveBeenCalledWith(
             expect.not.stringContaining('loudnorm'),
+        );
+        expect(mockCommand.outputOptions).not.toHaveBeenCalledWith(
+            expect.arrayContaining(['-af']),
         );
         expect(mockCommand.outputOptions).toHaveBeenCalledWith(
             expect.arrayContaining(['-ac', '2']),
