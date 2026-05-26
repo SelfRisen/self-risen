@@ -23,6 +23,7 @@ describe('AudioMergeProcessor', () => {
     const baseLoop = {
         id: 'loop-1',
         userId: 'user-1',
+        durationSeconds: 180,
         backgroundMusicKey: 'meditation',
         voicePreference: 'FEMALE_EMPATHETIC' as const,
         items: [
@@ -114,6 +115,12 @@ describe('AudioMergeProcessor', () => {
         await processor.handleMerge(job);
 
         expect(mockTts.generateAffirmationAudio).toHaveBeenCalled();
+        expect(mockMerge.mergeLoopAudio).toHaveBeenCalledWith(
+            expect.any(Array),
+            expect.any(String),
+            expect.any(String),
+            180,
+        );
         expect(mockPrisma.affirmationLoop.update).toHaveBeenCalledWith(
             expect.objectContaining({
                 where: { id: 'loop-1' },

@@ -7,6 +7,7 @@ import {
     NotificationChannelTypeEnum,
     NotificationTypeEnum,
 } from 'src/notifications/enums/notification.enum';
+import { DEFAULT_LOOP_REMINDER_TIMES } from './loop-reminder.constants';
 
 const MAX_USERS_PER_RUN = 500;
 const NOTIFY_BATCH_SIZE = 25;
@@ -22,7 +23,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 function getCurrentTimeInZone(
     timezone: string,
     now?: Date,
-): { timeStr: string } {
+): { hour: number; timeStr: string } {
     const instant = now ?? new Date();
     const parts = instant
         .toLocaleString('en-CA', {
@@ -35,7 +36,23 @@ function getCurrentTimeInZone(
     const hour = parseInt(parts[0], 10);
     const minute = parseInt(parts[1], 10);
     const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-    return { timeStr };
+    return { hour, timeStr };
+}
+
+function getLoopReminderMessage(hour: number): { title: string; body: string; reminderKind: string } {
+    const isMorning = hour >= 5 && hour < 12;
+    if (isMorning) {
+        return {
+            title: 'Morning affirmation loop',
+            body: 'Start your day with your affirmation audio loop.',
+            reminderKind: 'morning',
+        };
+    }
+    return {
+        title: 'Evening affirmation loop',
+        body: 'Wind down with your affirmation audio loop.',
+        reminderKind: 'evening',
+    };
 }
 
 @Injectable()
@@ -47,7 +64,8 @@ export class LoopReminderService {
         private readonly notificationService: INotificationService,
     ) {}
 
-    @Cron('0 * * * *')
+    /** Every minute: match user's local time against custom times or defaults (08:00, 20:00). */
+    @Cron('* * * * *')
     async sendLoopReminders() {
         const now = new Date();
         const dateKey = now.toISOString().slice(0, 10);
@@ -56,64 +74,54 @@ export class LoopReminderService {
             where: {
                 loopReminderEnabled: true,
                 pushTokens: { isEmpty: false },
-                OR: [
-                    { loopReminderMorning: { not: null } },
-                    { loopReminderEvening: { not: null } },
-                ],
             },
             select: {
                 id: true,
                 timezone: true,
-                loopReminderMorning: true,
-                loopReminderEvening: true,
+                loopReminderTimes: true,
             },
             orderBy: { id: 'asc' },
             take: MAX_USERS_PER_RUN,
         });
 
-        const toNotify: Array<{
-            id: string;
-            kind: 'morning' | 'evening';
-        }> = [];
+        type UserToNotify = { id: string; hour: number; reminderKind: string; title: string; body: string };
+        const toNotify: UserToNotify[] = [];
 
         for (const user of users) {
             const tz = (user.timezone || 'UTC').trim() || 'UTC';
-            const { timeStr } = getCurrentTimeInZone(tz, now);
+            const { hour, timeStr } = getCurrentTimeInZone(tz, now);
+            const times =
+                user.loopReminderTimes.length > 0
+                    ? user.loopReminderTimes
+                    : [...DEFAULT_LOOP_REMINDER_TIMES];
 
-            if (user.loopReminderMorning === timeStr) {
-                toNotify.push({ id: user.id, kind: 'morning' });
-            } else if (user.loopReminderEvening === timeStr) {
-                toNotify.push({ id: user.id, kind: 'evening' });
+            if (!times.includes(timeStr)) {
+                continue;
             }
+
+            const { title, body, reminderKind } = getLoopReminderMessage(hour);
+            toNotify.push({ id: user.id, hour, reminderKind, title, body });
         }
 
         for (const batch of chunk(toNotify, NOTIFY_BATCH_SIZE)) {
             const results = await Promise.allSettled(
-                batch.map((user) => {
-                    const isMorning = user.kind === 'morning';
-                    const title = isMorning
-                        ? 'Morning affirmation loop'
-                        : 'Evening affirmation loop';
-                    const body = isMorning
-                        ? 'Start your day with your affirmation audio loop.'
-                        : 'Wind down with your affirmation audio loop.';
-
-                    return this.notificationService.notifyUser({
+                batch.map((user) =>
+                    this.notificationService.notifyUser({
                         userId: user.id,
                         type: NotificationTypeEnum.AFFIRMATION_LOOP_REMINDER,
-                        requestId: `loop-reminder-${user.id}-${dateKey}-${user.kind}-${randomUUID()}`,
+                        requestId: `loop-reminder-${user.id}-${dateKey}-${user.reminderKind}-${randomUUID()}`,
                         channels: [
                             { type: NotificationChannelTypeEnum.PUSH },
                             { type: NotificationChannelTypeEnum.IN_APP },
                         ],
                         metadata: {
-                            title,
-                            body,
-                            reminderKind: user.kind,
+                            title: user.title,
+                            body: user.body,
+                            reminderKind: user.reminderKind,
                             screen: 'AffirmationLoop',
                         },
-                    });
-                }),
+                    }),
+                ),
             );
 
             results.forEach((result, i) => {

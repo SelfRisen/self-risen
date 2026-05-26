@@ -65,7 +65,7 @@ describe('AffirmationLoopService', () => {
                             id: 'loop-1',
                             status: AffirmationLoopStatus.PROCESSING,
                             audioPath: null,
-                            durationSeconds: null,
+                            durationSeconds: 180,
                             backgroundMusicKey: 'meditation',
                             voicePreference: null,
                             errorMessage: null,
@@ -108,6 +108,7 @@ describe('AffirmationLoopService', () => {
         const result = await service.createLoop('fb-1', {
             affirmationIds: ['aff-1'],
             backgroundMusicKey: 'meditation',
+            durationSeconds: 180,
         });
 
         expect(result.isError).toBe(true);
@@ -121,6 +122,7 @@ describe('AffirmationLoopService', () => {
         const result = await service.createLoop('fb-1', {
             affirmationIds: ['aff-1'],
             backgroundMusicKey: 'unknown',
+            durationSeconds: 180,
         });
 
         expect(result.isError).toBe(true);
@@ -151,6 +153,7 @@ describe('AffirmationLoopService', () => {
         const result = await service.createLoop('fb-1', {
             affirmationIds: ['aff-1', 'session-2'],
             backgroundMusicKey: 'meditation',
+            durationSeconds: 180,
         });
 
         expect(result.isError).toBe(false);
@@ -166,7 +169,7 @@ describe('AffirmationLoopService', () => {
                         id: 'loop-1',
                         status: AffirmationLoopStatus.PROCESSING,
                         audioPath: null,
-                        durationSeconds: null,
+                        durationSeconds: data.durationSeconds,
                         backgroundMusicKey: 'meditation',
                         voicePreference: null,
                         errorMessage: null,
@@ -186,6 +189,7 @@ describe('AffirmationLoopService', () => {
         expect(tx.affirmationLoop.create).toHaveBeenCalledWith(
             expect.objectContaining({
                 data: expect.objectContaining({
+                    durationSeconds: 180,
                     items: {
                         create: [
                             { affirmationId: 'aff-1', sortOrder: 0 },
@@ -201,9 +205,11 @@ describe('AffirmationLoopService', () => {
         const result = await service.createLoop('fb-1', {
             affirmationIds: ['aff-1'],
             backgroundMusicKey: 'meditation',
+            durationSeconds: 180,
         });
 
         expect(result.isError).toBe(false);
+        expect(result.data?.durationSeconds).toBe(180);
         expect(result.data?.status).toBe(AffirmationLoopStatus.PROCESSING);
         expect(mockPrisma.$transaction).toHaveBeenCalled();
         expect(mockQueue.add).toHaveBeenCalledWith('merge_loop', { loopId: 'loop-1' });

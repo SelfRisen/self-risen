@@ -54,6 +54,7 @@ describe('AudioMergeService', () => {
             ['/tmp/a.mp3', '/tmp/b.mp3'],
             '/tmp/bg.mp3',
             '/tmp/out.mp3',
+            120,
         );
 
         expect(mockCommand.complexFilter).toHaveBeenCalledWith(
@@ -64,6 +65,9 @@ describe('AudioMergeService', () => {
         );
         expect(mockCommand.outputOptions).not.toHaveBeenCalledWith(
             expect.arrayContaining(['-af']),
+        );
+        expect(mockCommand.outputOptions).toHaveBeenCalledWith(
+            expect.arrayContaining(['-t', '60']),
         );
         expect(mockCommand.outputOptions).toHaveBeenCalledWith(
             expect.arrayContaining(['-ac', '2']),

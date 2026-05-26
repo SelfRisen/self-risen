@@ -41,8 +41,7 @@ model User {
   locationUpdatedAt     DateTime?
   loopTokensRemaining   Int                 @default(5)
   loopReminderEnabled   Boolean             @default(false)
-  loopReminderMorning   String?
-  loopReminderEvening   String?
+  loopReminderTimes     String[]            @default([])
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
   wheelOfLife           WheelOfLife?

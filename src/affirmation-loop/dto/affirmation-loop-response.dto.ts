@@ -23,7 +23,8 @@ export class AffirmationLoopResponseDto {
     audioUrl?: string | null;
 
     @ApiProperty({
-        description: 'Duration of the merged loop in seconds. Set when status is READY.',
+        description:
+            'Target loop duration in seconds from creation. After merge completes (READY), reflects the actual output length.',
         required: false,
         nullable: true,
         example: 180,

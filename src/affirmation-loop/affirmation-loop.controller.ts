@@ -46,7 +46,7 @@ export class AffirmationLoopController extends BaseController {
     @ApiOperation({
         summary: 'Create affirmation audio loop',
         description:
-            'Merges the given affirmations with background music into a single MP3. Debits one loop token, enqueues a background merge job, and returns immediately with status PROCESSING. Poll GET /reflection/loops/:id until status is READY (audioUrl available) or FAILED (errorMessage, token refunded).',
+            'Merges the given affirmations with background music into a single MP3. Debits one loop token, enqueues a background merge job, and returns immediately with status PROCESSING and the requested durationSeconds. Poll GET /reflection/loops/:id until status is READY (audioUrl available) or FAILED (errorMessage, token refunded).',
     })
     @ApiBody({ type: CreateAffirmationLoopDto })
     @ApiResponse({
@@ -117,11 +117,33 @@ export class AffirmationLoopController extends BaseController {
         });
     }
 
+    @Get('reminders')
+    @ApiOperation({
+        summary: 'Get loop reminder preferences',
+        description:
+            'Returns loop reminder settings. Empty loopReminderTimes means defaults (08:00 and 20:00 in the user timezone).',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Loop reminder preferences retrieved',
+        type: LoopRemindersResponseDto,
+    })
+    @ApiResponse({ status: 404, description: 'User not found' })
+    async getReminders(@FirebaseUser() user: auth.DecodedIdToken) {
+        const result = await this.affirmationLoopService.getReminders(user.uid);
+        if (result.isError) throw result.error;
+
+        return this.response({
+            message: 'Loop reminder preferences retrieved',
+            data: result.data,
+        });
+    }
+
     @Patch('reminders')
     @ApiOperation({
         summary: 'Update loop reminder schedule',
         description:
-            'Updates morning/evening affirmation loop reminder times for the current user. Times are HH:mm (24-hour) in the user\'s timezone.',
+            'Set custom reminder times (HH:mm, 24-hour) in the user timezone. Pass an empty array to use defaults (08:00 and 20:00).',
     })
     @ApiBody({ type: UpdateLoopRemindersDto })
     @ApiResponse({

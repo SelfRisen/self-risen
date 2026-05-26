@@ -133,6 +133,7 @@ export class AudioMergeProcessor {
                 affirmationLocalPaths,
                 bgDest,
                 outputPath,
+                loop.durationSeconds ?? undefined,
             );
 
             const outputBuffer = await fs.readFile(outputPath);

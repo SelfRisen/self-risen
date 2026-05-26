@@ -6,7 +6,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { config } from 'src/common/config';
 
-const MAX_DURATION_SECONDS = 300;
+export const MAX_LOOP_DURATION_SECONDS = 300;
 const FADE_SECONDS = 3;
 const BACKGROUND_VOLUME = 0.25;
 
@@ -28,14 +28,19 @@ export class AudioMergeService {
         affirmationPaths: string[],
         backgroundPath: string,
         outputPath: string,
+        maxDurationSeconds = MAX_LOOP_DURATION_SECONDS,
     ): Promise<number> {
+        const cappedMaxDuration = Math.min(
+            Math.max(1, maxDurationSeconds),
+            MAX_LOOP_DURATION_SECONDS,
+        );
         const tmpDir = path.dirname(outputPath);
         const affirmationsPath = path.join(tmpDir, 'affirmations.mp3');
 
         await this.concatAffirmations(affirmationPaths, affirmationsPath, tmpDir);
 
         const rawDuration = await this.probeDurationSeconds(affirmationsPath);
-        const mixDuration = Math.min(rawDuration, MAX_DURATION_SECONDS);
+        const mixDuration = Math.min(rawDuration, cappedMaxDuration);
         const fadeStart = Math.max(0, mixDuration - FADE_SECONDS);
 
         await this.mixWithBackground(
@@ -47,7 +52,7 @@ export class AudioMergeService {
         );
 
         const finalDuration = await this.probeDurationSeconds(outputPath);
-        return Math.min(Math.ceil(finalDuration), MAX_DURATION_SECONDS);
+        return Math.min(Math.ceil(finalDuration), cappedMaxDuration);
     }
 
     private async concatAffirmations(

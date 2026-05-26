@@ -1,5 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+    ArrayMaxSize,
+    ArrayMinSize,
+    IsArray,
+    IsInt,
+    IsNotEmpty,
+    IsOptional,
+    IsString,
+    IsUUID,
+    Max,
+    Min,
+} from 'class-validator';
+import { MAX_LOOP_DURATION_SECONDS } from '../audio-merge.service';
 
 export class CreateAffirmationLoopDto {
     @ApiProperty({
@@ -22,6 +34,17 @@ export class CreateAffirmationLoopDto {
     @IsString()
     @IsNotEmpty()
     backgroundMusicKey: string;
+
+    @ApiProperty({
+        description: 'Target loop duration in seconds (1–300). The merged audio is capped at this length.',
+        example: 180,
+        minimum: 1,
+        maximum: MAX_LOOP_DURATION_SECONDS,
+    })
+    @IsInt()
+    @Min(1)
+    @Max(MAX_LOOP_DURATION_SECONDS)
+    durationSeconds: number;
 
     @ApiProperty({
         description:

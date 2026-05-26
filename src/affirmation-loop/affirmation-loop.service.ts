@@ -13,6 +13,7 @@ import { StorageService } from 'src/common/storage/storage.service';
 import { StaterVideosService } from 'src/stater-videos/stater-videos.service';
 import { TextToSpeechService } from 'src/reflection/services/text-to-speech.service';
 import { CreateAffirmationLoopDto, UpdateLoopRemindersDto } from './dto';
+import { DEFAULT_LOOP_REMINDER_TIMES } from './loop-reminder.constants';
 
 export interface AudioMergeJobData {
     loopId: string;
@@ -102,6 +103,7 @@ export class AffirmationLoopService extends BaseService {
                 data: {
                     userId: user.id,
                     status: AffirmationLoopStatus.PROCESSING,
+                    durationSeconds: dto.durationSeconds,
                     backgroundMusicKey: dto.backgroundMusicKey,
                     voicePreference: voicePreference ?? undefined,
                     items: {
@@ -194,33 +196,57 @@ export class AffirmationLoopService extends BaseService {
         });
     }
 
+    async getReminders(firebaseId: string) {
+        const user = await this.getUserByFirebaseId(firebaseId);
+        if (!user) {
+            return this.HandleError(new NotFoundException('User not found'));
+        }
+
+        return this.Results({
+            loopReminderEnabled: user.loopReminderEnabled,
+            loopReminderTimes: user.loopReminderTimes ?? [],
+            defaultLoopReminderTimes: [...DEFAULT_LOOP_REMINDER_TIMES],
+            timezone: user.timezone ?? 'UTC',
+        });
+    }
+
     async updateReminders(firebaseId: string, dto: UpdateLoopRemindersDto) {
         const user = await this.getUserByFirebaseId(firebaseId);
         if (!user) {
             return this.HandleError(new NotFoundException('User not found'));
         }
 
+        const data: {
+            loopReminderEnabled?: boolean;
+            loopReminderTimes?: string[];
+            timezone?: string;
+        } = {};
+        if (dto.loopReminderEnabled !== undefined) {
+            data.loopReminderEnabled = dto.loopReminderEnabled;
+        }
+        if (dto.loopReminderTimes !== undefined) {
+            data.loopReminderTimes = dto.loopReminderTimes;
+        }
+        if (dto.timezone !== undefined) {
+            data.timezone = dto.timezone;
+        }
+
         const updated = await this.prisma.user.update({
             where: { id: user.id },
-            data: {
-                ...(dto.loopReminderEnabled !== undefined && {
-                    loopReminderEnabled: dto.loopReminderEnabled,
-                }),
-                ...(dto.loopReminderMorning !== undefined && {
-                    loopReminderMorning: dto.loopReminderMorning,
-                }),
-                ...(dto.loopReminderEvening !== undefined && {
-                    loopReminderEvening: dto.loopReminderEvening,
-                }),
-            },
+            data,
             select: {
                 loopReminderEnabled: true,
-                loopReminderMorning: true,
-                loopReminderEvening: true,
+                loopReminderTimes: true,
+                timezone: true,
             },
         });
 
-        return this.Results(updated);
+        return this.Results({
+            loopReminderEnabled: updated.loopReminderEnabled,
+            loopReminderTimes: updated.loopReminderTimes ?? [],
+            defaultLoopReminderTimes: [...DEFAULT_LOOP_REMINDER_TIMES],
+            timezone: updated.timezone ?? 'UTC',
+        });
     }
 
     async deleteLoop(firebaseId: string, loopId: string) {
