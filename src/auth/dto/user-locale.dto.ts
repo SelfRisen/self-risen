@@ -1,15 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, Length } from 'class-validator';
 
-export class UserLocaleDto {
-    @ApiPropertyOptional({
-        description: 'BCP 47 locale tag from the device',
-        example: 'en-US',
-    })
-    @IsOptional()
-    @IsString()
-    locale?: string;
-
+export class UserLocationDto {
     @ApiPropertyOptional({
         description: 'ISO 3166-1 alpha-2 country code',
         example: 'US',

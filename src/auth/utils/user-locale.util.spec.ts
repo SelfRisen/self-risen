@@ -42,17 +42,7 @@ describe('user-locale.util', () => {
             expect(result?.locationUpdatedAt).toBeInstanceOf(Date);
         });
 
-        it('includes locale when provided', () => {
-            const result = buildUserLocaleUpdate({
-                countryCode: 'GB',
-                city: 'London',
-                locale: 'en-GB',
-            });
-            expect(result?.locale).toBe('en-GB');
-            expect(result?.timezone).toBe('Europe/London');
-        });
-
-        it('returns null when no locale fields provided', () => {
+        it('returns null when no location fields provided', () => {
             expect(buildUserLocaleUpdate({})).toBeNull();
         });
     });

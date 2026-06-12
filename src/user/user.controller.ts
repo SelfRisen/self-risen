@@ -60,7 +60,7 @@ export class UserController extends BaseController {
   @ApiOperation({
     summary: 'Update user profile',
     description:
-      'Update name, username, locale, location (countryCode + city, timezone derived server-side), and/or TTS voice. Send only fields you want to change. When updating location, both countryCode and city must be provided together (or already stored on the account).',
+      'Update name, username, location (countryCode + city, timezone derived server-side), and/or TTS voice. Send only fields you want to change. When updating location, both countryCode and city must be provided together (or already stored on the account).',
   })
   async updateUser(
     @FirebaseUser() user: auth.DecodedIdToken,

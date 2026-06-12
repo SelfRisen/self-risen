@@ -11,4 +11,4 @@ export { VerifyPasswordResetOtpDto } from './verify-password-reset-otp.dto';
 export { GoogleSignInDto } from './google-signin.dto';
 export { FacebookSignInDto } from './facebook-signin.dto';
 export { AppleSignInDto } from './apple-signin.dto';
-export { UserLocaleDto } from './user-locale.dto';
+export { UserLocationDto } from './user-locale.dto';

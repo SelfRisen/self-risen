@@ -12,11 +12,6 @@ export class UpdateUserDto {
     @IsString()
     username?: string;
 
-    @ApiPropertyOptional({ example: 'en-US' })
-    @IsOptional()
-    @IsString()
-    locale?: string;
-
     @ApiPropertyOptional({
         description: 'ISO 3166-1 alpha-2 country code (send with city to update location)',
         example: 'US',

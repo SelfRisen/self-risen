@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsString, Length } from 'class-validator';
-import { UserLocaleDto } from './user-locale.dto';
+import { UserLocationDto } from './user-locale.dto';
 
-export class SignUp extends UserLocaleDto {
+export class SignUp extends UserLocationDto {
     @ApiProperty({ required: true })
     @IsNotEmpty()
     @IsString()

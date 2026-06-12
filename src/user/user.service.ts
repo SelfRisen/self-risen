@@ -144,13 +144,12 @@ export class UserService extends BaseService {
         );
       }
 
-      const localeData = buildUserLocaleUpdate({
+      const locationData = buildUserLocaleUpdate({
         countryCode,
         city,
-        locale: payload.locale,
       });
 
-      if (!localeData?.timezone) {
+      if (!locationData?.timezone) {
         this.logger.warn(
           `Timezone resolution failed for user update: country=${countryCode}, city=${city}`,
         );
@@ -164,7 +163,7 @@ export class UserService extends BaseService {
       const data: Record<string, unknown> = {
         ...(payload.name !== undefined && { name: payload.name }),
         ...(payload.username !== undefined && { username: payload.username }),
-        ...localeData,
+        ...locationData,
       };
 
       if (payload.ttsVoicePreference !== undefined) {
@@ -196,7 +195,6 @@ export class UserService extends BaseService {
     const data: Record<string, unknown> = {};
     if (payload.name !== undefined) data.name = payload.name;
     if (payload.username !== undefined) data.username = payload.username;
-    if (payload.locale !== undefined) data.locale = payload.locale;
 
     if (payload.ttsVoicePreference !== undefined) {
       const enumValue = TTS_PERSONA_NAME_TO_ENUM[payload.ttsVoicePreference];

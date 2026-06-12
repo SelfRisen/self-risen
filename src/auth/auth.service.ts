@@ -70,21 +70,21 @@ export class AuthService extends BaseService {
     }
 
     try {
-      const localeData = buildUserLocaleUpdate(payload);
+      const locationData = buildUserLocaleUpdate(payload);
 
-      if (!localeData?.countryCode || !localeData?.city) {
+      if (!locationData?.countryCode || !locationData?.city) {
         return this.HandleError(
           new BadRequestException('Country and city are required to create an account.'),
         );
       }
 
-      if (!localeData.timezone) {
+      if (!locationData.timezone) {
         logger.warn(
-          `Timezone resolution failed for signup: country=${localeData.countryCode}, city=${localeData.city}`,
+          `Timezone resolution failed for signup: country=${locationData.countryCode}, city=${locationData.city}`,
         );
         return this.HandleError(
           new BadRequestException(
-            `We could not determine a timezone for "${localeData.city}" in ${localeData.countryCode}. Please check the city name and country code, then try again.`,
+            `We could not determine a timezone for "${locationData.city}" in ${locationData.countryCode}. Please check the city name and country code, then try again.`,
           ),
         );
       }
@@ -95,7 +95,7 @@ export class AuthService extends BaseService {
           email,
           name,
           lastLoggedInAt: new Date(),
-          ...localeData,
+          ...locationData,
         }
       });
 

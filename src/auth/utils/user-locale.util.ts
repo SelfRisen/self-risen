@@ -1,10 +1,9 @@
 import cityTimezones from 'city-timezones';
 import * as ct from 'countries-and-timezones';
-import { UserLocaleDto } from '../dto/user-locale.dto';
+import { UserLocationDto } from '../dto/user-locale.dto';
 
-export interface UserLocaleUpdateData {
+export interface UserLocationUpdateData {
     timezone?: string;
-    locale?: string;
     countryCode?: string;
     city?: string;
     locationUpdatedAt?: Date;
@@ -96,23 +95,18 @@ export function resolveTimezoneFromLocation(
 }
 
 /**
- * Build Prisma user fields from locale/location DTO.
- * Timezone is always derived from countryCode + city when both are present.
+ * Build Prisma user fields from country + city.
+ * Timezone is derived from countryCode + city when both are present.
  */
 export function buildUserLocaleUpdate(
-    dto?: UserLocaleDto | null,
-): UserLocaleUpdateData | null {
+    dto?: UserLocationDto | null,
+): UserLocationUpdateData | null {
     if (!dto) {
         return null;
     }
 
-    const data: UserLocaleUpdateData = {};
+    const data: UserLocationUpdateData = {};
     let touched = false;
-
-    if (dto.locale?.trim()) {
-        data.locale = dto.locale.trim();
-        touched = true;
-    }
 
     if (dto.countryCode?.trim()) {
         data.countryCode = dto.countryCode.trim().toUpperCase();
@@ -136,7 +130,7 @@ export function buildUserLocaleUpdate(
         return null;
     }
 
-    if (data.countryCode || data.city || data.timezone || data.locale) {
+    if (data.countryCode || data.city || data.timezone) {
         data.locationUpdatedAt = new Date();
     }
 

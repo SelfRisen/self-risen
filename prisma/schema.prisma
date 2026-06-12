@@ -34,7 +34,6 @@ model User {
   streakReminderEnabled Boolean             @default(true)
   streakReminderTimes   String[]            @default([])
   timezone              String              @default("UTC")
-  locale                String?
   countryCode           String?
   region                String?
   city                  String?

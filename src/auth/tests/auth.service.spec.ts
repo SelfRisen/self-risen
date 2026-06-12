@@ -148,14 +148,13 @@ describe('AuthService', () => {
       );
     });
 
-    it('should persist locale and derived timezone on signup', async () => {
+    it('should persist derived timezone on signup', async () => {
       const firebaseUser = { uid: 'firebase-uid-123' };
       mockFirebaseAuth.createUser.mockResolvedValue(firebaseUser);
       mockPrisma.user.create.mockResolvedValue(mockUser);
 
       await service.signUp({
         ...signUpPayload,
-        locale: 'en-US',
         countryCode: 'US',
         city: 'New York',
       });
@@ -164,7 +163,6 @@ describe('AuthService', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             timezone: 'America/New_York',
-            locale: 'en-US',
             countryCode: 'US',
             city: 'New York',
             locationUpdatedAt: expect.any(Date),
