@@ -13,21 +13,13 @@ export class UpdateUserDto {
     username?: string;
 
     @ApiPropertyOptional({
-        description: 'ISO 3166-1 alpha-2 country code (send with city to update location)',
+        description: 'ISO 3166-1 alpha-2 country code; timezone is derived server-side',
         example: 'US',
     })
     @IsOptional()
     @IsString()
     @Length(2, 2, { message: 'countryCode must be a 2-letter ISO code' })
     countryCode?: string;
-
-    @ApiPropertyOptional({
-        description: 'City name; timezone is derived server-side with countryCode',
-        example: 'Chicago',
-    })
-    @IsOptional()
-    @IsString()
-    city?: string;
 
     @ApiPropertyOptional({
         enum: ['Sage', 'Phoenix', 'River', 'Quinn', 'Alex', 'Robin'],

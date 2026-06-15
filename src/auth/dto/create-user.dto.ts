@@ -20,20 +20,11 @@ export class SignUp extends UserLocationDto {
 
     @ApiProperty({
         required: true,
-        description: 'ISO 3166-1 alpha-2 country code',
+        description: 'ISO 3166-1 alpha-2 country code; server derives timezone',
         example: 'US',
     })
     @IsNotEmpty()
     @IsString()
     @Length(2, 2, { message: 'countryCode must be a 2-letter ISO code' })
     declare countryCode: string;
-
-    @ApiProperty({
-        required: true,
-        description: 'City name; server derives timezone from country and city',
-        example: 'Chicago',
-    })
-    @IsNotEmpty()
-    @IsString()
-    declare city: string;
 }

@@ -5,7 +5,6 @@ import { UserLocationDto } from '../dto/user-locale.dto';
 export interface UserLocationUpdateData {
     timezone?: string;
     countryCode?: string;
-    city?: string;
     locationUpdatedAt?: Date;
 }
 
@@ -15,42 +14,17 @@ interface CityTimezoneMatch {
     pop?: number;
 }
 
-function normalizeCityName(city: string): string {
-    return city
-        .trim()
-        .normalize('NFD')
-        .replace(/\p{M}/gu, '')
-        .replace(/\s+/g, ' ');
-}
-
-function lookupCityTimezone(
-    iso2: string,
-    cityName: string,
-): string | null {
-    let matches: CityTimezoneMatch[] =
-        cityTimezones.lookupViaCity(cityName) ?? [];
-    matches = matches.filter((m) => m.iso2?.toUpperCase() === iso2);
-
-    if (matches.length >= 1) {
-        if (matches.length > 1) {
-            matches.sort((a, b) => (b.pop ?? 0) - (a.pop ?? 0));
-        }
-        return matches[0].timezone ?? null;
-    }
-
-    const normalized = normalizeCityName(cityName);
-    if (normalized !== cityName) {
-        return lookupCityTimezone(iso2, normalized);
-    }
-
-    return null;
-}
-
 /**
- * When a city is missing from the dataset, use the most populous known
- * city's timezone for that country (e.g. Mexico City for MX).
+ * Resolve IANA timezone from ISO 3166-1 alpha-2 country code.
+ * Single-timezone countries use that zone; multi-timezone countries use the
+ * most populous known city's timezone (e.g. Mexico City for MX).
  */
-function getPrimaryTimezoneForCountry(iso2: string): string | null {
+export function resolveTimezoneFromCountry(countryCode: string): string | null {
+    const iso2 = countryCode.trim().toUpperCase();
+    if (!iso2) {
+        return null;
+    }
+
     const country = ct.getCountry(iso2);
     const zones = country?.timezones ?? [];
     if (zones.length === 0) {
@@ -74,65 +48,21 @@ function getPrimaryTimezoneForCountry(iso2: string): string | null {
 }
 
 /**
- * Resolve IANA timezone from ISO country code + city.
- */
-export function resolveTimezoneFromLocation(
-    countryCode: string,
-    city: string,
-): string | null {
-    const iso2 = countryCode.trim().toUpperCase();
-    const cityName = city.trim();
-    if (!iso2 || !cityName) {
-        return null;
-    }
-
-    const exactMatch = lookupCityTimezone(iso2, cityName);
-    if (exactMatch) {
-        return exactMatch;
-    }
-
-    return getPrimaryTimezoneForCountry(iso2);
-}
-
-/**
- * Build Prisma user fields from country + city.
- * Timezone is derived from countryCode + city when both are present.
+ * Build Prisma user fields from countryCode; timezone is derived server-side.
  */
 export function buildUserLocaleUpdate(
     dto?: UserLocationDto | null,
 ): UserLocationUpdateData | null {
-    if (!dto) {
+    if (!dto?.countryCode?.trim()) {
         return null;
     }
 
-    const data: UserLocationUpdateData = {};
-    let touched = false;
+    const countryCode = dto.countryCode.trim().toUpperCase();
+    const timezone = resolveTimezoneFromCountry(countryCode);
 
-    if (dto.countryCode?.trim()) {
-        data.countryCode = dto.countryCode.trim().toUpperCase();
-        touched = true;
-    }
-
-    if (dto.city?.trim()) {
-        data.city = dto.city.trim();
-        touched = true;
-    }
-
-    if (data.countryCode && data.city) {
-        const resolved = resolveTimezoneFromLocation(data.countryCode, data.city);
-        if (resolved) {
-            data.timezone = resolved;
-            touched = true;
-        }
-    }
-
-    if (!touched) {
-        return null;
-    }
-
-    if (data.countryCode || data.city || data.timezone) {
-        data.locationUpdatedAt = new Date();
-    }
-
-    return data;
+    return {
+        countryCode,
+        ...(timezone && { timezone }),
+        locationUpdatedAt: new Date(),
+    };
 }

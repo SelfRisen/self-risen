@@ -36,7 +36,6 @@ model User {
   timezone              String              @default("UTC")
   countryCode           String?
   region                String?
-  city                  String?
   locationUpdatedAt     DateTime?
   loopTokensRemaining   Int                 @default(5)
   loopReminderEnabled   Boolean             @default(false)

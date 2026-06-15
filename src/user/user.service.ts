@@ -128,34 +128,25 @@ export class UserService extends BaseService {
       return this.HandleError(new NotFoundException('User not found'));
     }
 
-    const hasLocationUpdate =
-      payload.countryCode !== undefined || payload.city !== undefined;
+    const hasLocationUpdate = payload.countryCode !== undefined;
 
     if (hasLocationUpdate) {
-      const countryCode =
-        payload.countryCode?.trim() ?? existing.countryCode ?? undefined;
-      const city = payload.city?.trim() ?? existing.city ?? undefined;
-
-      if (!countryCode || !city) {
+      const countryCode = payload.countryCode?.trim();
+      if (!countryCode) {
         return this.HandleError(
-          new BadRequestException(
-            'Both countryCode and city are required when updating location (send both, or set them together).',
-          ),
+          new BadRequestException('countryCode is required when updating location.'),
         );
       }
 
-      const locationData = buildUserLocaleUpdate({
-        countryCode,
-        city,
-      });
+      const locationData = buildUserLocaleUpdate({ countryCode });
 
       if (!locationData?.timezone) {
         this.logger.warn(
-          `Timezone resolution failed for user update: country=${countryCode}, city=${city}`,
+          `Timezone resolution failed for user update: country=${countryCode}`,
         );
         return this.HandleError(
           new BadRequestException(
-            `We could not determine a timezone for "${city}" in ${countryCode}. Please check the city name and country code, then try again.`,
+            `We could not determine a timezone for country code "${countryCode}". Please use a valid ISO 3166-1 alpha-2 code.`,
           ),
         );
       }

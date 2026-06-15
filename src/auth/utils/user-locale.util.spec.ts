@@ -1,49 +1,36 @@
 import {
     buildUserLocaleUpdate,
-    resolveTimezoneFromLocation,
+    resolveTimezoneFromCountry,
 } from './user-locale.util';
 
 describe('user-locale.util', () => {
-    describe('resolveTimezoneFromLocation', () => {
-        it('resolves US city timezone', () => {
-            expect(resolveTimezoneFromLocation('US', 'Chicago')).toBe(
-                'America/Chicago',
-            );
+    describe('resolveTimezoneFromCountry', () => {
+        it('resolves single-timezone country', () => {
+            expect(resolveTimezoneFromCountry('GB')).toBe('Europe/London');
         });
 
-        it('picks the largest city when multiple share a name', () => {
-            expect(resolveTimezoneFromLocation('US', 'Portland')).toBe(
-                'America/Los_Angeles',
-            );
+        it('uses the most populous city timezone for multi-timezone countries', () => {
+            expect(resolveTimezoneFromCountry('US')).toBe('America/New_York');
+            expect(resolveTimezoneFromCountry('MX')).toBe('America/Mexico_City');
         });
 
-        it('falls back to the primary timezone for unknown cities in multi-timezone countries', () => {
-            expect(
-                resolveTimezoneFromLocation('US', 'NonexistentCityXYZ123'),
-            ).toBe('America/New_York');
-        });
-
-        it('resolves Valle de Bravo, Mexico via country primary timezone fallback', () => {
-            expect(resolveTimezoneFromLocation('MX', 'Valle de Bravo')).toBe(
-                'America/Mexico_City',
-            );
+        it('returns null for invalid country code', () => {
+            expect(resolveTimezoneFromCountry('')).toBeNull();
+            expect(resolveTimezoneFromCountry('ZZ')).toBeNull();
         });
     });
 
     describe('buildUserLocaleUpdate', () => {
-        it('derives timezone from country and city', () => {
-            const result = buildUserLocaleUpdate({
-                countryCode: 'US',
-                city: 'New York',
-            });
-            expect(result?.timezone).toBe('America/New_York');
-            expect(result?.countryCode).toBe('US');
-            expect(result?.city).toBe('New York');
+        it('derives timezone from country code', () => {
+            const result = buildUserLocaleUpdate({ countryCode: 'MX' });
+            expect(result?.timezone).toBe('America/Mexico_City');
+            expect(result?.countryCode).toBe('MX');
             expect(result?.locationUpdatedAt).toBeInstanceOf(Date);
         });
 
-        it('returns null when no location fields provided', () => {
+        it('returns null when country code is missing', () => {
             expect(buildUserLocaleUpdate({})).toBeNull();
+            expect(buildUserLocaleUpdate({ countryCode: '  ' })).toBeNull();
         });
     });
 });

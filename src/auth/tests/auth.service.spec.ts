@@ -107,7 +107,6 @@ describe('AuthService', () => {
       email: 'test@example.com',
       password: 'Password123!',
       countryCode: 'US',
-      city: 'Chicago',
     };
 
     it('should successfully create a new user', async () => {
@@ -129,7 +128,7 @@ describe('AuthService', () => {
       });
     });
 
-    it('should derive timezone from country and city when timezone omitted', async () => {
+    it('should derive timezone from country code on signup', async () => {
       const firebaseUser = { uid: 'firebase-uid-123' };
       mockFirebaseAuth.createUser.mockResolvedValue(firebaseUser);
       mockPrisma.user.create.mockResolvedValue(mockUser);
@@ -139,32 +138,26 @@ describe('AuthService', () => {
       expect(mockPrisma.user.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            timezone: 'America/Chicago',
+            timezone: 'America/New_York',
             countryCode: 'US',
-            city: 'Chicago',
             locationUpdatedAt: expect.any(Date),
           }),
         }),
       );
     });
 
-    it('should persist derived timezone on signup', async () => {
+    it('should derive Mexico timezone from country code on signup', async () => {
       const firebaseUser = { uid: 'firebase-uid-123' };
       mockFirebaseAuth.createUser.mockResolvedValue(firebaseUser);
       mockPrisma.user.create.mockResolvedValue(mockUser);
 
-      await service.signUp({
-        ...signUpPayload,
-        countryCode: 'US',
-        city: 'New York',
-      });
+      await service.signUp({ ...signUpPayload, countryCode: 'MX' });
 
       expect(mockPrisma.user.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            timezone: 'America/New_York',
-            countryCode: 'US',
-            city: 'New York',
+            timezone: 'America/Mexico_City',
+            countryCode: 'MX',
             locationUpdatedAt: expect.any(Date),
           }),
         }),
