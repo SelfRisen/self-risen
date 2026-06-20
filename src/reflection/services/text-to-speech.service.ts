@@ -3,13 +3,17 @@ import { config, BaseService } from 'src/common';
 import { StorageService, FileType } from 'src/common/storage/storage.service';
 import OpenAI from 'openai';
 import { TtsVoicePreference } from '@prisma/client';
+import {
+    LEGACY_VOICE_PREFERENCE_TO_PERSONA,
+    PERSONA_NAMES,
+    PersonaName,
+} from '../constants/persona.constants';
 
 type OpenAIVoice = 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer';
 
 interface PersonaConfig {
     openAiVoice: OpenAIVoice;
-    gender: 'male' | 'female' | 'androgynous';
-    name: string;
+    name: PersonaName;
     displayName: string;
     description: string;
     personality: string[];
@@ -21,69 +25,57 @@ export class TextToSpeechService extends BaseService {
     private openai: OpenAI;
 
     private readonly PERSONA_MAPPING: Record<TtsVoicePreference, PersonaConfig> = {
-        // Male (internal mapping only; not shown in UI)
-        [TtsVoicePreference.MALE_CONFIDENT]: {
-            openAiVoice: 'onyx',
-            gender: 'male',
-            name: 'River',
-            displayName: 'River (Confident Coach)',
-            description: 'Deep, authoritative voice that commands attention',
-            personality: ['authoritative', 'grounding', 'powerful', 'commanding']
-        },
-        [TtsVoicePreference.MALE_FRIENDLY]: {
-            openAiVoice: 'echo',
-            gender: 'male',
-            name: 'Quinn',
-            displayName: 'Quinn (Friendly Guide)',
-            description: 'Warm, conversational voice that feels approachable',
-            personality: ['approachable', 'supportive', 'encouraging', 'relatable']
-        },
-
-        // Female (internal mapping only; not shown in UI)
-        [TtsVoicePreference.FEMALE_EMPATHETIC]: {
+        [TtsVoicePreference.SAGE]: {
             openAiVoice: 'nova',
-            gender: 'female',
             name: 'Sage',
             displayName: 'Sage (Empathetic Mentor)',
             description: 'Nurturing, warm voice that radiates compassion',
-            personality: ['nurturing', 'compassionate', 'understanding', 'gentle']
+            personality: ['nurturing', 'compassionate', 'understanding', 'gentle'],
         },
-        [TtsVoicePreference.FEMALE_ENERGETIC]: {
+        [TtsVoicePreference.PHOENIX]: {
             openAiVoice: 'shimmer',
-            gender: 'female',
             name: 'Phoenix',
             displayName: 'Phoenix (Energetic Motivator)',
             description: 'Upbeat, vibrant voice that inspires action',
-            personality: ['upbeat', 'vibrant', 'motivating', 'enthusiastic']
+            personality: ['upbeat', 'vibrant', 'motivating', 'enthusiastic'],
         },
-
-        // Other
-        [TtsVoicePreference.ANDROGYNOUS_CALM]: {
+        [TtsVoicePreference.RIVER]: {
+            openAiVoice: 'onyx',
+            name: 'River',
+            displayName: 'River (Confident Coach)',
+            description: 'Deep, authoritative voice that commands attention',
+            personality: ['authoritative', 'grounding', 'powerful', 'commanding'],
+        },
+        [TtsVoicePreference.QUINN]: {
+            openAiVoice: 'echo',
+            name: 'Quinn',
+            displayName: 'Quinn (Friendly Guide)',
+            description: 'Warm, conversational voice that feels approachable',
+            personality: ['approachable', 'supportive', 'encouraging', 'relatable'],
+        },
+        [TtsVoicePreference.ALEX]: {
             openAiVoice: 'alloy',
-            gender: 'androgynous',
             name: 'Alex',
             displayName: 'Alex (Calm Companion)',
             description: 'Balanced, neutral voice that brings steadiness',
-            personality: ['balanced', 'neutral', 'steady', 'peaceful']
+            personality: ['balanced', 'neutral', 'steady', 'peaceful'],
         },
-        [TtsVoicePreference.ANDROGYNOUS_WISE]: {
+        [TtsVoicePreference.ROBIN]: {
             openAiVoice: 'fable',
-            gender: 'androgynous',
             name: 'Robin',
             displayName: 'Robin (Wise Advisor)',
             description: 'Thoughtful, mature voice that conveys wisdom',
-            personality: ['thoughtful', 'mature', 'grounded', 'insightful']
-        }
+            personality: ['thoughtful', 'mature', 'grounded', 'insightful'],
+        },
     };
 
-    // Name to enum mapping for easy lookup
-    private readonly NAME_TO_ENUM: Record<string, TtsVoicePreference> = {
-        'Sage': TtsVoicePreference.FEMALE_EMPATHETIC,
-        'Phoenix': TtsVoicePreference.FEMALE_ENERGETIC,
-        'River': TtsVoicePreference.MALE_CONFIDENT,
-        'Quinn': TtsVoicePreference.MALE_FRIENDLY,
-        'Alex': TtsVoicePreference.ANDROGYNOUS_CALM,
-        'Robin': TtsVoicePreference.ANDROGYNOUS_WISE,
+    private readonly NAME_TO_ENUM: Record<PersonaName, TtsVoicePreference> = {
+        Sage: TtsVoicePreference.SAGE,
+        Phoenix: TtsVoicePreference.PHOENIX,
+        River: TtsVoicePreference.RIVER,
+        Quinn: TtsVoicePreference.QUINN,
+        Alex: TtsVoicePreference.ALEX,
+        Robin: TtsVoicePreference.ROBIN,
     };
 
     constructor(private storageService: StorageService) {
@@ -97,16 +89,30 @@ export class TextToSpeechService extends BaseService {
     }
 
     /**
-     * Convert persona name to TtsVoicePreference enum
+     * Convert persona name (or legacy enum value) to TtsVoicePreference
      */
     convertNameToEnum(name: string): TtsVoicePreference | null {
-        return this.NAME_TO_ENUM[name] || null;
+        if (this.NAME_TO_ENUM[name as PersonaName]) {
+            return this.NAME_TO_ENUM[name as PersonaName];
+        }
+
+        const legacyPersona = LEGACY_VOICE_PREFERENCE_TO_PERSONA[name];
+        if (legacyPersona) {
+            return this.NAME_TO_ENUM[legacyPersona];
+        }
+
+        const upper = name.toUpperCase();
+        if (Object.values(TtsVoicePreference).includes(upper as TtsVoicePreference)) {
+            return upper as TtsVoicePreference;
+        }
+
+        return null;
     }
 
     /**
      * Convert TtsVoicePreference enum to persona name
      */
-    convertEnumToName(preference: TtsVoicePreference): string | null {
+    convertEnumToName(preference: TtsVoicePreference): PersonaName | null {
         const config = this.PERSONA_MAPPING[preference];
         return config ? config.name : null;
     }
@@ -116,20 +122,12 @@ export class TextToSpeechService extends BaseService {
      */
     private getVoiceFromPreference(preference?: string | null): OpenAIVoice {
         if (!preference) {
-            // Fallback to config or default
             return (config.OPENAI_TTS_VOICE || 'alloy') as OpenAIVoice;
         }
 
-        // Check if it's a name first
-        const enumValue = this.NAME_TO_ENUM[preference];
+        const enumValue = this.convertNameToEnum(preference);
         if (enumValue) {
             return this.PERSONA_MAPPING[enumValue].openAiVoice;
-        }
-
-        // Otherwise treat as enum value
-        const personaConfig = this.PERSONA_MAPPING[preference as TtsVoicePreference];
-        if (personaConfig) {
-            return personaConfig.openAiVoice;
         }
 
         if (config.NODE_ENV === 'development') {
@@ -140,40 +138,25 @@ export class TextToSpeechService extends BaseService {
 
     /**
      * Get persona metadata for a given preference
-     * Useful for API responses to show users their selected persona info
      */
     getPersonaMetadata(preference?: string | null): PersonaConfig | null {
         if (!preference) return null;
-        const resolvedKey = this.NAME_TO_ENUM[preference] ?? (preference as TtsVoicePreference);
-        return this.PERSONA_MAPPING[resolvedKey] ?? null;
+        const resolvedKey = this.convertNameToEnum(preference);
+        return resolvedKey ? this.PERSONA_MAPPING[resolvedKey] : null;
     }
 
     /**
-     * Get all available personas grouped by gender
+     * Get all available personas in display order
      */
-    getAllPersonas(): Record<string, Array<{ preference: TtsVoicePreference; config: PersonaConfig }>> {
-        const grouped: Record<string, Array<{ preference: TtsVoicePreference; config: PersonaConfig }>> = {
-            male: [],
-            female: [],
-            androgynous: []
-        };
-
-        for (const [preference, personaConfig] of Object.entries(this.PERSONA_MAPPING)) {
-            grouped[personaConfig.gender].push({
-                preference: preference as TtsVoicePreference,
-                config: personaConfig,
-            });
-        }
-
-        return grouped;
+    getAllPersonas(): Array<{ preference: TtsVoicePreference; config: PersonaConfig }> {
+        return PERSONA_NAMES.map((name) => {
+            const preference = this.NAME_TO_ENUM[name];
+            return { preference, config: this.PERSONA_MAPPING[preference] };
+        });
     }
 
     /**
      * Generate audio from affirmation text using OpenAI TTS API
-     * @param affirmationText - The affirmation text to convert to speech
-     * @param userId - User ID for storage path
-     * @param voicePreference - Optional voice persona preference (e.g., MALE_CONFIDENT, FEMALE_EMPATHETIC)
-     * @returns Audio URL or null if generation fails
      */
     async generateAffirmationAudio(
         affirmationText: string,
@@ -211,7 +194,6 @@ export class TextToSpeechService extends BaseService {
 
             const audioBuffer = Buffer.from(await response.arrayBuffer());
 
-            // Create a temporary file-like object for upload
             const audioFile: Express.Multer.File = {
                 fieldname: 'audio',
                 originalname: 'affirmation.mp3',
@@ -225,7 +207,6 @@ export class TextToSpeechService extends BaseService {
                 stream: null as any,
             };
 
-            // Upload to storage
             const uploadResult = await this.storageService.uploadFile(
                 audioFile,
                 FileType.AUDIO,

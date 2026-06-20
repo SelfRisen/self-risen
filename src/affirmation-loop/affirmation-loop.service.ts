@@ -283,11 +283,8 @@ export class AffirmationLoopService extends BaseService {
         userDefault?: TtsVoicePreference | null,
     ): TtsVoicePreference | null {
         if (dtoVoice) {
-            const fromName = this.textToSpeechService.convertNameToEnum(dtoVoice);
-            if (fromName) return fromName;
-            if (Object.values(TtsVoicePreference).includes(dtoVoice as TtsVoicePreference)) {
-                return dtoVoice as TtsVoicePreference;
-            }
+            const resolved = this.textToSpeechService.convertNameToEnum(dtoVoice);
+            if (resolved) return resolved;
         }
         return userDefault ?? null;
     }

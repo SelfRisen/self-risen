@@ -48,9 +48,9 @@ export class CreateAffirmationLoopDto {
 
     @ApiProperty({
         description:
-            'Optional TTS voice for affirmations missing audio or with a different voice. Accepts a persona name (e.g. Sage) or TtsVoicePreference enum value.',
+            'Optional TTS voice persona for affirmations missing audio or with a different voice. Accepts a persona name (e.g. Sage).',
         required: false,
-        example: 'FEMALE_EMPATHETIC',
+        example: 'Sage',
     })
     @IsOptional()
     @IsString()

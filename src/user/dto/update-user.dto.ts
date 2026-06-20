@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsIn, IsOptional, IsString, Length } from 'class-validator';
+import { PERSONA_NAMES } from 'src/reflection/constants/persona.constants';
 
 export class UpdateUserDto {
     @ApiPropertyOptional({ example: 'Jane Doe' })
@@ -22,12 +23,12 @@ export class UpdateUserDto {
     countryCode?: string;
 
     @ApiPropertyOptional({
-        enum: ['Sage', 'Phoenix', 'River', 'Quinn', 'Alex', 'Robin'],
+        enum: PERSONA_NAMES,
         description: 'Default TTS voice persona',
         example: 'Sage',
     })
     @IsOptional()
     @IsString()
-    @IsIn(['Sage', 'Phoenix', 'River', 'Quinn', 'Alex', 'Robin'])
+    @IsIn([...PERSONA_NAMES])
     ttsVoicePreference?: string;
 }

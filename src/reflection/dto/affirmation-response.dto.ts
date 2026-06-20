@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { TtsVoicePreference } from '@prisma/client';
+import { PERSONA_NAMES } from '../constants/persona.constants';
 
 export class AffirmationResponseDto {
     @ApiProperty({
@@ -41,10 +42,11 @@ export class AffirmationResponseDto {
     order: number;
 
     @ApiProperty({
-        description: 'Voice used for this affirmation (persisted per affirmation; does not change if user changes default)',
-        enum: ['MALE_CONFIDENT', 'MALE_FRIENDLY', 'FEMALE_EMPATHETIC', 'FEMALE_ENERGETIC', 'ANDROGYNOUS_CALM', 'ANDROGYNOUS_WISE'],
+        description: 'Voice persona used for this affirmation (persisted per affirmation; does not change if user changes default)',
+        enum: PERSONA_NAMES,
         required: false,
         nullable: true,
+        example: 'Sage',
     })
     ttsVoicePreference?: TtsVoicePreference | null;
 

@@ -25,7 +25,7 @@ describe('AudioMergeProcessor', () => {
         userId: 'user-1',
         durationSeconds: 180,
         backgroundMusicKey: 'meditation',
-        voicePreference: 'FEMALE_EMPATHETIC' as const,
+        voicePreference: 'SAGE' as const,
         items: [
             {
                 sortOrder: 0,
@@ -33,7 +33,7 @@ describe('AudioMergeProcessor', () => {
                     id: 'aff-1',
                     affirmationText: 'I am strong',
                     audioUrl: 'https://audio.test/old.mp3',
-                    ttsVoicePreference: 'MALE_CONFIDENT' as const,
+                    ttsVoicePreference: 'RIVER' as const,
                 },
             },
         ],
@@ -104,7 +104,7 @@ describe('AudioMergeProcessor', () => {
     it('re-TTS when loop requests voice different from affirmation', async () => {
         mockPrisma.affirmationLoop.findUnique.mockResolvedValue({
             ...baseLoop,
-            voicePreference: 'FEMALE_EMPATHETIC',
+            voicePreference: 'SAGE',
         });
         const job = {
             data: { loopId: 'loop-1' },

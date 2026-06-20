@@ -27,7 +27,7 @@ model User {
   lastStreakDate        DateTime?
   lastLoggedInAt        DateTime?
   lastLoggedOutAt       DateTime?
-  ttsVoicePreference    TtsVoicePreference? @default(ANDROGYNOUS_CALM)
+  ttsVoicePreference    TtsVoicePreference? @default(ALEX)
   tokensUsedThisMonth   Int                 @default(0)
   tokenLimitPerMonth    Int                 @default(30000) // Default limit: 30k tokens per month
   tokenResetDate        DateTime            @default(now())
@@ -425,15 +425,10 @@ enum AffirmationLoopStatus {
 }
 
 enum TtsVoicePreference {
-  // Male Personas
-  MALE_CONFIDENT // Onyx - Deep, authoritative, grounding
-  MALE_FRIENDLY // Echo - Warm, conversational, supportive
-
-  // Female Personas
-  FEMALE_EMPATHETIC // Nova - Nurturing, warm, compassionate
-  FEMALE_ENERGETIC // Shimmer - Upbeat, vibrant, motivating
-
-  // Androgynous Personas
-  ANDROGYNOUS_CALM // Alloy - Balanced, neutral, steady
-  ANDROGYNOUS_WISE // Fable - Thoughtful, mature, grounded
+  SAGE // Nova - Empathetic Mentor
+  PHOENIX // Shimmer - Energetic Motivator
+  RIVER // Onyx - Confident Coach
+  QUINN // Echo - Friendly Guide
+  ALEX // Alloy - Calm Companion
+  ROBIN // Fable - Wise Advisor
 }

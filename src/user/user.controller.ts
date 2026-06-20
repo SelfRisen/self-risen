@@ -454,7 +454,7 @@ export class UserController extends BaseController {
   @Get('preferences/tts-voice/personas')
   @ApiOperation({
     summary: 'Get all available TTS voice personas',
-    description: 'Returns a list of all available voice personas with their details including name, role, gender, description, and personality traits. Use this endpoint to populate persona selection UI.',
+    description: 'Returns a list of all available voice personas with their details including name, role, description, and personality traits. Use this endpoint to populate persona selection UI.',
   })
   @ApiResponse({
     status: 200,
@@ -471,7 +471,7 @@ export class UserController extends BaseController {
               displayName: { type: 'string', example: 'Sage (Empathetic Mentor)' },
               description: { type: 'string', example: 'Nurturing, warm voice that radiates compassion' },
               personality: { type: 'array', items: { type: 'string' }, example: ['nurturing', 'compassionate'] },
-              preference: { type: 'string', example: 'FEMALE_EMPATHETIC' }
+              preference: { type: 'string', example: 'Sage' }
             }
           }
         }

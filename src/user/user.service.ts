@@ -9,15 +9,6 @@ import { TextToSpeechService } from 'src/reflection/services/text-to-speech.serv
 import { UploadAvatarDto } from './dto/upload-avatar.dto';
 import { config } from 'src/common';
 
-const TTS_PERSONA_NAME_TO_ENUM: Record<string, string> = {
-  Sage: 'FEMALE_EMPATHETIC',
-  Phoenix: 'FEMALE_ENERGETIC',
-  River: 'MALE_CONFIDENT',
-  Quinn: 'MALE_FRIENDLY',
-  Alex: 'ANDROGYNOUS_CALM',
-  Robin: 'ANDROGYNOUS_WISE',
-};
-
 @Injectable()
 export class UserService extends BaseService {
   private readonly logger = new Logger(UserService.name);
@@ -42,6 +33,7 @@ export class UserService extends BaseService {
 
     return {
       ...user,
+      ttsVoicePreference: personaDetails?.name ?? user.ttsVoicePreference,
       ttsVoicePersona: personaDetails ? {
         name: personaDetails.name,
         displayName: personaDetails.displayName,
@@ -158,7 +150,7 @@ export class UserService extends BaseService {
       };
 
       if (payload.ttsVoicePreference !== undefined) {
-        const enumValue = TTS_PERSONA_NAME_TO_ENUM[payload.ttsVoicePreference];
+        const enumValue = this.textToSpeechService.convertNameToEnum(payload.ttsVoicePreference);
         if (!enumValue) {
           return this.HandleError(
             new BadRequestException(
@@ -188,7 +180,7 @@ export class UserService extends BaseService {
     if (payload.username !== undefined) data.username = payload.username;
 
     if (payload.ttsVoicePreference !== undefined) {
-      const enumValue = TTS_PERSONA_NAME_TO_ENUM[payload.ttsVoicePreference];
+      const enumValue = this.textToSpeechService.convertNameToEnum(payload.ttsVoicePreference);
       if (!enumValue) {
         return this.HandleError(
           new BadRequestException(
@@ -332,7 +324,7 @@ export class UserService extends BaseService {
   async changeTtsVoicePreference(firebaseId: string, payload: ChangeTtsVoicePreferenceDto) {
     const { ttsVoicePreference } = payload;
 
-    const enumValue = TTS_PERSONA_NAME_TO_ENUM[ttsVoicePreference];
+    const enumValue = this.textToSpeechService.convertNameToEnum(ttsVoicePreference);
     if (!enumValue) {
       return this.HandleError(
         new BadRequestException(`Invalid persona name: ${ttsVoicePreference}`)
@@ -342,7 +334,7 @@ export class UserService extends BaseService {
     try {
       const updatedUser = await this.prisma.user.update({
         where: { firebaseId },
-        data: { ttsVoicePreference: enumValue as any },
+        data: { ttsVoicePreference: enumValue },
       });
       const enrichedUser = this.enrichUserWithPersonaDetails(updatedUser);
       return this.Results(enrichedUser);
@@ -355,18 +347,12 @@ export class UserService extends BaseService {
   }
 
   async getAvailablePersonas() {
-    const allPersonas = this.textToSpeechService.getAllPersonas();
-    // Flat list; gender not exposed in API (personas shown without gender labels)
-    const personas = [
-      ...allPersonas.female,
-      ...allPersonas.male,
-      ...allPersonas.androgynous,
-    ].map(p => ({
+    const personas = this.textToSpeechService.getAllPersonas().map((p) => ({
       name: p.config.name,
       displayName: p.config.displayName,
       description: p.config.description,
       personality: p.config.personality,
-      preference: p.preference,
+      preference: p.config.name,
     }));
 
     return this.Results({ personas });

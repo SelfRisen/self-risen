@@ -37,7 +37,7 @@ describe('ReflectionService', () => {
     firebaseId: 'firebase-uid-123',
     email: 'test@example.com',
     name: 'Test User',
-    ttsVoicePreference: TtsVoicePreference.MALE_CONFIDENT,
+    ttsVoicePreference: TtsVoicePreference.RIVER,
   };
 
   const mockCategory = {
@@ -121,6 +121,17 @@ describe('ReflectionService', () => {
 
     mockTextToSpeechService = {
       generateAffirmationAudio: jest.fn(),
+      convertNameToEnum: jest.fn((name: string) => {
+        const map: Record<string, TtsVoicePreference> = {
+          Sage: TtsVoicePreference.SAGE,
+          Phoenix: TtsVoicePreference.PHOENIX,
+          River: TtsVoicePreference.RIVER,
+          Quinn: TtsVoicePreference.QUINN,
+          Alex: TtsVoicePreference.ALEX,
+          Robin: TtsVoicePreference.ROBIN,
+        };
+        return map[name] ?? null;
+      }),
     };
 
     mockNotificationService = {
@@ -412,7 +423,7 @@ describe('ReflectionService', () => {
         audioUrl: 'https://audio-url.com/audio.mp3',
         isSelected: true,
         order: 0,
-        ttsVoicePreference: TtsVoicePreference.MALE_CONFIDENT,
+        ttsVoicePreference: TtsVoicePreference.RIVER,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -448,7 +459,7 @@ describe('ReflectionService', () => {
             audioUrl: 'https://audio-url.com/old.mp3',
             isSelected: true,
             order: 0,
-            ttsVoicePreference: TtsVoicePreference.MALE_CONFIDENT,
+            ttsVoicePreference: TtsVoicePreference.RIVER,
             createdAt: new Date(),
             updatedAt: new Date(),
           },
@@ -469,7 +480,7 @@ describe('ReflectionService', () => {
         audioUrl: 'https://audio-url.com/new.mp3',
         isSelected: false,
         order: 1,
-        ttsVoicePreference: TtsVoicePreference.MALE_CONFIDENT,
+        ttsVoicePreference: TtsVoicePreference.RIVER,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -796,13 +807,13 @@ describe('ReflectionService', () => {
         selectedAffirmationAudioUrl: 'https://new-audio.com/audio.mp3',
       });
 
-      const result = await service.regenerateAffirmationVoice('firebase-uid-123', 'session-123', { voicePreference: TtsVoicePreference.FEMALE_EMPATHETIC });
+      const result = await service.regenerateAffirmationVoice('firebase-uid-123', 'session-123', { voicePreference: 'Sage' });
 
       expect(result.isError).toBe(false);
       expect(mockTextToSpeechService.generateAffirmationAudio).toHaveBeenCalledWith(
         'I am healthy and vibrant',
         'user-123',
-        TtsVoicePreference.FEMALE_EMPATHETIC,
+        TtsVoicePreference.SAGE,
       );
     });
 
@@ -817,7 +828,7 @@ describe('ReflectionService', () => {
       expect(mockTextToSpeechService.generateAffirmationAudio).toHaveBeenCalledWith(
         'I am healthy and vibrant',
         'user-123',
-        TtsVoicePreference.MALE_CONFIDENT,
+        TtsVoicePreference.RIVER,
       );
     });
 
