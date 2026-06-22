@@ -4,7 +4,6 @@ import { StorageService, FileType } from 'src/common/storage/storage.service';
 import OpenAI from 'openai';
 import { TtsVoicePreference } from '@prisma/client';
 import {
-    LEGACY_VOICE_PREFERENCE_TO_PERSONA,
     PERSONA_NAMES,
     PersonaName,
 } from '../constants/persona.constants';
@@ -94,11 +93,6 @@ export class TextToSpeechService extends BaseService {
     convertNameToEnum(name: string): TtsVoicePreference | null {
         if (this.NAME_TO_ENUM[name as PersonaName]) {
             return this.NAME_TO_ENUM[name as PersonaName];
-        }
-
-        const legacyPersona = LEGACY_VOICE_PREFERENCE_TO_PERSONA[name];
-        if (legacyPersona) {
-            return this.NAME_TO_ENUM[legacyPersona];
         }
 
         const upper = name.toUpperCase();
