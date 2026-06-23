@@ -1,13 +1,50 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { BaseService } from 'src/common';
 import { DatabaseProvider } from 'src/database/database.provider';
-
-
+import { TextToSpeechService } from 'src/reflection/services/text-to-speech.service';
+import { GeneratePersonaTtsDto } from './dto';
 
 @Injectable()
 export class StaterVideosService extends BaseService {
-    constructor(private prisma: DatabaseProvider) {
+    constructor(
+        private prisma: DatabaseProvider,
+        private textToSpeechService: TextToSpeechService,
+    ) {
         super();
+    }
+
+    async generatePersonaTts(firebaseId: string, dto: GeneratePersonaTtsDto) {
+        const user = await this.prisma.user.findUnique({
+            where: { firebaseId },
+            select: { id: true },
+        });
+
+        if (!user) {
+            return this.HandleError(new NotFoundException('User not found'));
+        }
+
+        const persona = this.textToSpeechService.getPersonaMetadata(dto.voice);
+        if (!persona) {
+            return this.HandleError(new BadRequestException(`Unknown voice persona: ${dto.voice}`));
+        }
+
+        const audioUrl = await this.textToSpeechService.generateAffirmationAudio(
+            dto.text.trim(),
+            user.id,
+            dto.voice,
+        );
+
+        if (!audioUrl) {
+            return this.HandleError(
+                new BadRequestException('Failed to generate TTS audio. Please try again.'),
+            );
+        }
+
+        return this.Results({
+            audioUrl,
+            voice: persona.name,
+            displayName: persona.displayName,
+        });
     }
 
     async getFileUrls() {
@@ -107,6 +144,34 @@ export class StaterVideosService extends BaseService {
 
     async getMusicUrls() {
         return this.Results(this.getSoundList());
+    }
+
+    async getPersonaDemo() {
+        const demos =[{
+            name: 'Sage',
+            url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/audios/affirmations/ai-generated/75f75644-8a30-4a6c-848e-d29f4496eccd/2ed41165-2528-4843-9e53-ded110b488cc-1782199955353.mp3',
+        },
+        {
+            name: 'Phoenix',
+            url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/audios/affirmations/ai-generated/75f75644-8a30-4a6c-848e-d29f4496eccd/6edac4a3-c666-4cd6-8f63-43d1be67c306-1782200208968.mp3'
+        },
+        {
+            name: 'River',
+            url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/audios/affirmations/ai-generated/75f75644-8a30-4a6c-848e-d29f4496eccd/ace3bfaf-b301-4ac4-aea1-df2f4747e9b1-1782200294670.mp3'
+        },
+        {
+            name: 'Quinn',
+            url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/audios/affirmations/ai-generated/75f75644-8a30-4a6c-848e-d29f4496eccd/934baa24-9537-45b4-bacf-febfdfb68d03-1782200330101.mp3'
+        },
+        {
+            name: 'Alex',
+            url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/audios/affirmations/ai-generated/75f75644-8a30-4a6c-848e-d29f4496eccd/cfe33353-0881-48f9-a541-8d28804de6d0-1782200546366.mp3'
+        },
+        {
+            name: 'Robin',
+            url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/audios/affirmations/ai-generated/75f75644-8a30-4a6c-848e-d29f4496eccd/0b7ddc6a-edfb-41d7-8e5d-bd9803642f84-1782200653076.mp3'
+        }
+    ];
     }
 
     /**
