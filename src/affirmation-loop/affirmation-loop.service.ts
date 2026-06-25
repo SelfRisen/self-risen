@@ -354,6 +354,8 @@ export class AffirmationLoopService extends BaseService {
             id: loop.id,
             status: loop.status,
             audioUrl,
+            name: loop.name,
+            description: loop.description,
             durationSeconds: loop.durationSeconds,
             backgroundMusicKey: loop.backgroundMusicKey,
             voicePreference: loop.voicePreference,
