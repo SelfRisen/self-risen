@@ -342,6 +342,8 @@ export class AffirmationLoopService extends BaseService {
             backgroundMusicKey: string;
             voicePreference: TtsVoicePreference | null;
             errorMessage: string | null;
+            name: string | null;
+            description: string | null;
             createdAt: Date;
             updatedAt: Date;
             items: { affirmationId: string; sortOrder: number }[];

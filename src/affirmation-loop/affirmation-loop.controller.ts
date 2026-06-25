@@ -29,6 +29,7 @@ import {
     CreateAffirmationLoopDto,
     DeleteAffirmationLoopResponseDto,
     LoopRemindersResponseDto,
+    UpdateAffirmationLoopDto,
     UpdateLoopRemindersDto,
 } from './dto';
 
@@ -69,6 +70,24 @@ export class AffirmationLoopController extends BaseController {
 
         return this.response({
             message: 'Affirmation loop generation started',
+            data: result.data,
+        });
+    }
+
+    @Patch(':id')
+    @ApiOperation({
+        summary: 'Update affirmation loop',
+        description: 'Updates an affirmation loop',
+    })
+    @ApiBody({ type: UpdateAffirmationLoopDto })
+    @ApiResponse({ status: 200, description: 'Affirmation loop updated successfully', type: AffirmationLoopResponseDto })
+    @ApiResponse({ status: 404, description: 'User or affirmation loop not found' })
+    async updateLoop(@FirebaseUser() user: auth.DecodedIdToken, @Param('id') id: string, @Body() dto: UpdateAffirmationLoopDto) {
+        const result = await this.affirmationLoopService.updateLoop(user.uid, id, dto);
+        if (result.isError) throw result.error;
+
+        return this.response({
+            message: 'Affirmation loop updated',
             data: result.data,
         });
     }
