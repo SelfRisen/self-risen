@@ -24,7 +24,7 @@ import { buildUserLocaleUpdate } from './utils/user-locale.util';
 import { auth } from 'firebase-admin';
 import { INotificationService } from 'src/notifications/interfaces/notification.interface';
 import { NotificationTypeEnum, NotificationChannelTypeEnum, NotificationStatusEnum } from 'src/notifications/enums/notification.enum';
-import { generateOtp, hashOtp, verifyOtp } from './utils/otp.util';
+import { generateOtp, hashOtp, verifyOtp, MAX_OTP_ATTEMPTS } from './utils/otp.util';
 import { randomUUID } from 'crypto';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
 
@@ -789,9 +789,31 @@ export class AuthService extends BaseService {
         );
       }
 
+      if (otpRecord.attempts >= MAX_OTP_ATTEMPTS) {
+        await this.prisma.passwordResetOtp.update({
+          where: { id: otpRecord.id },
+          data: { isUsed: true }
+        });
+        return this.HandleError(
+          new UnauthorizedException('Too many failed attempts. Please request a new OTP.')
+        );
+      }
+
       // Verify OTP matches
       if (!verifyOtp(otp, otpRecord.otp)) {
         logger.warn(`Invalid OTP provided for email: ${email}`);
+        const updated = await this.prisma.passwordResetOtp.update({
+          where: { id: otpRecord.id },
+          data: {
+            attempts: { increment: 1 },
+            ...(otpRecord.attempts + 1 >= MAX_OTP_ATTEMPTS ? { isUsed: true } : {})
+          }
+        });
+        if (updated.attempts >= MAX_OTP_ATTEMPTS) {
+          return this.HandleError(
+            new UnauthorizedException('Too many failed attempts. Please request a new OTP.')
+          );
+        }
         return this.HandleError(
           new UnauthorizedException('Invalid OTP. Please check and try again.')
         );
