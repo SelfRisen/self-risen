@@ -97,47 +97,57 @@ export class StaterVideosService extends BaseService {
         return this.Results({ light, dark });
     }
 
-    private getSoundList(): Array<{ url: string; name: string }> {
+    private getSoundList(): Array<{ url: string; name: string; description: string }> {
         return [
             {
                 url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/1.%20Ambient%20Piano%20-%20Main%20version.mp3',
                 name: 'Ambient Piano',
+                description: 'Soft solo piano for calm, reflective sessions.',
             },
             {
                 url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/meditation.mp3',
                 name: 'meditation',
+                description: 'Gentle ambient meditation bed with piano.',
             },
             {
                 url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/meditation%20(not%20piano).mp3',
                 name: 'meditation - No Piano',
+                description: 'Gentle ambient meditation bed without piano.',
             },
             {
                 url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/Ambient%20Uplifting.mp3',
                 name: 'Ambient Uplifting',
+                description: 'Bright, uplifting ambient pad for positive affirmations.',
             },
             {
                 url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/Inspiring%20Dreamy%20Happy%20Adventure%20Pop%20(short%20version).wav',
                 name: 'Inspiring Dreamy Happy Adventure Pop',
+                description: 'Dreamy, upbeat pop instrumental for energizing sessions.',
             },
             {
                 url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/main%20track%20with%20out%20Fx.mp3',
                 name: 'main track',
+                description: 'Neutral ambient bed, no effects.',
             },
             {
                 url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/Theta%20Meditation(mp3).mp3',
                 name: 'Theta Meditation',
+                description: 'Theta-range meditation tone for deep focus and calm.',
             },
             // {
             //     url: 'https://lstprxumviehmvbebcub.supabase.co/storage/v1/object/sign/uploads/audios/background/od5qaWAnXdfHIgLuGC8qxaqRLrm1/308e98ba-fba5-4139-9ae3-e3249b50f04b-1772203838226.wav?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8zMmE2ZWM2Zi1iZDNjLTRmY2YtYTVmYS1hNjVhZDVmM2E4ODEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJ1cGxvYWRzL2F1ZGlvcy9iYWNrZ3JvdW5kL29kNXFhV0FuWGRmSElnTHVHQzhxeGFxUkxybTEvMzA4ZTk4YmEtZmJhNS00MTM5LTlhZTMtZTMyNDliNTBmMDRiLTE3NzIyMDM4MzgyMjYud2F2IiwiaWF0IjoxNzcyMjA0MDQzLCJleHAiOjE4MDM3NDAwNDN9.5lJzmF8cM2Dv3hmjGnUyhb_dlMaQ-yl1fdkEcL6367Y',
             //     name: 'Tribal Ceremony',
+            //     description: 'Rhythmic tribal percussion bed.',
             // },
             {
                 url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/Cinematic%20Piano%20-%20Long.mp3',
                 name: 'Cinematic Piano',
+                description: 'Sweeping cinematic piano, full-length version.',
             },
             {
                 url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/Cinematic%20Piano%20-%20Short.mp3',
                 name: 'Cinematic Piano - Short',
+                description: 'Sweeping cinematic piano, short loopable version.',
             },
         ];
     }
@@ -177,7 +187,7 @@ export class StaterVideosService extends BaseService {
     /**
      * Returns the music entry for the given name, or null if not found.
      */
-    getSoundByName(name: string): { url: string; name: string } | null {
+    getSoundByName(name: string): { url: string; name: string; description: string } | null {
         const list = this.getSoundList();
         return list.find((item) => item.name === name) ?? null;
     }

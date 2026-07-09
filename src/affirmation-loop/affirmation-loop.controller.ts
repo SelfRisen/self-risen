@@ -3,6 +3,8 @@ import {
     Controller,
     Delete,
     Get,
+    HttpCode,
+    HttpStatus,
     Param,
     Patch,
     Post,
@@ -27,10 +29,11 @@ import {
     AffirmationLoopListResponseDto,
     AffirmationLoopResponseDto,
     CreateAffirmationLoopDto,
+    CreateLoopReminderDto,
     DeleteAffirmationLoopResponseDto,
-    LoopRemindersResponseDto,
+    LoopReminderResponseDto,
     UpdateAffirmationLoopDto,
-    UpdateLoopRemindersDto,
+    UpdateLoopReminderDto,
 } from './dto';
 
 @UseGuards(FirebaseGuard)
@@ -44,6 +47,7 @@ export class AffirmationLoopController extends BaseController {
     }
 
     @Post()
+    @HttpCode(HttpStatus.ACCEPTED)
     @ApiOperation({
         summary: 'Create affirmation audio loop',
         description:
@@ -51,15 +55,16 @@ export class AffirmationLoopController extends BaseController {
     })
     @ApiBody({ type: CreateAffirmationLoopDto })
     @ApiResponse({
-        status: 200,
+        status: 202,
         description: 'Loop created and merge job enqueued',
         type: AffirmationLoopResponseDto,
     })
     @ApiResponse({
         status: 400,
         description:
-            'No loop tokens remaining, invalid background music key, affirmations not owned, empty affirmation text, or duplicate affirmation IDs',
+            'Invalid background music key, affirmations not owned, empty affirmation text, or duplicate affirmation IDs',
     })
+    @ApiResponse({ status: 402, description: 'No loop tokens remaining' })
     @ApiResponse({ status: 404, description: 'User not found' })
     async createLoop(
         @FirebaseUser() user: auth.DecodedIdToken,
@@ -136,53 +141,89 @@ export class AffirmationLoopController extends BaseController {
         });
     }
 
-    @Get('reminders')
+    @Post(':id/reminder')
     @ApiOperation({
-        summary: 'Get loop reminder preferences',
+        summary: 'Set AM/PM reminders for a loop',
         description:
-            'Returns loop reminder settings. Empty loopReminderTimes means defaults (08:00 and 20:00 in the user timezone).',
+            'Creates (or replaces) the reminder schedule for this loop. At least one of morningTime or eveningTime is required.',
     })
-    @ApiResponse({
-        status: 200,
-        description: 'Loop reminder preferences retrieved',
-        type: LoopRemindersResponseDto,
-    })
-    @ApiResponse({ status: 404, description: 'User not found' })
-    async getReminders(@FirebaseUser() user: auth.DecodedIdToken) {
-        const result = await this.affirmationLoopService.getReminders(user.uid);
+    @ApiParam({ name: 'id', description: 'Affirmation loop ID' })
+    @ApiBody({ type: CreateLoopReminderDto })
+    @ApiResponse({ status: 201, description: 'Reminder set', type: LoopReminderResponseDto })
+    @ApiResponse({ status: 400, description: 'Neither morningTime nor eveningTime provided' })
+    @ApiResponse({ status: 404, description: 'User or affirmation loop not found' })
+    async setReminder(
+        @FirebaseUser() user: auth.DecodedIdToken,
+        @Param('id') id: string,
+        @Body() dto: CreateLoopReminderDto,
+    ) {
+        const result = await this.affirmationLoopService.setReminder(user.uid, id, dto);
         if (result.isError) throw result.error;
 
         return this.response({
-            message: 'Loop reminder preferences retrieved',
+            message: 'Loop reminder set',
             data: result.data,
         });
     }
 
-    @Patch('reminders')
+    @Patch(':id/reminder')
     @ApiOperation({
-        summary: 'Update loop reminder schedule',
-        description:
-            'Set custom reminder times (HH:mm, 24-hour) in the user timezone. Pass an empty array to use defaults (08:00 and 20:00).',
+        summary: 'Update a loop\'s reminder times',
+        description: 'Partially updates the reminder schedule for this loop.',
     })
-    @ApiBody({ type: UpdateLoopRemindersDto })
-    @ApiResponse({
-        status: 200,
-        description: 'Loop reminders updated successfully',
-        type: LoopRemindersResponseDto,
-    })
-    @ApiResponse({ status: 404, description: 'User not found' })
-    async updateReminders(
+    @ApiParam({ name: 'id', description: 'Affirmation loop ID' })
+    @ApiBody({ type: UpdateLoopReminderDto })
+    @ApiResponse({ status: 200, description: 'Reminder updated', type: LoopReminderResponseDto })
+    @ApiResponse({ status: 404, description: 'User, affirmation loop, or reminder not found' })
+    async updateReminder(
         @FirebaseUser() user: auth.DecodedIdToken,
-        @Body() dto: UpdateLoopRemindersDto,
+        @Param('id') id: string,
+        @Body() dto: UpdateLoopReminderDto,
     ) {
-        const result = await this.affirmationLoopService.updateReminders(
-            user.uid,
-            dto,
-        );
+        const result = await this.affirmationLoopService.updateReminder(user.uid, id, dto);
         if (result.isError) throw result.error;
 
         return this.response({
-            message: 'Loop reminders updated',
+            message: 'Loop reminder updated',
+            data: result.data,
+        });
+    }
+
+    @Delete(':id/reminder')
+    @ApiOperation({
+        summary: 'Disable reminders for a loop',
+        description: 'Deactivates the reminder schedule for this loop without deleting it.',
+    })
+    @ApiParam({ name: 'id', description: 'Affirmation loop ID' })
+    @ApiResponse({ status: 200, description: 'Reminder disabled', type: LoopReminderResponseDto })
+    @ApiResponse({ status: 404, description: 'User, affirmation loop, or reminder not found' })
+    async deleteReminder(
+        @FirebaseUser() user: auth.DecodedIdToken,
+        @Param('id') id: string,
+    ) {
+        const result = await this.affirmationLoopService.disableReminder(user.uid, id);
+        if (result.isError) throw result.error;
+
+        return this.response({
+            message: 'Loop reminder disabled',
+            data: result.data,
+        });
+    }
+
+    @Get('tokens')
+    @ApiOperation({
+        summary: 'Get remaining loop token balance',
+        description:
+            'Returns the number of loop generations the user has left this month, and when the allowance last reset.',
+    })
+    @ApiResponse({ status: 200, description: 'Token balance retrieved' })
+    @ApiResponse({ status: 404, description: 'User not found' })
+    async getTokenBalance(@FirebaseUser() user: auth.DecodedIdToken) {
+        const result = await this.affirmationLoopService.getTokenBalance(user.uid);
+        if (result.isError) throw result.error;
+
+        return this.response({
+            message: 'Loop token balance retrieved',
             data: result.data,
         });
     }
