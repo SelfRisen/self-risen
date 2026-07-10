@@ -1,5 +1,7 @@
 import {
     BadRequestException,
+    HttpException,
+    HttpStatus,
     Injectable,
     Logger,
     NotFoundException,
@@ -12,8 +14,12 @@ import { DatabaseProvider } from 'src/database/database.provider';
 import { StorageService } from 'src/common/storage/storage.service';
 import { StaterVideosService } from 'src/stater-videos/stater-videos.service';
 import { TextToSpeechService } from 'src/reflection/services/text-to-speech.service';
-import { CreateAffirmationLoopDto, UpdateAffirmationLoopDto, UpdateLoopRemindersDto } from './dto';
-import { DEFAULT_LOOP_REMINDER_TIMES } from './loop-reminder.constants';
+import {
+    CreateAffirmationLoopDto,
+    CreateLoopReminderDto,
+    UpdateAffirmationLoopDto,
+    UpdateLoopReminderDto,
+} from './dto';
 
 export interface AudioMergeJobData {
     loopId: string;
@@ -42,7 +48,7 @@ export class AffirmationLoopService extends BaseService {
 
         if (user.loopTokensRemaining <= 0) {
             return this.HandleError(
-                new BadRequestException('No loop tokens remaining'),
+                new HttpException('No loop tokens remaining', HttpStatus.PAYMENT_REQUIRED),
             );
         }
 
@@ -93,11 +99,13 @@ export class AffirmationLoopService extends BaseService {
             }
         }
 
+        let tokensRemaining = user.loopTokensRemaining;
         const loop = await this.prisma.$transaction(async (tx) => {
-            await tx.user.update({
+            const updatedUser = await tx.user.update({
                 where: { id: user.id },
                 data: { loopTokensRemaining: { decrement: 1 } },
             });
+            tokensRemaining = updatedUser.loopTokensRemaining;
 
             const created = await tx.affirmationLoop.create({
                 data: {
@@ -127,7 +135,22 @@ export class AffirmationLoopService extends BaseService {
 
         this.logger.log(`Enqueued audio merge for loop ${loop.id}`);
 
-        return this.Results(this.toResponse(loop, null));
+        return this.Results({
+            ...this.toResponse(loop, null),
+            tokensRemaining,
+        });
+    }
+
+    async getTokenBalance(firebaseId: string) {
+        const user = await this.getUserByFirebaseId(firebaseId);
+        if (!user) {
+            return this.HandleError(new NotFoundException('User not found'));
+        }
+
+        return this.Results({
+            tokensRemaining: user.loopTokensRemaining,
+            resetAt: user.loopTokensResetAt,
+        });
     }
 
     async updateLoop(firebaseId: string, loopId: string, dto: UpdateAffirmationLoopDto) {
@@ -225,57 +248,129 @@ export class AffirmationLoopService extends BaseService {
         });
     }
 
-    async getReminders(firebaseId: string) {
-        const user = await this.getUserByFirebaseId(firebaseId);
-        if (!user) {
-            return this.HandleError(new NotFoundException('User not found'));
-        }
-
-        return this.Results({
-            loopReminderEnabled: user.loopReminderEnabled,
-            loopReminderTimes: user.loopReminderTimes ?? [],
-            defaultLoopReminderTimes: [...DEFAULT_LOOP_REMINDER_TIMES],
-            timezone: user.timezone ?? 'UTC',
+    private async getOwnedLoop(userId: string, loopId: string) {
+        return this.prisma.affirmationLoop.findFirst({
+            where: { id: loopId, userId },
         });
     }
 
-    async updateReminders(firebaseId: string, dto: UpdateLoopRemindersDto) {
+    async setReminder(firebaseId: string, loopId: string, dto: CreateLoopReminderDto) {
         const user = await this.getUserByFirebaseId(firebaseId);
         if (!user) {
             return this.HandleError(new NotFoundException('User not found'));
         }
 
-        const data: {
-            loopReminderEnabled?: boolean;
-            loopReminderTimes?: string[];
-            timezone?: string;
-        } = {};
-        if (dto.loopReminderEnabled !== undefined) {
-            data.loopReminderEnabled = dto.loopReminderEnabled;
-        }
-        if (dto.loopReminderTimes !== undefined) {
-            data.loopReminderTimes = dto.loopReminderTimes;
-        }
-        if (dto.timezone !== undefined) {
-            data.timezone = dto.timezone;
+        const loop = await this.getOwnedLoop(user.id, loopId);
+        if (!loop) {
+            return this.HandleError(new NotFoundException('Affirmation loop not found'));
         }
 
-        const updated = await this.prisma.user.update({
-            where: { id: user.id },
-            data,
-            select: {
-                loopReminderEnabled: true,
-                loopReminderTimes: true,
-                timezone: true,
+        if (!dto.morningTime && !dto.eveningTime) {
+            return this.HandleError(
+                new BadRequestException('At least one of morningTime or eveningTime is required'),
+            );
+        }
+
+        const reminder = await this.prisma.loopReminder.upsert({
+            where: { loopId },
+            create: {
+                userId: user.id,
+                loopId,
+                morningTime: dto.morningTime ?? null,
+                eveningTime: dto.eveningTime ?? null,
+                timezone: dto.timezone,
+                isActive: true,
+            },
+            update: {
+                morningTime: dto.morningTime ?? null,
+                eveningTime: dto.eveningTime ?? null,
+                timezone: dto.timezone,
+                isActive: true,
             },
         });
 
-        return this.Results({
-            loopReminderEnabled: updated.loopReminderEnabled,
-            loopReminderTimes: updated.loopReminderTimes ?? [],
-            defaultLoopReminderTimes: [...DEFAULT_LOOP_REMINDER_TIMES],
-            timezone: updated.timezone ?? 'UTC',
+        return this.Results(this.toReminderResponse(reminder));
+    }
+
+    async updateReminder(firebaseId: string, loopId: string, dto: UpdateLoopReminderDto) {
+        const user = await this.getUserByFirebaseId(firebaseId);
+        if (!user) {
+            return this.HandleError(new NotFoundException('User not found'));
+        }
+
+        const loop = await this.getOwnedLoop(user.id, loopId);
+        if (!loop) {
+            return this.HandleError(new NotFoundException('Affirmation loop not found'));
+        }
+
+        const existing = await this.prisma.loopReminder.findUnique({ where: { loopId } });
+        if (!existing) {
+            return this.HandleError(new NotFoundException('Reminder not found for this loop'));
+        }
+
+        const data: {
+            morningTime?: string | null;
+            eveningTime?: string | null;
+            timezone?: string;
+            isActive?: boolean;
+        } = {};
+        if (dto.morningTime !== undefined) data.morningTime = dto.morningTime;
+        if (dto.eveningTime !== undefined) data.eveningTime = dto.eveningTime;
+        if (dto.timezone !== undefined) data.timezone = dto.timezone;
+        if (dto.isActive !== undefined) data.isActive = dto.isActive;
+
+        const updated = await this.prisma.loopReminder.update({
+            where: { loopId },
+            data,
         });
+
+        return this.Results(this.toReminderResponse(updated));
+    }
+
+    async disableReminder(firebaseId: string, loopId: string) {
+        const user = await this.getUserByFirebaseId(firebaseId);
+        if (!user) {
+            return this.HandleError(new NotFoundException('User not found'));
+        }
+
+        const loop = await this.getOwnedLoop(user.id, loopId);
+        if (!loop) {
+            return this.HandleError(new NotFoundException('Affirmation loop not found'));
+        }
+
+        const existing = await this.prisma.loopReminder.findUnique({ where: { loopId } });
+        if (!existing) {
+            return this.HandleError(new NotFoundException('Reminder not found for this loop'));
+        }
+
+        const updated = await this.prisma.loopReminder.update({
+            where: { loopId },
+            data: { isActive: false },
+        });
+
+        return this.Results(this.toReminderResponse(updated));
+    }
+
+    private toReminderResponse(reminder: {
+        id: string;
+        loopId: string;
+        morningTime: string | null;
+        eveningTime: string | null;
+        timezone: string;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+    }) {
+        return {
+            id: reminder.id,
+            loopId: reminder.loopId,
+            morningTime: reminder.morningTime,
+            eveningTime: reminder.eveningTime,
+            timezone: reminder.timezone,
+            isActive: reminder.isActive,
+            createdAt: reminder.createdAt,
+            updatedAt: reminder.updatedAt,
+        };
     }
 
     async deleteLoop(firebaseId: string, loopId: string) {

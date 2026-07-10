@@ -1,6 +1,12 @@
 import * as crypto from 'crypto';
 
 /**
+ * Max failed verification attempts allowed against a single OTP record
+ * before it is locked out and the user must request a new one.
+ */
+export const MAX_OTP_ATTEMPTS = 5;
+
+/**
  * Generates a cryptographically secure 4-digit numeric OTP (0000-9999)
  * @returns 4-digit OTP as string with leading zeros if needed
  */

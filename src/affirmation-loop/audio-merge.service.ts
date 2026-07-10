@@ -88,7 +88,7 @@ export class AudioMergeService {
     ): Promise<void> {
         const filterComplex =
             `[0:a]volume=${BACKGROUND_VOLUME}[bg];` +
-            `[1:a][bg]amix=inputs=2:duration=first:dropout_transition=0[mixed];` +
+            `[1:a][bg]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mixed];` +
             `[mixed]afade=t=out:st=${fadeStartSeconds}:d=${FADE_SECONDS}[out]`;
 
         await this.runFfmpeg((command) =>

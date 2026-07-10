@@ -4,6 +4,7 @@ import { AffirmationLoopService } from './affirmation-loop.service';
 import { AudioMergeService } from './audio-merge.service';
 import { AudioMergeProcessor } from './audio-merge.processor';
 import { LoopReminderService } from './loop-reminder.service';
+import { LoopTokenResetService } from './loop-token-reset.service';
 import { DatabaseModule } from 'src/database/database.module';
 import { StreakInterceptor } from 'src/common/interceptors/streak.interceptor';
 import { StreakService } from 'src/common/services/streak.service';
@@ -24,6 +25,7 @@ import { ReflectionModule } from 'src/reflection/reflection.module';
         AudioMergeService,
         AudioMergeProcessor,
         LoopReminderService,
+        LoopTokenResetService,
         StreakService,
         StreakInterceptor,
     ],

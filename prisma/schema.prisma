@@ -38,8 +38,7 @@ model User {
   region                String?
   locationUpdatedAt     DateTime?
   loopTokensRemaining   Int                 @default(5)
-  loopReminderEnabled   Boolean             @default(false)
-  loopReminderTimes     String[]            @default([])
+  loopTokensResetAt     DateTime?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
   wheelOfLife           WheelOfLife?
@@ -48,6 +47,7 @@ model User {
   journals              Journal[]
   streakHistory         StreakHistory[]
   affirmationLoops      AffirmationLoop[]
+  loopReminders         LoopReminder[]
 }
 
 model StreakHistory {
@@ -147,6 +147,7 @@ model PasswordResetOtp {
   otp        String
   expiresAt  DateTime
   isUsed     Boolean   @default(false)
+  attempts   Int       @default(0)
   verifiedAt DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
@@ -305,9 +306,27 @@ model AffirmationLoop {
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
   items              AffirmationLoopItem[]
+  reminder           LoopReminder?
 
   @@index([userId, createdAt])
   @@index([userId, status])
+}
+
+model LoopReminder {
+  id          String          @id @default(uuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loopId      String          @unique
+  loop        AffirmationLoop @relation(fields: [loopId], references: [id], onDelete: Cascade)
+  morningTime String?
+  eveningTime String?
+  timezone    String
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([isActive])
 }
 
 model AffirmationLoopItem {

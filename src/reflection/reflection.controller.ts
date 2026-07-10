@@ -568,6 +568,31 @@ export class ReflectionController extends BaseController {
         });
     }
 
+    @Get('waves')
+    @ApiOperation({
+        summary: 'List waves',
+        description: 'Returns all waves for the current user across sessions, newest first, with each session\'s selected affirmation for display.',
+    })
+    @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+    @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+    @ApiResponse({ status: 200, description: 'Waves retrieved successfully' })
+    @ApiResponse({ status: 404, description: 'User not found' })
+    async getAllWaves(
+        @FirebaseUser() user: auth.DecodedIdToken,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+    ) {
+        const pageNumber = page ? parseInt(page, 10) : 1;
+        const limitNumber = limit ? parseInt(limit, 10) : 10;
+        const result = await this.reflectionService.getAllWaves(user.uid, pageNumber, limitNumber);
+        if (result.isError) throw result.error;
+
+        return this.response({
+            message: 'Waves retrieved successfully',
+            data: result.data,
+        });
+    }
+
     @Post('waves')
     @ApiOperation({
         summary: 'Create a wave for an existing session',
