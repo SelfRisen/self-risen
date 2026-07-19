@@ -32,7 +32,7 @@ import { StorageProvider } from './storage.service';
       inject: [SupabaseStorageService, CompressionService],
     },
   ],
-  exports: [StorageService],
+  exports: [StorageService, SupabaseStorageService],
 })
 export class StorageModule { }
 

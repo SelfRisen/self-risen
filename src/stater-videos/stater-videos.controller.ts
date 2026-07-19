@@ -35,6 +35,22 @@ export class StaterVideosController extends BaseController {
         });
     }
 
+    @Get('meditations')
+    @ApiOperation({
+        summary: 'List meditation tracks',
+        description: 'Returns admin-curated meditation audio tracks uploaded to the Meditations/ folder in storage.',
+    })
+    @ApiResponse({ status: 200, description: 'Meditation tracks retrieved' })
+    async getMeditations() {
+        const result = await this.staterVideosService.getMeditations();
+        if (result.isError) throw result.error;
+
+        return this.response({
+            message: 'Meditation tracks retrieved',
+            data: result.data,
+        });
+    }
+
     @Post('tts')
     @UseGuards(FirebaseGuard)
     @ApiBearerAuth('firebase')

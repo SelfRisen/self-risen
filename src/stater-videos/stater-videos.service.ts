@@ -2,15 +2,34 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { BaseService } from 'src/common';
 import { DatabaseProvider } from 'src/database/database.provider';
 import { TextToSpeechService } from 'src/reflection/services/text-to-speech.service';
+import { SupabaseStorageService } from 'src/common/storage/supabase-storage.service';
 import { GeneratePersonaTtsDto } from './dto';
+
+const MEDITATIONS_FOLDER = 'Meditations';
 
 @Injectable()
 export class StaterVideosService extends BaseService {
     constructor(
         private prisma: DatabaseProvider,
         private textToSpeechService: TextToSpeechService,
+        private supabaseStorageService: SupabaseStorageService,
     ) {
         super();
+    }
+
+    /**
+     * Lists meditation audio tracks from the curated Meditations/ folder in
+     * Supabase storage. Admin-uploaded content -- no DB record needed, files
+     * just need to be uploaded to that folder to appear here.
+     */
+    async getMeditations() {
+        const files = await this.supabaseStorageService.listPublicFiles(MEDITATIONS_FOLDER);
+        return this.Results(
+            files.map((file) => ({
+                name: file.name.replace(/\.[^/.]+$/, ''),
+                url: file.url,
+            })),
+        );
     }
 
     async generatePersonaTts(firebaseId: string, dto: GeneratePersonaTtsDto) {

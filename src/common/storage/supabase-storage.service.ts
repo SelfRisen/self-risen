@@ -460,5 +460,33 @@ export class SupabaseStorageService {
             );
         }
     }
+
+    /**
+     * List public files directly under a folder in the bucket (non-recursive).
+     * Used for admin-curated content catalogs (e.g. background music,
+     * meditations) that live as plain uploaded files rather than DB records.
+     */
+    async listPublicFiles(folderPath: string): Promise<Array<{ name: string; url: string }>> {
+        this.ensureInitialized();
+        const { data, error } = await this.supabase!.storage
+            .from(this.bucketName!)
+            .list(folderPath, { limit: 200, sortBy: { column: 'name', order: 'asc' } });
+
+        if (error) {
+            throw new BadRequestException(`Failed to list files: ${error.message}`);
+        }
+
+        // The list API includes pseudo-folders (id: null) alongside real files -- skip those.
+        const files = (data || []).filter((item) => item.id !== null);
+
+        return files.map((item) => {
+            const filePath = `${folderPath}/${item.name}`;
+            const { data: publicUrlData } = this.supabase!.storage
+                .from(this.bucketName!)
+                .getPublicUrl(filePath);
+
+            return { name: item.name, url: publicUrlData.publicUrl };
+        });
+    }
 }
 
