@@ -18,10 +18,19 @@ export class GmailAdapter extends IEmailChannelAdapter {
     super();
     const mailUsername = this.configService.get<string>('MAIL_USERNAME');
     const oauthClientId = this.configService.get<string>('OAUTH_CLIENTID');
-    const oauthClientSecret = this.configService.get<string>('OAUTH_CLIENT_SECRET');
-    const oauthRefreshToken = this.configService.get<string>('OAUTH_REFRESH_TOKEN');
+    const oauthClientSecret = this.configService.get<string>(
+      'OAUTH_CLIENT_SECRET',
+    );
+    const oauthRefreshToken = this.configService.get<string>(
+      'OAUTH_REFRESH_TOKEN',
+    );
 
-    if (mailUsername && oauthClientId && oauthClientSecret && oauthRefreshToken) {
+    if (
+      mailUsername &&
+      oauthClientId &&
+      oauthClientSecret &&
+      oauthRefreshToken
+    ) {
       this.transporter = createTransport({
         service: 'gmail',
         auth: {
@@ -49,8 +58,12 @@ export class GmailAdapter extends IEmailChannelAdapter {
     try {
       const mailUsername = this.configService.get<string>('MAIL_USERNAME');
       const oauthClientId = this.configService.get<string>('OAUTH_CLIENTID');
-      const oauthClientSecret = this.configService.get<string>('OAUTH_CLIENT_SECRET');
-      const oauthRefreshToken = this.configService.get<string>('OAUTH_REFRESH_TOKEN');
+      const oauthClientSecret = this.configService.get<string>(
+        'OAUTH_CLIENT_SECRET',
+      );
+      const oauthRefreshToken = this.configService.get<string>(
+        'OAUTH_REFRESH_TOKEN',
+      );
 
       if (!mailUsername) {
         return {
@@ -60,7 +73,12 @@ export class GmailAdapter extends IEmailChannelAdapter {
       }
 
       // Re-initialize transporter if not initialized or credentials changed
-      if (!this.transporter || !oauthClientId || !oauthClientSecret || !oauthRefreshToken) {
+      if (
+        !this.transporter ||
+        !oauthClientId ||
+        !oauthClientSecret ||
+        !oauthRefreshToken
+      ) {
         if (oauthClientId && oauthClientSecret && oauthRefreshToken) {
           this.transporter = createTransport({
             service: 'gmail',
@@ -81,7 +99,8 @@ export class GmailAdapter extends IEmailChannelAdapter {
         } else {
           return {
             status: NotificationStatusEnum.FAILED,
-            error: 'Gmail client not initialized. Missing OAuth credentials (OAUTH_CLIENTID, OAUTH_CLIENT_SECRET, or OAUTH_REFRESH_TOKEN).',
+            error:
+              'Gmail client not initialized. Missing OAuth credentials (OAUTH_CLIENTID, OAUTH_CLIENT_SECRET, or OAUTH_REFRESH_TOKEN).',
           };
         }
       }
@@ -136,7 +155,11 @@ export class GmailAdapter extends IEmailChannelAdapter {
       }
 
       // Handle OAuth authentication errors
-      if (error?.code === 'EAUTH' || error?.message?.includes('invalid_grant') || error?.message?.includes('unauthorized')) {
+      if (
+        error?.code === 'EAUTH' ||
+        error?.message?.includes('invalid_grant') ||
+        error?.message?.includes('unauthorized')
+      ) {
         return {
           status: NotificationStatusEnum.FAILED,
           error: `Gmail OAuth authentication failed. Please verify your OAuth refresh token is valid and not expired. Error: ${error?.message || String(error)}`,
@@ -173,4 +196,3 @@ export class GmailAdapter extends IEmailChannelAdapter {
     }
   }
 }
-

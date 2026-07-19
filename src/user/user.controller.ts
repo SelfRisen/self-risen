@@ -1,11 +1,38 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UploadedFile, UseInterceptors, BadRequestException, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Body,
+  Patch,
+  Delete,
+  UseGuards,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
+  Query,
+} from '@nestjs/common';
 import { UserService } from './user.service';
 import { BaseController } from 'src/common';
-import { AuthGuard, FirebaseUser } from 'src/common/';
-import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiBody, ApiResponse, ApiTags, ApiQuery } from '@nestjs/swagger';
+import { FirebaseUser } from 'src/common/';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOperation,
+  ApiBody,
+  ApiResponse,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { auth } from 'firebase-admin';
 import { FirebaseGuard } from '@alpha018/nestjs-firebase-auth';
-import { ChangeNameDto, ChangeUsernameDto, UploadAvatarDto, ChangeTtsVoicePreferenceDto, StreakCalendarQueryDto, StreakChartQueryDto, UpdateStreakReminderPreferencesDto, UpdateUserDto } from './dto';
+import {
+  ChangeNameDto,
+  ChangeUsernameDto,
+  UploadAvatarDto,
+  ChangeTtsVoicePreferenceDto,
+  StreakCalendarQueryDto,
+  StreakChartQueryDto,
+  UpdateStreakReminderPreferencesDto,
+  UpdateUserDto,
+} from './dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { StreakService } from 'src/common/services/streak.service';
 import { TokenUsageService } from './token-usage.service';
@@ -23,12 +50,19 @@ export class UserController extends BaseController {
   }
 
   @Get()
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10, max: 100)' })
-  async findAll(
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
-  ) {
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 10, max: 100)',
+  })
+  async findAll(@Query('page') page?: number, @Query('limit') limit?: number) {
     const result = await this.userService.findAll(
       page ? Number(page) : 1,
       limit ? Number(limit) : 10,
@@ -51,9 +85,9 @@ export class UserController extends BaseController {
     if (userProfile.isError) throw userProfile.error;
 
     return this.response({
-      message: 'Account Retrived',
+      message: 'Account Retrieved',
       data: userProfile.data,
-    })
+    });
   }
 
   @Patch('profile')
@@ -75,28 +109,33 @@ export class UserController extends BaseController {
   }
 
   @Patch('change-name')
-  async changeName(@FirebaseUser() user: auth.DecodedIdToken, @Body() form: ChangeNameDto) {
+  async changeName(
+    @FirebaseUser() user: auth.DecodedIdToken,
+    @Body() form: ChangeNameDto,
+  ) {
     const updatedUser = await this.userService.changeName(user.uid, form);
 
     if (updatedUser.isError) throw updatedUser.error;
 
     return this.response({
-      message: 'Names Updated',
+      message: 'Name Updated',
       data: updatedUser.data,
-    })
+    });
   }
 
-
   @Patch('change-username')
-  async changeUsername(@FirebaseUser() user: auth.DecodedIdToken, @Body() form: ChangeUsernameDto) {
+  async changeUsername(
+    @FirebaseUser() user: auth.DecodedIdToken,
+    @Body() form: ChangeUsernameDto,
+  ) {
     const updatedUser = await this.userService.changeUsername(user.uid, form);
 
     if (updatedUser.isError) throw updatedUser.error;
 
     return this.response({
-      message: 'Names Updated',
+      message: 'Username Updated',
       data: updatedUser.data,
-    })
+    });
   }
 
   @Patch('upload-avatar')
@@ -104,7 +143,8 @@ export class UserController extends BaseController {
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Upload user avatar',
-    description: 'Upload a new avatar image for the authenticated user. Supported formats: JPEG, PNG, GIF, WebP, SVG. Maximum file size: 10MB. The old avatar will be replaced if one exists.',
+    description:
+      'Upload a new avatar image for the authenticated user. Supported formats: JPEG, PNG, GIF, WebP, SVG. Maximum file size: 10MB. The old avatar will be replaced if one exists.',
   })
   @ApiBody({
     description: 'Avatar image file',
@@ -116,11 +156,11 @@ export class UserController extends BaseController {
           type: 'string',
           format: 'binary',
           description: 'Avatar image file (JPEG, PNG, GIF, WebP, SVG)',
-          example: 'avatar.jpg'
-        }
+          example: 'avatar.jpg',
+        },
       },
-      required: ['file']
-    }
+      required: ['file'],
+    },
   })
   @ApiResponse({
     status: 200,
@@ -130,51 +170,52 @@ export class UserController extends BaseController {
       properties: {
         message: {
           type: 'string',
-          example: 'Avatar Updated'
+          example: 'Avatar Updated',
         },
         data: {
           type: 'object',
           properties: {
             id: {
               type: 'string',
-              example: '123e4567-e89b-12d3-a456-426614174000'
+              example: '123e4567-e89b-12d3-a456-426614174000',
             },
             firebaseId: {
               type: 'string',
-              example: 'firebase-user-id-123'
+              example: 'firebase-user-id-123',
             },
             name: {
               type: 'string',
-              example: 'John Doe'
+              example: 'John Doe',
             },
             username: {
               type: 'string',
               example: 'johndoe',
-              nullable: true
+              nullable: true,
             },
             email: {
               type: 'string',
-              example: 'john@example.com'
+              example: 'john@example.com',
             },
             avatar: {
               type: 'string',
-              example: 'https://storage.example.com/images/avatars/user-id/avatar.jpg',
-              description: 'URL of the uploaded avatar image'
+              example:
+                'https://storage.example.com/images/avatars/user-id/avatar.jpg',
+              description: 'URL of the uploaded avatar image',
             },
             createdAt: {
               type: 'string',
               format: 'date-time',
-              example: '2024-01-01T00:00:00.000Z'
+              example: '2024-01-01T00:00:00.000Z',
             },
             updatedAt: {
               type: 'string',
               format: 'date-time',
-              example: '2024-01-01T00:00:00.000Z'
-            }
-          }
-        }
-      }
-    }
+              example: '2024-01-01T00:00:00.000Z',
+            },
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 400,
@@ -184,19 +225,20 @@ export class UserController extends BaseController {
       properties: {
         statusCode: {
           type: 'number',
-          example: 400
+          example: 400,
         },
         message: {
           type: 'string',
           example: 'No file provided',
-          description: 'Error message - could be: "No file provided", "Invalid file type", or "File size exceeds maximum allowed size of 10MB for image"'
+          description:
+            'Error message - could be: "No file provided", "Invalid file type", or "File size exceeds maximum allowed size of 10MB for image"',
         },
         error: {
           type: 'string',
-          example: 'Bad Request'
-        }
-      }
-    }
+          example: 'Bad Request',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 401,
@@ -206,14 +248,14 @@ export class UserController extends BaseController {
       properties: {
         statusCode: {
           type: 'number',
-          example: 401
+          example: 401,
         },
         message: {
           type: 'string',
-          example: 'Unauthorized'
-        }
-      }
-    }
+          example: 'Unauthorized',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 404,
@@ -223,18 +265,18 @@ export class UserController extends BaseController {
       properties: {
         statusCode: {
           type: 'number',
-          example: 404
+          example: 404,
         },
         message: {
           type: 'string',
-          example: 'User not found'
+          example: 'User not found',
         },
         error: {
           type: 'string',
-          example: 'Not Found'
-        }
-      }
-    }
+          example: 'Not Found',
+        },
+      },
+    },
   })
   async uploadAvatar(
     @FirebaseUser() user: auth.DecodedIdToken,
@@ -251,7 +293,7 @@ export class UserController extends BaseController {
     return this.response({
       message: 'Avatar Updated',
       data: updatedUser.data,
-    })
+    });
   }
 
   @Delete('delete-account')
@@ -261,9 +303,9 @@ export class UserController extends BaseController {
     if (deletedUser.isError) throw deletedUser.error;
 
     return this.response({
-      message: 'Account Updated',
-      data: user.data,
-    })
+      message: 'Account Deleted',
+      data: deletedUser.data,
+    });
   }
 
   @Get('stats')
@@ -273,18 +315,25 @@ export class UserController extends BaseController {
     if (stats.isError) throw stats.error;
 
     return this.response({
-      message: 'Stats Retrived',
+      message: 'Stats Retrieved',
       data: stats.data,
-    })
+    });
   }
 
   @Get('stats/streak-calendar')
   @ApiOperation({
     summary: 'Get streak calendar data',
-    description: 'Returns streak activity data for a specific month/year to render a calendar view showing active days.',
+    description:
+      'Returns streak activity data for a specific month/year to render a calendar view showing active days.',
   })
   @ApiQuery({ name: 'year', type: Number, required: true, example: 2024 })
-  @ApiQuery({ name: 'month', type: Number, required: true, example: 1, description: 'Month (1-12)' })
+  @ApiQuery({
+    name: 'month',
+    type: Number,
+    required: true,
+    example: 1,
+    description: 'Month (1-12)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Streak calendar data retrieved successfully',
@@ -336,9 +385,16 @@ export class UserController extends BaseController {
   @Get('stats/streak-chart')
   @ApiOperation({
     summary: 'Get streak chart data',
-    description: 'Returns streak days per month for a given year (defaults to current year) to render a bar chart.',
+    description:
+      'Returns streak days per month for a given year (defaults to current year) to render a bar chart.',
   })
-  @ApiQuery({ name: 'year', type: Number, required: false, example: 2024, description: 'Year (defaults to current year)' })
+  @ApiQuery({
+    name: 'year',
+    type: Number,
+    required: false,
+    example: 2024,
+    description: 'Year (defaults to current year)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Streak chart data retrieved successfully',
@@ -375,7 +431,10 @@ export class UserController extends BaseController {
     if (dbUser.isError) throw dbUser.error;
 
     const year = query.year || new Date().getFullYear();
-    const chartData = await this.streakService.getStreakChart(dbUser.data.id, year);
+    const chartData = await this.streakService.getStreakChart(
+      dbUser.data.id,
+      year,
+    );
 
     return this.response({
       message: 'Streak chart retrieved',
@@ -386,7 +445,8 @@ export class UserController extends BaseController {
   @Get('streak-reminder-preferences')
   @ApiOperation({
     summary: 'Get streak reminder preferences',
-    description: 'Returns the user’s streak reminder settings: enabled, custom times (HH:mm), and timezone. Empty times means defaults (08:00 and 18:00 UTC).',
+    description:
+      'Returns the user’s streak reminder settings: enabled, custom times (HH:mm), and timezone. Empty times means defaults (08:00 and 18:00 UTC).',
   })
   @ApiResponse({
     status: 200,
@@ -394,20 +454,31 @@ export class UserController extends BaseController {
     schema: {
       type: 'object',
       properties: {
-        message: { type: 'string', example: 'Streak reminder preferences retrieved' },
+        message: {
+          type: 'string',
+          example: 'Streak reminder preferences retrieved',
+        },
         data: {
           type: 'object',
           properties: {
             enabled: { type: 'boolean', example: true },
-            times: { type: 'array', items: { type: 'string' }, example: ['08:00', '18:00'] },
+            times: {
+              type: 'array',
+              items: { type: 'string' },
+              example: ['08:00', '18:00'],
+            },
             timezone: { type: 'string', example: 'UTC' },
           },
         },
       },
     },
   })
-  async getStreakReminderPreferences(@FirebaseUser() user: auth.DecodedIdToken) {
-    const result = await this.userService.getStreakReminderPreferences(user.uid);
+  async getStreakReminderPreferences(
+    @FirebaseUser() user: auth.DecodedIdToken,
+  ) {
+    const result = await this.userService.getStreakReminderPreferences(
+      user.uid,
+    );
     if (result.isError) throw result.error;
     return this.response({
       message: 'Streak reminder preferences retrieved',
@@ -418,7 +489,8 @@ export class UserController extends BaseController {
   @Patch('streak-reminder-preferences')
   @ApiOperation({
     summary: 'Update streak reminder preferences',
-    description: 'Set when to receive streak reminders. Provide times (HH:mm 24h) and timezone; system will send morning/afternoon/evening messages at those times. Empty times = use defaults (08:00 and 18:00 UTC).',
+    description:
+      'Set when to receive streak reminders. Provide times (HH:mm 24h) and timezone; system will send morning/afternoon/evening messages at those times. Empty times = use defaults (08:00 and 18:00 UTC).',
   })
   @ApiBody({ type: UpdateStreakReminderPreferencesDto })
   @ApiResponse({
@@ -427,7 +499,10 @@ export class UserController extends BaseController {
     schema: {
       type: 'object',
       properties: {
-        message: { type: 'string', example: 'Streak reminder preferences updated' },
+        message: {
+          type: 'string',
+          example: 'Streak reminder preferences updated',
+        },
         data: {
           type: 'object',
           properties: {
@@ -443,7 +518,10 @@ export class UserController extends BaseController {
     @FirebaseUser() user: auth.DecodedIdToken,
     @Body() body: UpdateStreakReminderPreferencesDto,
   ) {
-    const result = await this.userService.updateStreakReminderPreferences(user.uid, body);
+    const result = await this.userService.updateStreakReminderPreferences(
+      user.uid,
+      body,
+    );
     if (result.isError) throw result.error;
     return this.response({
       message: 'Streak reminder preferences updated',
@@ -454,7 +532,8 @@ export class UserController extends BaseController {
   @Get('preferences/tts-voice/personas')
   @ApiOperation({
     summary: 'Get all available TTS voice personas',
-    description: 'Returns a list of all available voice personas with their details including name, role, description, and personality traits. Use this endpoint to populate persona selection UI.',
+    description:
+      'Returns a list of all available voice personas with their details including name, role, description, and personality traits. Use this endpoint to populate persona selection UI.',
   })
   @ApiResponse({
     status: 200,
@@ -468,31 +547,42 @@ export class UserController extends BaseController {
             type: 'object',
             properties: {
               name: { type: 'string', example: 'Sage' },
-              displayName: { type: 'string', example: 'Sage (Empathetic Mentor)' },
-              description: { type: 'string', example: 'Nurturing, warm voice that radiates compassion' },
-              personality: { type: 'array', items: { type: 'string' }, example: ['nurturing', 'compassionate'] },
-              preference: { type: 'string', example: 'Sage' }
-            }
-          }
-        }
-      }
-    }
+              displayName: {
+                type: 'string',
+                example: 'Sage (Empathetic Mentor)',
+              },
+              description: {
+                type: 'string',
+                example: 'Nurturing, warm voice that radiates compassion',
+              },
+              personality: {
+                type: 'array',
+                items: { type: 'string' },
+                example: ['nurturing', 'compassionate'],
+              },
+              preference: { type: 'string', example: 'Sage' },
+            },
+          },
+        },
+      },
+    },
   })
   async getAvailablePersonas() {
     const personas = await this.userService.getAvailablePersonas();
-    
+
     if (personas.isError) throw personas.error;
 
     return this.response({
       message: 'Available voice personas retrieved',
       data: personas.data,
-    })
+    });
   }
 
   @Patch('preferences/tts-voice')
   @ApiOperation({
     summary: 'Update TTS voice persona preference',
-    description: 'Updates the user\'s text-to-speech voice persona preference. Choose from 6 distinct personas with unique names, personalities, and tones. This preference will be used for all future AI-generated affirmation audio.',
+    description:
+      "Updates the user's text-to-speech voice persona preference. Choose from 6 distinct personas with unique names, personalities, and tones. This preference will be used for all future AI-generated affirmation audio.",
   })
   @ApiBody({
     type: ChangeTtsVoicePreferenceDto,
@@ -500,53 +590,57 @@ export class UserController extends BaseController {
       sage: {
         summary: 'Sage (Empathetic Mentor)',
         value: { ttsVoicePreference: 'Sage' },
-        description: 'Nurturing, warm voice that radiates compassion.'
+        description: 'Nurturing, warm voice that radiates compassion.',
       },
       phoenix: {
         summary: 'Phoenix (Energetic Motivator)',
         value: { ttsVoicePreference: 'Phoenix' },
-        description: 'Upbeat, vibrant voice that inspires action.'
+        description: 'Upbeat, vibrant voice that inspires action.',
       },
       river: {
         summary: 'River (Confident Coach)',
         value: { ttsVoicePreference: 'River' },
-        description: 'Deep, authoritative voice that commands attention.'
+        description: 'Deep, authoritative voice that commands attention.',
       },
       quinn: {
         summary: 'Quinn (Friendly Guide)',
         value: { ttsVoicePreference: 'Quinn' },
-        description: 'Warm, conversational voice that feels approachable.'
+        description: 'Warm, conversational voice that feels approachable.',
       },
       alex: {
         summary: 'Alex (Calm Companion)',
         value: { ttsVoicePreference: 'Alex' },
-        description: 'Balanced, neutral voice that brings steadiness.'
+        description: 'Balanced, neutral voice that brings steadiness.',
       },
       robin: {
         summary: 'Robin (Wise Advisor)',
         value: { ttsVoicePreference: 'Robin' },
-        description: 'Thoughtful, mature voice that conveys wisdom.'
-      }
-    }
+        description: 'Thoughtful, mature voice that conveys wisdom.',
+      },
+    },
   })
   async changeTtsVoicePreference(
     @FirebaseUser() user: auth.DecodedIdToken,
-    @Body() form: ChangeTtsVoicePreferenceDto
+    @Body() form: ChangeTtsVoicePreferenceDto,
   ) {
-    const updatedUser = await this.userService.changeTtsVoicePreference(user.uid, form);
+    const updatedUser = await this.userService.changeTtsVoicePreference(
+      user.uid,
+      form,
+    );
 
     if (updatedUser.isError) throw updatedUser.error;
 
     return this.response({
       message: 'Voice persona preference updated',
       data: updatedUser.data,
-    })
+    });
   }
 
   @Get('token-usage')
   @ApiOperation({
     summary: 'Get token usage statistics',
-    description: 'Returns the current token usage for the authenticated user, including tokens used this month, remaining tokens, monthly limit, and days until reset.',
+    description:
+      'Returns the current token usage for the authenticated user, including tokens used this month, remaining tokens, monthly limit, and days until reset.',
   })
   @ApiResponse({
     status: 200,
@@ -559,10 +653,14 @@ export class UserController extends BaseController {
           type: 'object',
           properties: {
             tokensUsedThisMonth: { type: 'number', example: 15000 },
-            tokenLimitPerMonth: { type: 'number', example: 30000 },
+            tokenLimitPerMonth: { type: 'number', example: 300000 },
             tokensRemaining: { type: 'number', example: 15000 },
             usagePercentage: { type: 'number', example: 30.0 },
-            resetDate: { type: 'string', format: 'date-time', example: '2026-03-01T00:00:00.000Z' },
+            resetDate: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-03-01T00:00:00.000Z',
+            },
             daysUntilReset: { type: 'number', example: 25 },
           },
         },
@@ -573,7 +671,9 @@ export class UserController extends BaseController {
     const dbUser = await this.userService.getUserProfile(user.uid);
     if (dbUser.isError) throw dbUser.error;
 
-    const tokenUsage = await this.tokenUsageService.getTokenUsage(dbUser.data.id);
+    const tokenUsage = await this.tokenUsageService.getTokenUsage(
+      dbUser.data.id,
+    );
 
     return this.response({
       message: 'Token usage retrieved',

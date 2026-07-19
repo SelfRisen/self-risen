@@ -119,6 +119,9 @@
         }
       ]
     },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!.*jose)"
+    ],
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],

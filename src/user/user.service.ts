@@ -1,13 +1,21 @@
-import { ConflictException, Injectable, Logger, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 // import { CreateUserDto, LoginUserDto, UpdateUserDto } from './dto';
-import { User } from '@prisma/client';
 import { DatabaseProvider } from 'src/database/database.provider';
 import { BaseService, FileType, StorageService } from 'src/common';
-import { ChangeNameDto, ChangeUsernameDto, ChangeTtsVoicePreferenceDto, UpdateStreakReminderPreferencesDto, UpdateUserDto } from './dto';
+import {
+  ChangeNameDto,
+  ChangeUsernameDto,
+  ChangeTtsVoicePreferenceDto,
+  UpdateStreakReminderPreferencesDto,
+  UpdateUserDto,
+} from './dto';
 import { buildUserLocaleUpdate } from 'src/auth/utils/user-locale.util';
 import { TextToSpeechService } from 'src/reflection/services/text-to-speech.service';
-import { UploadAvatarDto } from './dto/upload-avatar.dto';
-import { config } from 'src/common';
 
 @Injectable()
 export class UserService extends BaseService {
@@ -16,7 +24,7 @@ export class UserService extends BaseService {
   constructor(
     private prisma: DatabaseProvider,
     private storageService: StorageService,
-    private textToSpeechService: TextToSpeechService
+    private textToSpeechService: TextToSpeechService,
   ) {
     super();
   }
@@ -27,19 +35,21 @@ export class UserService extends BaseService {
   private enrichUserWithPersonaDetails(user: any) {
     if (!user) return user;
 
-    const personaDetails = user.ttsVoicePreference 
+    const personaDetails = user.ttsVoicePreference
       ? this.textToSpeechService.getPersonaMetadata(user.ttsVoicePreference)
       : null;
 
     return {
       ...user,
       ttsVoicePreference: personaDetails?.name ?? user.ttsVoicePreference,
-      ttsVoicePersona: personaDetails ? {
-        name: personaDetails.name,
-        displayName: personaDetails.displayName,
-        description: personaDetails.description,
-        personality: personaDetails.personality
-      } : null
+      ttsVoicePersona: personaDetails
+        ? {
+            name: personaDetails.name,
+            displayName: personaDetails.displayName,
+            description: personaDetails.description,
+            personality: personaDetails.personality,
+          }
+        : null,
     };
   }
 
@@ -57,7 +67,9 @@ export class UserService extends BaseService {
       }),
     ]);
 
-    const enrichedUsers = users.map(user => this.enrichUserWithPersonaDetails(user));
+    const enrichedUsers = users.map((user) =>
+      this.enrichUserWithPersonaDetails(user),
+    );
     const totalPages = Math.ceil(totalCount / pageSize);
 
     return this.Results({
@@ -80,34 +92,43 @@ export class UserService extends BaseService {
         _count: {
           select: {
             reflectionSessions: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
     if (!user) {
-      return this.HandleError(
-        new NotFoundException('User not found')
-      )
-    };
+      return this.HandleError(new NotFoundException('User not found'));
+    }
 
     const enrichedUser = this.enrichUserWithPersonaDetails(user);
-    
+
     // Add token usage summary
     const now = new Date();
     const resetDate = new Date(user.tokenResetDate);
-    const daysUntilReset = Math.max(0, Math.ceil((resetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-    
+    const daysUntilReset = Math.max(
+      0,
+      Math.ceil((resetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+    );
+
     return this.Results({
       ...enrichedUser,
       tokenUsage: {
         tokensUsedThisMonth: user.tokensUsedThisMonth,
         tokenLimitPerMonth: user.tokenLimitPerMonth,
-        tokensRemaining: Math.max(0, user.tokenLimitPerMonth - user.tokensUsedThisMonth),
-        usagePercentage: Math.round((user.tokensUsedThisMonth / user.tokenLimitPerMonth) * 10000) / 100,
+        tokensRemaining: Math.max(
+          0,
+          user.tokenLimitPerMonth - user.tokensUsedThisMonth,
+        ),
+        usagePercentage:
+          user.tokenLimitPerMonth > 0
+            ? Math.round(
+                (user.tokensUsedThisMonth / user.tokenLimitPerMonth) * 10000,
+              ) / 100
+            : 0,
         resetDate: user.tokenResetDate,
         daysUntilReset,
-      }
+      },
     });
   }
 
@@ -126,7 +147,9 @@ export class UserService extends BaseService {
       const countryCode = payload.countryCode?.trim();
       if (!countryCode) {
         return this.HandleError(
-          new BadRequestException('countryCode is required when updating location.'),
+          new BadRequestException(
+            'countryCode is required when updating location.',
+          ),
         );
       }
 
@@ -150,7 +173,9 @@ export class UserService extends BaseService {
       };
 
       if (payload.ttsVoicePreference !== undefined) {
-        const enumValue = this.textToSpeechService.convertNameToEnum(payload.ttsVoicePreference);
+        const enumValue = this.textToSpeechService.convertNameToEnum(
+          payload.ttsVoicePreference,
+        );
         if (!enumValue) {
           return this.HandleError(
             new BadRequestException(
@@ -180,7 +205,9 @@ export class UserService extends BaseService {
     if (payload.username !== undefined) data.username = payload.username;
 
     if (payload.ttsVoicePreference !== undefined) {
-      const enumValue = this.textToSpeechService.convertNameToEnum(payload.ttsVoicePreference);
+      const enumValue = this.textToSpeechService.convertNameToEnum(
+        payload.ttsVoicePreference,
+      );
       if (!enumValue) {
         return this.HandleError(
           new BadRequestException(
@@ -260,31 +287,28 @@ export class UserService extends BaseService {
     }
   }
 
-  async uploadAvatar(
-    firebaseId: string,
-    file: Express.Multer.File
-  ) {
+  async uploadAvatar(firebaseId: string, file: Express.Multer.File) {
     this.logger.debug(`Starting avatar upload for firebaseId: ${firebaseId}`);
 
     const user = await this.prisma.user.findUnique({
-      where: { firebaseId }
+      where: { firebaseId },
     });
 
     if (!user) {
       this.logger.warn(`User not found for firebaseId: ${firebaseId}`);
-      return this.HandleError(
-        new NotFoundException('User not found')
-      )
-    };
+      return this.HandleError(new NotFoundException('User not found'));
+    }
 
     try {
       const upload = await this.storageService.uploadFile(
         file,
         FileType.IMAGE,
         user.id,
-        'avatars'
+        'avatars',
       );
-      this.logger.debug(`Upload successful for user ${user.id}, URL: ${upload.url}`);
+      this.logger.debug(
+        `Upload successful for user ${user.id}, URL: ${upload.url}`,
+      );
 
       const avatar = upload.url;
 
@@ -292,13 +316,16 @@ export class UserService extends BaseService {
         where: { firebaseId },
         data: {
           avatar,
-        }
+        },
       });
 
       const enrichedUser = this.enrichUserWithPersonaDetails(updatedUser);
       return this.Results(enrichedUser);
     } catch (error) {
-      this.logger.error(`Avatar upload failed for firebaseId ${firebaseId}: ${error?.message}`, error?.stack);
+      this.logger.error(
+        `Avatar upload failed for firebaseId ${firebaseId}: ${error?.message}`,
+        error?.stack,
+      );
       throw error;
     }
   }
@@ -309,25 +336,27 @@ export class UserService extends BaseService {
       select: {
         streak: true,
         sessions: true,
-      }
+      },
     });
 
     if (!user) {
-      return this.HandleError(
-        new NotFoundException('User not found')
-      )
-    };
+      return this.HandleError(new NotFoundException('User not found'));
+    }
 
     return this.Results(user);
   }
 
-  async changeTtsVoicePreference(firebaseId: string, payload: ChangeTtsVoicePreferenceDto) {
+  async changeTtsVoicePreference(
+    firebaseId: string,
+    payload: ChangeTtsVoicePreferenceDto,
+  ) {
     const { ttsVoicePreference } = payload;
 
-    const enumValue = this.textToSpeechService.convertNameToEnum(ttsVoicePreference);
+    const enumValue =
+      this.textToSpeechService.convertNameToEnum(ttsVoicePreference);
     if (!enumValue) {
       return this.HandleError(
-        new BadRequestException(`Invalid persona name: ${ttsVoicePreference}`)
+        new BadRequestException(`Invalid persona name: ${ttsVoicePreference}`),
       );
     }
 
@@ -379,9 +408,17 @@ export class UserService extends BaseService {
     });
   }
 
-  async updateStreakReminderPreferences(firebaseId: string, payload: UpdateStreakReminderPreferencesDto) {
-    const data: { streakReminderEnabled?: boolean; streakReminderTimes?: string[]; timezone?: string } = {};
-    if (payload.enabled !== undefined) data.streakReminderEnabled = payload.enabled;
+  async updateStreakReminderPreferences(
+    firebaseId: string,
+    payload: UpdateStreakReminderPreferencesDto,
+  ) {
+    const data: {
+      streakReminderEnabled?: boolean;
+      streakReminderTimes?: string[];
+      timezone?: string;
+    } = {};
+    if (payload.enabled !== undefined)
+      data.streakReminderEnabled = payload.enabled;
     if (payload.times !== undefined) data.streakReminderTimes = payload.times;
     if (payload.timezone !== undefined) data.timezone = payload.timezone;
 

@@ -1,13 +1,13 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsInt, IsNotEmpty, IsOptional, Max, Min } from "class-validator";
-import { Type } from "class-transformer";
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsInt, IsNotEmpty, IsOptional, Max, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class StreakCalendarQueryDto {
   @ApiProperty({
     description: 'Year for the calendar view',
     example: 2024,
     minimum: 2020,
-    maximum: 2100
+    maximum: 2100,
   })
   @IsNotEmpty()
   @Type(() => Number)
@@ -20,7 +20,7 @@ export class StreakCalendarQueryDto {
     description: 'Month for the calendar view (1-12)',
     example: 1,
     minimum: 1,
-    maximum: 12
+    maximum: 12,
   })
   @IsNotEmpty()
   @Type(() => Number)
@@ -35,7 +35,7 @@ export class StreakChartQueryDto {
     description: 'Year for the chart view (defaults to current year)',
     example: 2024,
     minimum: 2020,
-    maximum: 2100
+    maximum: 2100,
   })
   @IsOptional()
   @Type(() => Number)

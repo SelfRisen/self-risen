@@ -1,5 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsOptional, IsObject, IsArray, ArrayMaxSize, ArrayMinSize, MaxLength } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsOptional,
+  IsObject,
+  IsArray,
+  ArrayMaxSize,
+  ArrayMinSize,
+  MaxLength,
+} from 'class-validator';
 
 export class SendBulkNotificationDto {
   @ApiProperty({
@@ -8,7 +17,9 @@ export class SendBulkNotificationDto {
   })
   @IsArray()
   @ArrayMinSize(1, { message: 'At least one Firebase ID is required' })
-  @ArrayMaxSize(1000, { message: 'Cannot send to more than 1000 users at once' })
+  @ArrayMaxSize(1000, {
+    message: 'Cannot send to more than 1000 users at once',
+  })
   @IsString({ each: true })
   @MaxLength(128, { each: true, message: 'Firebase ID is too long' })
   @IsNotEmpty()

@@ -1,4 +1,11 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Put, Headers, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Patch,
+  UseGuards,
+  Headers,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import {
   SignUp,
@@ -11,8 +18,9 @@ import {
   VerifyPasswordResetOtpDto,
   GoogleSignInDto,
   AppleSignInDto,
+  FacebookSignInDto,
 } from './dto';
-import { BaseController, AuthGuard, FirebaseUser } from 'src/common';
+import { BaseController, FirebaseUser } from 'src/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { auth } from 'firebase-admin';
 import { FirebaseGuard } from '@alpha018/nestjs-firebase-auth';
@@ -26,7 +34,7 @@ export class AuthController extends BaseController {
 
   @Post('signup')
   async signUp(@Body() form: SignUp) {
-    const user = await this.authService.signUp(form)
+    const user = await this.authService.signUp(form);
 
     if (user.isError) throw user.error;
 
@@ -66,7 +74,7 @@ export class AuthController extends BaseController {
   @UseGuards(FirebaseGuard)
   async setUserName(
     @FirebaseUser() user: auth.DecodedIdToken,
-    @Body() form: SetUserNameDto
+    @Body() form: SetUserNameDto,
   ) {
     const result = await this.authService.setUserName(user.uid, form);
     if (result.isError) throw result.error;
@@ -96,7 +104,8 @@ export class AuthController extends BaseController {
     if (result.isError) throw result.error;
 
     return this.response({
-      message: 'If an account with that email exists, a password reset OTP has been sent.',
+      message:
+        'If an account with that email exists, a password reset OTP has been sent.',
       data: result.data,
     });
   }
@@ -119,7 +128,7 @@ export class AuthController extends BaseController {
   @UseGuards(FirebaseGuard)
   async changePassword(
     @FirebaseUser() user: auth.DecodedIdToken,
-    @Body() form: ChangePasswordDto
+    @Body() form: ChangePasswordDto,
   ) {
     const result = await this.authService.changePassword(user.uid, form);
     if (result.isError) throw result.error;
@@ -143,7 +152,9 @@ export class AuthController extends BaseController {
   }
 
   @Post('signin/google')
-  @ApiOperation({ summary: 'Sign in with Google using Google ID token (Google OAuth)' })
+  @ApiOperation({
+    summary: 'Sign in with Google using Google ID token (Google OAuth)',
+  })
   async signInWithGoogle(@Body() form: GoogleSignInDto) {
     const result = await this.authService.signInWithGoogle(form);
     if (result.isError) throw result.error;
@@ -154,8 +165,25 @@ export class AuthController extends BaseController {
     });
   }
 
+  @Post('signin/facebook')
+  @ApiOperation({
+    summary:
+      'Sign in with Facebook using a Facebook access token (Facebook Login)',
+  })
+  async signInWithFacebook(@Body() form: FacebookSignInDto) {
+    const result = await this.authService.signInWithFacebook(form);
+    if (result.isError) throw result.error;
+
+    return this.response({
+      message: 'Facebook sign-in successful',
+      data: result.data,
+    });
+  }
+
   @Post('signin/apple')
-  @ApiOperation({ summary: 'Sign in with Apple using Apple identity token (Apple Sign-In)' })
+  @ApiOperation({
+    summary: 'Sign in with Apple using Apple identity token (Apple Sign-In)',
+  })
   async signInWithApple(@Body() form: AppleSignInDto) {
     const result = await this.authService.signInWithApple(form);
     if (result.isError) throw result.error;

@@ -30,7 +30,12 @@ describe('WheelOfLifeService', () => {
     id: 'wheel-123',
     userId: 'user-123',
     categories: [
-      { id: 'cat-1', name: 'Health & Well-being', order: 0, wheelId: 'wheel-123' },
+      {
+        id: 'cat-1',
+        name: 'Health & Well-being',
+        order: 0,
+        wheelId: 'wheel-123',
+      },
       { id: 'cat-2', name: 'Relationships', order: 1, wheelId: 'wheel-123' },
       { id: 'cat-3', name: 'Career / Work', order: 2, wheelId: 'wheel-123' },
     ],
@@ -93,6 +98,9 @@ describe('WheelOfLifeService', () => {
         create: jest.fn(),
         delete: jest.fn(),
       },
+      visionBoard: {
+        create: jest.fn(),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -150,7 +158,9 @@ describe('WheelOfLifeService', () => {
         name: 'Updated Name',
       });
 
-      const result = await service.updateCategory('firebase-uid-123', 'cat-1', { name: 'Updated Name' });
+      const result = await service.updateCategory('firebase-uid-123', 'cat-1', {
+        name: 'Updated Name',
+      });
 
       expect(result.isError).toBe(false);
       expect(result.data?.name).toBe('Updated Name');
@@ -159,7 +169,11 @@ describe('WheelOfLifeService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.updateCategory('nonexistent-firebase-id', 'cat-1', { name: 'Updated Name' });
+      const result = await service.updateCategory(
+        'nonexistent-firebase-id',
+        'cat-1',
+        { name: 'Updated Name' },
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -169,7 +183,11 @@ describe('WheelOfLifeService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.wheelCategory.findFirst.mockResolvedValue(null);
 
-      const result = await service.updateCategory('firebase-uid-123', 'nonexistent-cat', { name: 'Updated Name' });
+      const result = await service.updateCategory(
+        'firebase-uid-123',
+        'nonexistent-cat',
+        { name: 'Updated Name' },
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -188,7 +206,9 @@ describe('WheelOfLifeService', () => {
         wheelId: 'wheel-123',
       });
 
-      const result = await service.addCategory('firebase-uid-123', { name: 'New Category' });
+      const result = await service.addCategory('firebase-uid-123', {
+        name: 'New Category',
+      });
 
       expect(result.isError).toBe(false);
       expect(result.data?.name).toBe('New Category');
@@ -197,7 +217,9 @@ describe('WheelOfLifeService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.addCategory('nonexistent-firebase-id', { name: 'New Category' });
+      const result = await service.addCategory('nonexistent-firebase-id', {
+        name: 'New Category',
+      });
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -207,7 +229,9 @@ describe('WheelOfLifeService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.wheelOfLife.findUnique.mockResolvedValue(null);
 
-      const result = await service.addCategory('firebase-uid-123', { name: 'New Category' });
+      const result = await service.addCategory('firebase-uid-123', {
+        name: 'New Category',
+      });
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -229,7 +253,10 @@ describe('WheelOfLifeService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.deleteCategory('nonexistent-firebase-id', 'cat-1');
+      const result = await service.deleteCategory(
+        'nonexistent-firebase-id',
+        'cat-1',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -239,7 +266,10 @@ describe('WheelOfLifeService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.wheelCategory.findFirst.mockResolvedValue(null);
 
-      const result = await service.deleteCategory('firebase-uid-123', 'nonexistent-cat');
+      const result = await service.deleteCategory(
+        'firebase-uid-123',
+        'nonexistent-cat',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -361,7 +391,9 @@ describe('WheelOfLifeService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.getAssessmentHistory('nonexistent-firebase-id');
+      const result = await service.getAssessmentHistory(
+        'nonexistent-firebase-id',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -376,7 +408,9 @@ describe('WheelOfLifeService', () => {
       mockPrisma.wheelFocus.findFirst.mockResolvedValue(null);
       mockPrisma.wheelFocus.create.mockResolvedValue(mockFocus);
 
-      const result = await service.chooseFocus('firebase-uid-123', { categoryId: 'cat-1' });
+      const result = await service.chooseFocus('firebase-uid-123', {
+        categoryId: 'cat-1',
+      });
 
       expect(result.isError).toBe(false);
       expect(result.data?.focus).toBeDefined();
@@ -387,7 +421,9 @@ describe('WheelOfLifeService', () => {
       mockPrisma.wheelOfLife.findUnique.mockResolvedValue(mockWheel);
       mockPrisma.wheelCategory.findFirst.mockResolvedValue(null);
 
-      const result = await service.chooseFocus('firebase-uid-123', { categoryId: 'nonexistent-cat' });
+      const result = await service.chooseFocus('firebase-uid-123', {
+        categoryId: 'nonexistent-cat',
+      });
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -399,7 +435,9 @@ describe('WheelOfLifeService', () => {
       mockPrisma.wheelCategory.findFirst.mockResolvedValue(mockCategory);
       mockPrisma.wheelFocus.findFirst.mockResolvedValue(mockFocus);
 
-      const result = await service.chooseFocus('firebase-uid-123', { categoryId: 'cat-1' });
+      const result = await service.chooseFocus('firebase-uid-123', {
+        categoryId: 'cat-1',
+      });
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -452,7 +490,10 @@ describe('WheelOfLifeService', () => {
       mockPrisma.wheelOfLife.findUnique.mockResolvedValue(mockWheel);
       mockPrisma.wheelFocus.findFirst.mockResolvedValue(null);
 
-      const result = await service.deleteFocus('firebase-uid-123', 'nonexistent-focus');
+      const result = await service.deleteFocus(
+        'firebase-uid-123',
+        'nonexistent-focus',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);

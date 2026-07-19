@@ -31,7 +31,8 @@ import { randomUUID } from 'crypto';
 @Injectable()
 export class NotificationsService
   extends BaseService
-  implements INotificationService {
+  implements INotificationService
+{
   constructor(
     private prisma: DatabaseProvider,
     private dispatcher: NotificationQueueService,
@@ -89,7 +90,9 @@ export class NotificationsService
       }
 
       // Filter tokens within transaction to ensure atomicity
-      const updatedTokens = user.pushTokens.filter((token) => token !== pushToken);
+      const updatedTokens = user.pushTokens.filter(
+        (token) => token !== pushToken,
+      );
 
       return await tx.user.update({
         where: { firebaseId },
@@ -411,7 +414,9 @@ export class NotificationsService
       throw new BadRequestException('At least one user ID is required');
     }
     if (req.userIds.length > 1000) {
-      throw new BadRequestException('Cannot send to more than 1000 users at once');
+      throw new BadRequestException(
+        'Cannot send to more than 1000 users at once',
+      );
     }
 
     // Track failures
@@ -592,7 +597,12 @@ export class NotificationsService
     return results;
   }
 
-  async getUserNotifications(firebaseId: string, page = 1, perPage = 10, unreadOnly = false) {
+  async getUserNotifications(
+    firebaseId: string,
+    page = 1,
+    perPage = 10,
+    unreadOnly = false,
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { firebaseId },
       select: { id: true },
@@ -607,7 +617,9 @@ export class NotificationsService
     const skip = (pageNumber - 1) * perPageNumber;
 
     // Build where clause with optional unreadOnly filter
-    const whereClause: { recipientId: string; isRead?: boolean } = { recipientId: user.id };
+    const whereClause: { recipientId: string; isRead?: boolean } = {
+      recipientId: user.id,
+    };
     if (unreadOnly) {
       whereClause.isRead = false;
     }
@@ -675,7 +687,9 @@ export class NotificationsService
       });
 
       if (!recipient) {
-        return this.HandleError(new NotFoundException('Notification not found for this user'));
+        return this.HandleError(
+          new NotFoundException('Notification not found for this user'),
+        );
       }
 
       await this.prisma.notificationRecipient.update({
@@ -688,7 +702,9 @@ export class NotificationsService
       return this.Results({ success: true });
     } catch (error) {
       return this.HandleError(
-        new BadRequestException(`Failed to mark notification as read: ${error.message}`)
+        new BadRequestException(
+          `Failed to mark notification as read: ${error.message}`,
+        ),
       );
     }
   }
@@ -728,7 +744,9 @@ export class NotificationsService
     return this.Results({ count });
   }
 
-  private getDefaultChannels(type: NotificationTypeEnum): NotificationChannel[] {
+  private getDefaultChannels(
+    type: NotificationTypeEnum,
+  ): NotificationChannel[] {
     // Define default channels per notification type
     const defaults: Record<string, NotificationChannel[]> = {
       [NotificationTypeEnum.USER_ONBOARDING_WELCOME]: [

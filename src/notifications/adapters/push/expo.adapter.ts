@@ -28,7 +28,7 @@ export class ExpoAdapter extends IPushChannelAdapter {
     if (!Expo.isExpoPushToken(recipient)) {
       return {
         status: NotificationStatusEnum.FAILED,
-        error: `Invalid Expo push token: ${recipient}`,
+        error: `Invalid Expo push token: ${String(recipient)}`,
       };
     }
 
@@ -41,7 +41,8 @@ export class ExpoAdapter extends IPushChannelAdapter {
 
     try {
       const chunks = this.expo.chunkPushNotifications([message]);
-      const tickets: Awaited<ReturnType<Expo['sendPushNotificationsAsync']>> = [];
+      const tickets: Awaited<ReturnType<Expo['sendPushNotificationsAsync']>> =
+        [];
 
       for (const chunk of chunks) {
         const ticketChunk = await this.expo.sendPushNotificationsAsync(chunk);
@@ -67,7 +68,8 @@ export class ExpoAdapter extends IPushChannelAdapter {
 
       return {
         status: NotificationStatusEnum.SENT,
-        messageId: ticket.status === 'ok' && 'id' in ticket ? ticket.id : undefined,
+        messageId:
+          ticket.status === 'ok' && 'id' in ticket ? ticket.id : undefined,
       };
     } catch (error) {
       return {

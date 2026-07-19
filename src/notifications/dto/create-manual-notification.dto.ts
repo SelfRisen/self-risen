@@ -49,7 +49,8 @@ export class CreateManualNotificationDto {
   channels?: NotificationChannelTypeEnum[];
 
   @ApiPropertyOptional({
-    description: 'Idempotency key; if provided and duplicate, returns existing result',
+    description:
+      'Idempotency key; if provided and duplicate, returns existing result',
     example: 'manual-notif-abc-123',
   })
   @IsOptional()

@@ -3,6 +3,7 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { VisionBoardService } from '../vision-board.service';
 import { DatabaseProvider } from '../../database/database.provider';
 import { StorageService, FileType } from '../../common/storage/storage.service';
+import { StaterVideosService } from '../../stater-videos/stater-videos.service';
 import { ReflectionSessionStatus } from '@prisma/client';
 
 jest.mock('../../common', () => {
@@ -21,6 +22,7 @@ describe('VisionBoardService', () => {
   let service: VisionBoardService;
   let mockPrisma: any;
   let mockStorageService: any;
+  let mockStaterVideosService: any;
 
   const mockUser = {
     id: 'user-123',
@@ -52,7 +54,13 @@ describe('VisionBoardService', () => {
     status: ReflectionSessionStatus.AFFIRMATION_GENERATED,
     selectedAffirmationText: 'I am healthy and vibrant',
     category: { id: 'cat-1', name: 'Health & Well-being' },
-    reflectionSound: null as { id: string; soundUrl: string; name: string | null; fileSize: number | null; mimeType: string | null } | null,
+    reflectionSound: null as {
+      id: string;
+      soundUrl: string;
+      name: string | null;
+      fileSize: number | null;
+      mimeType: string | null;
+    } | null,
   };
 
   const mockVision = {
@@ -101,6 +109,7 @@ describe('VisionBoardService', () => {
       },
       reflectionSession: {
         findFirst: jest.fn(),
+        update: jest.fn(),
       },
       visionSound: {
         create: jest.fn(),
@@ -109,6 +118,9 @@ describe('VisionBoardService', () => {
         findMany: jest.fn(),
         update: jest.fn(),
       },
+      // The service wraps writes in $transaction; run the callback with the
+      // same mocked client so tx.* calls resolve to these jest mocks.
+      $transaction: jest.fn((cb) => cb(mockPrisma)),
     };
 
     mockStorageService = {
@@ -116,11 +128,16 @@ describe('VisionBoardService', () => {
       deleteFile: jest.fn(),
     };
 
+    mockStaterVideosService = {
+      getSoundByName: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VisionBoardService,
         { provide: DatabaseProvider, useValue: mockPrisma },
         { provide: StorageService, useValue: mockStorageService },
+        { provide: StaterVideosService, useValue: mockStaterVideosService },
       ],
     }).compile();
 
@@ -131,12 +148,18 @@ describe('VisionBoardService', () => {
     it('should successfully add a vision with reflection session', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.visionBoard.findFirst.mockResolvedValue(mockVisionBoard);
-      mockPrisma.reflectionSession.findFirst.mockResolvedValue(mockReflectionSession);
+      mockPrisma.reflectionSession.findFirst.mockResolvedValue(
+        mockReflectionSession,
+      );
       mockPrisma.vision.findUnique.mockResolvedValue(null);
       mockPrisma.vision.findFirst.mockResolvedValue(null);
       mockPrisma.vision.create.mockResolvedValue(mockVision);
 
-      const result = await service.addVision('firebase-uid-123', 'vision-board-123', 'session-123');
+      const result = await service.addVision(
+        'firebase-uid-123',
+        'vision-board-123',
+        'session-123',
+      );
 
       expect(result.isError).toBe(false);
       expect(result.data?.id).toBe('vision-123');
@@ -158,7 +181,9 @@ describe('VisionBoardService', () => {
       };
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.visionBoard.findFirst.mockResolvedValue(mockVisionBoard);
-      mockPrisma.reflectionSession.findFirst.mockResolvedValue(sessionWithSound);
+      mockPrisma.reflectionSession.findFirst.mockResolvedValue(
+        sessionWithSound,
+      );
       mockPrisma.vision.findUnique.mockResolvedValue(null);
       mockPrisma.vision.findFirst.mockResolvedValue(null);
       mockPrisma.visionSound.findFirst.mockResolvedValue(null);
@@ -172,7 +197,11 @@ describe('VisionBoardService', () => {
         visionSound: mockVisionBoardSound,
       });
 
-      const result = await service.addVision('firebase-uid-123', 'vision-board-123', 'session-123');
+      const result = await service.addVision(
+        'firebase-uid-123',
+        'vision-board-123',
+        'session-123',
+      );
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.visionSound.create).toHaveBeenCalledWith({
@@ -182,22 +211,34 @@ describe('VisionBoardService', () => {
         }),
       });
       const createData = mockPrisma.vision.create.mock.calls[0][0].data;
-      expect(createData.visionSound).toEqual({ connect: { id: 'new-vision-sound-123' } });
+      expect(createData.visionSound).toEqual({
+        connect: { id: 'new-vision-sound-123' },
+      });
     });
 
     it('should successfully add a vision with image file', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.visionBoard.findFirst.mockResolvedValue(mockVisionBoard);
       mockPrisma.vision.findFirst.mockResolvedValue(null);
-      mockStorageService.uploadFile.mockResolvedValue({ url: 'https://storage.com/new-image.jpg' });
+      mockStorageService.uploadFile.mockResolvedValue({
+        url: 'https://storage.com/new-image.jpg',
+      });
       mockPrisma.vision.create.mockResolvedValue({
         ...mockVision,
         reflectionSessionId: null,
         reflectionSession: null,
       });
 
-      const mockImageFile = { buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as Express.Multer.File;
-      const result = await service.addVision('firebase-uid-123', 'vision-board-123', undefined, mockImageFile);
+      const mockImageFile = {
+        buffer: Buffer.from('image'),
+        mimetype: 'image/jpeg',
+      } as Express.Multer.File;
+      const result = await service.addVision(
+        'firebase-uid-123',
+        'vision-board-123',
+        undefined,
+        mockImageFile,
+      );
 
       expect(result.isError).toBe(false);
       expect(mockStorageService.uploadFile).toHaveBeenCalledWith(
@@ -211,7 +252,11 @@ describe('VisionBoardService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.addVision('nonexistent-firebase-id', 'vision-board-123', 'session-123');
+      const result = await service.addVision(
+        'nonexistent-firebase-id',
+        'vision-board-123',
+        'session-123',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -220,7 +265,11 @@ describe('VisionBoardService', () => {
     it('should return error when visionBoardId is not provided', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
 
-      const result = await service.addVision('firebase-uid-123', '', 'session-123');
+      const result = await service.addVision(
+        'firebase-uid-123',
+        '',
+        'session-123',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -230,7 +279,10 @@ describe('VisionBoardService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.visionBoard.findFirst.mockResolvedValue(mockVisionBoard);
 
-      const result = await service.addVision('firebase-uid-123', 'vision-board-123');
+      const result = await service.addVision(
+        'firebase-uid-123',
+        'vision-board-123',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -240,7 +292,11 @@ describe('VisionBoardService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.visionBoard.findFirst.mockResolvedValue(null);
 
-      const result = await service.addVision('firebase-uid-123', 'nonexistent-board', 'session-123');
+      const result = await service.addVision(
+        'firebase-uid-123',
+        'nonexistent-board',
+        'session-123',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -251,7 +307,11 @@ describe('VisionBoardService', () => {
       mockPrisma.visionBoard.findFirst.mockResolvedValue(mockVisionBoard);
       mockPrisma.reflectionSession.findFirst.mockResolvedValue(null);
 
-      const result = await service.addVision('firebase-uid-123', 'vision-board-123', 'nonexistent-session');
+      const result = await service.addVision(
+        'firebase-uid-123',
+        'vision-board-123',
+        'nonexistent-session',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -265,7 +325,11 @@ describe('VisionBoardService', () => {
         status: ReflectionSessionStatus.PENDING,
       });
 
-      const result = await service.addVision('firebase-uid-123', 'vision-board-123', 'session-123');
+      const result = await service.addVision(
+        'firebase-uid-123',
+        'vision-board-123',
+        'session-123',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -274,10 +338,17 @@ describe('VisionBoardService', () => {
     it('should return error when reflection session is already in vision board', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.visionBoard.findFirst.mockResolvedValue(mockVisionBoard);
-      mockPrisma.reflectionSession.findFirst.mockResolvedValue(mockReflectionSession);
-      mockPrisma.vision.findUnique.mockResolvedValue(mockVision);
+      mockPrisma.reflectionSession.findFirst.mockResolvedValue(
+        mockReflectionSession,
+      );
+      // Existing-vision duplicate check uses vision.findFirst.
+      mockPrisma.vision.findFirst.mockResolvedValue(mockVision);
 
-      const result = await service.addVision('firebase-uid-123', 'vision-board-123', 'session-123');
+      const result = await service.addVision(
+        'firebase-uid-123',
+        'vision-board-123',
+        'session-123',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -286,10 +357,20 @@ describe('VisionBoardService', () => {
     it('should return error when image upload fails', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.visionBoard.findFirst.mockResolvedValue(mockVisionBoard);
-      mockStorageService.uploadFile.mockRejectedValue(new Error('Upload failed'));
+      mockStorageService.uploadFile.mockRejectedValue(
+        new Error('Upload failed'),
+      );
 
-      const mockImageFile = { buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as Express.Multer.File;
-      const result = await service.addVision('firebase-uid-123', 'vision-board-123', undefined, mockImageFile);
+      const mockImageFile = {
+        buffer: Buffer.from('image'),
+        mimetype: 'image/jpeg',
+      } as Express.Multer.File;
+      const result = await service.addVision(
+        'firebase-uid-123',
+        'vision-board-123',
+        undefined,
+        mockImageFile,
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -315,7 +396,12 @@ describe('VisionBoardService', () => {
       mockPrisma.vision.count.mockResolvedValue(5);
       mockPrisma.vision.findMany.mockResolvedValue([mockVision]);
 
-      const result = await service.getAllVisions('firebase-uid-123', 1, 10, 'vision-board-123');
+      const result = await service.getAllVisions(
+        'firebase-uid-123',
+        1,
+        10,
+        'vision-board-123',
+      );
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.vision.findMany).toHaveBeenCalledWith(
@@ -356,7 +442,10 @@ describe('VisionBoardService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.vision.findFirst.mockResolvedValue(mockVision);
 
-      const result = await service.getVisionById('firebase-uid-123', 'vision-123');
+      const result = await service.getVisionById(
+        'firebase-uid-123',
+        'vision-123',
+      );
 
       expect(result.isError).toBe(false);
       expect(result.data?.id).toBe('vision-123');
@@ -365,7 +454,10 @@ describe('VisionBoardService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.getVisionById('nonexistent-firebase-id', 'vision-123');
+      const result = await service.getVisionById(
+        'nonexistent-firebase-id',
+        'vision-123',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -375,7 +467,10 @@ describe('VisionBoardService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.vision.findFirst.mockResolvedValue(null);
 
-      const result = await service.getVisionById('firebase-uid-123', 'nonexistent-vision');
+      const result = await service.getVisionById(
+        'firebase-uid-123',
+        'nonexistent-vision',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -386,15 +481,25 @@ describe('VisionBoardService', () => {
     it('should successfully update vision with new image', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.vision.findFirst.mockResolvedValue(mockVision);
-      mockStorageService.uploadFile.mockResolvedValue({ url: 'https://storage.com/new-image.jpg' });
+      mockStorageService.uploadFile.mockResolvedValue({
+        url: 'https://storage.com/new-image.jpg',
+      });
       mockStorageService.deleteFile.mockResolvedValue(undefined);
       mockPrisma.vision.update.mockResolvedValue({
         ...mockVision,
         imageUrl: 'https://storage.com/new-image.jpg',
       });
 
-      const mockImageFile = { buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as Express.Multer.File;
-      const result = await service.updateVision('firebase-uid-123', 'vision-123', undefined, mockImageFile);
+      const mockImageFile = {
+        buffer: Buffer.from('image'),
+        mimetype: 'image/jpeg',
+      } as Express.Multer.File;
+      const result = await service.updateVision(
+        'firebase-uid-123',
+        'vision-123',
+        undefined,
+        mockImageFile,
+      );
 
       expect(result.isError).toBe(false);
       expect(mockStorageService.uploadFile).toHaveBeenCalled();
@@ -413,7 +518,11 @@ describe('VisionBoardService', () => {
         reflectionSessionId: 'new-session-123',
       });
 
-      const result = await service.updateVision('firebase-uid-123', 'vision-123', 'new-session-123');
+      const result = await service.updateVision(
+        'firebase-uid-123',
+        'vision-123',
+        'new-session-123',
+      );
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.vision.update).toHaveBeenCalled();
@@ -422,8 +531,16 @@ describe('VisionBoardService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const mockImageFile = { buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as Express.Multer.File;
-      const result = await service.updateVision('nonexistent-firebase-id', 'vision-123', undefined, mockImageFile);
+      const mockImageFile = {
+        buffer: Buffer.from('image'),
+        mimetype: 'image/jpeg',
+      } as Express.Multer.File;
+      const result = await service.updateVision(
+        'nonexistent-firebase-id',
+        'vision-123',
+        undefined,
+        mockImageFile,
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -432,7 +549,10 @@ describe('VisionBoardService', () => {
     it('should return error when no update parameters are provided', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
 
-      const result = await service.updateVision('firebase-uid-123', 'vision-123');
+      const result = await service.updateVision(
+        'firebase-uid-123',
+        'vision-123',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -474,8 +594,16 @@ describe('VisionBoardService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.vision.findFirst.mockResolvedValue(null);
 
-      const mockImageFile = { buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as Express.Multer.File;
-      const result = await service.updateVision('firebase-uid-123', 'nonexistent-vision', undefined, mockImageFile);
+      const mockImageFile = {
+        buffer: Buffer.from('image'),
+        mimetype: 'image/jpeg',
+      } as Express.Multer.File;
+      const result = await service.updateVision(
+        'firebase-uid-123',
+        'nonexistent-vision',
+        undefined,
+        mockImageFile,
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -486,7 +614,11 @@ describe('VisionBoardService', () => {
       mockPrisma.vision.findFirst.mockResolvedValue(mockVision);
       mockPrisma.reflectionSession.findFirst.mockResolvedValue(null);
 
-      const result = await service.updateVision('firebase-uid-123', 'vision-123', 'nonexistent-session');
+      const result = await service.updateVision(
+        'firebase-uid-123',
+        'vision-123',
+        'nonexistent-session',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -494,11 +626,20 @@ describe('VisionBoardService', () => {
 
     it('should return error when reflection session is already linked to another vision', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockPrisma.vision.findFirst.mockResolvedValue(mockVision);
-      mockPrisma.reflectionSession.findFirst.mockResolvedValue(mockReflectionSession);
-      mockPrisma.vision.findUnique.mockResolvedValue({ id: 'another-vision-123' });
+      // First findFirst loads the vision being updated; second is the
+      // duplicate-check which returns a different vision already linked.
+      mockPrisma.vision.findFirst
+        .mockResolvedValueOnce(mockVision)
+        .mockResolvedValueOnce({ id: 'another-vision-123' });
+      mockPrisma.reflectionSession.findFirst.mockResolvedValue(
+        mockReflectionSession,
+      );
 
-      const result = await service.updateVision('firebase-uid-123', 'vision-123', 'session-123');
+      const result = await service.updateVision(
+        'firebase-uid-123',
+        'vision-123',
+        'session-123',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -507,10 +648,20 @@ describe('VisionBoardService', () => {
     it('should return error when image upload fails', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.vision.findFirst.mockResolvedValue(mockVision);
-      mockStorageService.uploadFile.mockRejectedValue(new Error('Upload failed'));
+      mockStorageService.uploadFile.mockRejectedValue(
+        new Error('Upload failed'),
+      );
 
-      const mockImageFile = { buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as Express.Multer.File;
-      const result = await service.updateVision('firebase-uid-123', 'vision-123', undefined, mockImageFile);
+      const mockImageFile = {
+        buffer: Buffer.from('image'),
+        mimetype: 'image/jpeg',
+      } as Express.Multer.File;
+      const result = await service.updateVision(
+        'firebase-uid-123',
+        'vision-123',
+        undefined,
+        mockImageFile,
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -524,19 +675,30 @@ describe('VisionBoardService', () => {
       mockStorageService.deleteFile.mockResolvedValue(undefined);
       mockPrisma.vision.delete.mockResolvedValue(mockVision);
 
-      const result = await service.removeVision('firebase-uid-123', 'vision-123');
+      const result = await service.removeVision(
+        'firebase-uid-123',
+        'vision-123',
+      );
 
       expect(result.isError).toBe(false);
       expect(result.data).toBeNull();
-      expect(mockPrisma.vision.delete).toHaveBeenCalledWith({ where: { id: 'vision-123' } });
+      expect(mockPrisma.vision.delete).toHaveBeenCalledWith({
+        where: { id: 'vision-123' },
+      });
     });
 
     it('should successfully remove a vision without image', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockPrisma.vision.findFirst.mockResolvedValue({ ...mockVision, imageUrl: null });
+      mockPrisma.vision.findFirst.mockResolvedValue({
+        ...mockVision,
+        imageUrl: null,
+      });
       mockPrisma.vision.delete.mockResolvedValue(mockVision);
 
-      const result = await service.removeVision('firebase-uid-123', 'vision-123');
+      const result = await service.removeVision(
+        'firebase-uid-123',
+        'vision-123',
+      );
 
       expect(result.isError).toBe(false);
       expect(mockStorageService.deleteFile).not.toHaveBeenCalled();
@@ -545,7 +707,10 @@ describe('VisionBoardService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.removeVision('nonexistent-firebase-id', 'vision-123');
+      const result = await service.removeVision(
+        'nonexistent-firebase-id',
+        'vision-123',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -555,7 +720,10 @@ describe('VisionBoardService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.vision.findFirst.mockResolvedValue(null);
 
-      const result = await service.removeVision('firebase-uid-123', 'nonexistent-vision');
+      const result = await service.removeVision(
+        'firebase-uid-123',
+        'nonexistent-vision',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -564,10 +732,15 @@ describe('VisionBoardService', () => {
     it('should still delete vision even if image deletion fails', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.vision.findFirst.mockResolvedValue(mockVision);
-      mockStorageService.deleteFile.mockRejectedValue(new Error('Delete failed'));
+      mockStorageService.deleteFile.mockRejectedValue(
+        new Error('Delete failed'),
+      );
       mockPrisma.vision.delete.mockResolvedValue(mockVision);
 
-      const result = await service.removeVision('firebase-uid-123', 'vision-123');
+      const result = await service.removeVision(
+        'firebase-uid-123',
+        'vision-123',
+      );
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.vision.delete).toHaveBeenCalled();
@@ -578,7 +751,9 @@ describe('VisionBoardService', () => {
     it('should successfully upload sound files', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.visionSound.findFirst.mockResolvedValue(null);
-      mockStorageService.uploadFile.mockResolvedValue({ url: 'https://storage.com/sound.mp3' });
+      mockStorageService.uploadFile.mockResolvedValue({
+        url: 'https://storage.com/sound.mp3',
+      });
       mockPrisma.visionSound.create.mockResolvedValue(mockVisionBoardSound);
 
       const mockSoundFile = {
@@ -587,7 +762,9 @@ describe('VisionBoardService', () => {
         originalname: 'meditation.mp3',
         size: 1024000,
       } as Express.Multer.File;
-      const result = await service.uploadSound('firebase-uid-123', [mockSoundFile]);
+      const result = await service.uploadSound('firebase-uid-123', [
+        mockSoundFile,
+      ]);
 
       expect(result.isError).toBe(false);
       expect(result.data?.uploaded).toBe(1);
@@ -597,8 +774,13 @@ describe('VisionBoardService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const mockSoundFile = { buffer: Buffer.from('audio'), mimetype: 'audio/mp3' } as Express.Multer.File;
-      const result = await service.uploadSound('nonexistent-firebase-id', [mockSoundFile]);
+      const mockSoundFile = {
+        buffer: Buffer.from('audio'),
+        mimetype: 'audio/mp3',
+      } as Express.Multer.File;
+      const result = await service.uploadSound('nonexistent-firebase-id', [
+        mockSoundFile,
+      ]);
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -616,10 +798,18 @@ describe('VisionBoardService', () => {
     it('should return error when all uploads fail', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.visionSound.findFirst.mockResolvedValue(null);
-      mockStorageService.uploadFile.mockRejectedValue(new Error('Upload failed'));
+      mockStorageService.uploadFile.mockRejectedValue(
+        new Error('Upload failed'),
+      );
 
-      const mockSoundFile = { buffer: Buffer.from('audio'), mimetype: 'audio/mp3', originalname: 'test.mp3' } as Express.Multer.File;
-      const result = await service.uploadSound('firebase-uid-123', [mockSoundFile]);
+      const mockSoundFile = {
+        buffer: Buffer.from('audio'),
+        mimetype: 'audio/mp3',
+        originalname: 'test.mp3',
+      } as Express.Multer.File;
+      const result = await service.uploadSound('firebase-uid-123', [
+        mockSoundFile,
+      ]);
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -666,7 +856,9 @@ describe('VisionBoardService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.getAllVisionBoards('nonexistent-firebase-id');
+      const result = await service.getAllVisionBoards(
+        'nonexistent-firebase-id',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -692,7 +884,11 @@ describe('VisionBoardService', () => {
         ]);
       mockPrisma.vision.update.mockResolvedValue({});
 
-      const result = await service.reorderVision('firebase-uid-123', 'vision-1', 3);
+      const result = await service.reorderVision(
+        'firebase-uid-123',
+        'vision-1',
+        3,
+      );
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.vision.update).toHaveBeenCalled();
@@ -710,7 +906,11 @@ describe('VisionBoardService', () => {
         ]);
       mockPrisma.vision.update.mockResolvedValue({});
 
-      const result = await service.reorderVision('firebase-uid-123', 'vision-3', 1);
+      const result = await service.reorderVision(
+        'firebase-uid-123',
+        'vision-3',
+        1,
+      );
 
       expect(result.isError).toBe(false);
     });
@@ -719,7 +919,11 @@ describe('VisionBoardService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.vision.findFirst.mockResolvedValue(mockVisions[0]);
 
-      const result = await service.reorderVision('firebase-uid-123', 'vision-1', 1);
+      const result = await service.reorderVision(
+        'firebase-uid-123',
+        'vision-1',
+        1,
+      );
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.vision.findMany).not.toHaveBeenCalled();
@@ -728,7 +932,11 @@ describe('VisionBoardService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.reorderVision('nonexistent-firebase-id', 'vision-1', 2);
+      const result = await service.reorderVision(
+        'nonexistent-firebase-id',
+        'vision-1',
+        2,
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -738,7 +946,11 @@ describe('VisionBoardService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.vision.findFirst.mockResolvedValue(null);
 
-      const result = await service.reorderVision('firebase-uid-123', 'nonexistent-vision', 2);
+      const result = await service.reorderVision(
+        'firebase-uid-123',
+        'nonexistent-vision',
+        2,
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -764,7 +976,11 @@ describe('VisionBoardService', () => {
         ]);
       mockPrisma.visionSound.update.mockResolvedValue({});
 
-      const result = await service.reorderSound('firebase-uid-123', 'sound-1', 3);
+      const result = await service.reorderSound(
+        'firebase-uid-123',
+        'sound-1',
+        3,
+      );
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.visionSound.update).toHaveBeenCalled();
@@ -782,7 +998,11 @@ describe('VisionBoardService', () => {
         ]);
       mockPrisma.visionSound.update.mockResolvedValue({});
 
-      const result = await service.reorderSound('firebase-uid-123', 'sound-3', 1);
+      const result = await service.reorderSound(
+        'firebase-uid-123',
+        'sound-3',
+        1,
+      );
 
       expect(result.isError).toBe(false);
     });
@@ -791,7 +1011,11 @@ describe('VisionBoardService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.visionSound.findUnique.mockResolvedValue(mockSounds[0]);
 
-      const result = await service.reorderSound('firebase-uid-123', 'sound-1', 1);
+      const result = await service.reorderSound(
+        'firebase-uid-123',
+        'sound-1',
+        1,
+      );
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.visionSound.findMany).not.toHaveBeenCalled();
@@ -800,7 +1024,11 @@ describe('VisionBoardService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.reorderSound('nonexistent-firebase-id', 'sound-1', 2);
+      const result = await service.reorderSound(
+        'nonexistent-firebase-id',
+        'sound-1',
+        2,
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -810,7 +1038,11 @@ describe('VisionBoardService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.visionSound.findUnique.mockResolvedValue(null);
 
-      const result = await service.reorderSound('firebase-uid-123', 'nonexistent-sound', 2);
+      const result = await service.reorderSound(
+        'firebase-uid-123',
+        'nonexistent-sound',
+        2,
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);

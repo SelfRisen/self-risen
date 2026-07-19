@@ -82,4 +82,3 @@ export class MailgunAdapter extends IEmailChannelAdapter {
     }
   }
 }
-
