@@ -30,6 +30,6 @@ import { CompressionService } from './compression.service';
       inject: [SupabaseStorageService, CompressionService],
     },
   ],
-  exports: [StorageService],
+  exports: [StorageService, SupabaseStorageService],
 })
 export class StorageModule {}

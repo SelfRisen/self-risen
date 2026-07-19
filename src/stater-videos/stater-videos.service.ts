@@ -6,7 +6,10 @@ import {
 import { BaseService } from 'src/common';
 import { DatabaseProvider } from 'src/database/database.provider';
 import { TextToSpeechService } from 'src/reflection/services/text-to-speech.service';
+import { SupabaseStorageService } from 'src/common/storage/supabase-storage.service';
 import { GeneratePersonaTtsDto } from './dto';
+
+const MEDITATIONS_FOLDER = 'Meditations';
 
 @Injectable()
 export class StaterVideosService extends BaseService {
