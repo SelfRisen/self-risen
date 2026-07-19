@@ -72,13 +72,13 @@ export class MailgunAdapter extends IEmailChannelAdapter {
     }
   }
 
-  async healthCheck(): Promise<boolean> {
+  healthCheck(): Promise<boolean> {
     try {
       const apiKey = this.configService.get<string>('MAILGUN_API_KEY');
       const domain = this.configService.get<string>('MAILGUN_DOMAIN');
-      return !!(apiKey && domain && this.mg);
+      return Promise.resolve(!!(apiKey && domain && this.mg));
     } catch {
-      return false;
+      return Promise.resolve(false);
     }
   }
 }

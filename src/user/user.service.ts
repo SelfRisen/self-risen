@@ -375,7 +375,7 @@ export class UserService extends BaseService {
     }
   }
 
-  async getAvailablePersonas() {
+  getAvailablePersonas() {
     const personas = this.textToSpeechService.getAllPersonas().map((p) => ({
       name: p.config.name,
       displayName: p.config.displayName,

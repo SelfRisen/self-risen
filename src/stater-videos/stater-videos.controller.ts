@@ -20,8 +20,8 @@ export class StaterVideosController extends BaseController {
   }
 
   @Get('files')
-  async getFileUrls() {
-    const result = await this.staterVideosService.getFileUrls();
+  getFileUrls() {
+    const result = this.staterVideosService.getFileUrls();
     if (result.isError) throw result.error;
 
     return this.response({
@@ -31,8 +31,8 @@ export class StaterVideosController extends BaseController {
   }
 
   @Get('music')
-  async getMusicUrls() {
-    const result = await this.staterVideosService.getMusicUrls();
+  getMusicUrls() {
+    const result = this.staterVideosService.getMusicUrls();
     if (result.isError) throw result.error;
 
     return this.response({

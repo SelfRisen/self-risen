@@ -6,10 +6,7 @@ import {
 import { BaseService } from 'src/common';
 import { DatabaseProvider } from 'src/database/database.provider';
 import { TextToSpeechService } from 'src/reflection/services/text-to-speech.service';
-import { SupabaseStorageService } from 'src/common/storage/supabase-storage.service';
 import { GeneratePersonaTtsDto } from './dto';
-
-const MEDITATIONS_FOLDER = 'Meditations';
 
 @Injectable()
 export class StaterVideosService extends BaseService {
@@ -58,7 +55,7 @@ export class StaterVideosService extends BaseService {
     });
   }
 
-  async getFileUrls() {
+  getFileUrls() {
     const light = [
       // {
       //     url: 'https://lstprxumviehmvbebcub.supabase.co/storage/v1/object/public/uploads/videos/starters/t7D57nFbnSPlFRuZw4uZqIuJL2Y2/60fda64b-d84a-4b8f-b160-2cf95ef1fa3b-1768767978757.mp4',
@@ -167,11 +164,11 @@ export class StaterVideosService extends BaseService {
     ];
   }
 
-  async getMusicUrls() {
+  getMusicUrls() {
     return this.Results(this.getSoundList());
   }
 
-  async getPersonaDemo() {
+  getPersonaDemo() {
     const demos = [
       {
         name: 'Sage',

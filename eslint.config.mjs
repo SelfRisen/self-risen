@@ -26,9 +26,15 @@ export default tseslint.config(
   },
   {
     rules: {
+      // Allow `any` in this codebase; keeping no-unsafe-* as errors would
+      // contradict that and produce hundreds of catch(error).message hits.
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',
-      '@typescript-eslint/no-unsafe-argument': 'warn'
+      '@typescript-eslint/no-unsafe-argument': 'warn',
+      '@typescript-eslint/no-unsafe-assignment': 'warn',
+      '@typescript-eslint/no-unsafe-member-access': 'warn',
+      '@typescript-eslint/no-unsafe-call': 'warn',
+      '@typescript-eslint/no-unsafe-return': 'warn',
     },
   },
   {

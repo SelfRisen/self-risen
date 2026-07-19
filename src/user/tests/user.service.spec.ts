@@ -148,8 +148,8 @@ describe('UserService', () => {
         expect.objectContaining({
           tokensUsedThisMonth: 6000,
           tokenLimitPerMonth: 300000,
-          tokensRemaining: 24000,
-          usagePercentage: 20,
+          tokensRemaining: 294000,
+          usagePercentage: 2,
         }),
       );
       expect(result.data?.tokenUsage.daysUntilReset).toBeGreaterThanOrEqual(9);
@@ -407,7 +407,7 @@ describe('UserService', () => {
 
   describe('getAvailablePersonas', () => {
     it('maps persona configs to the response shape', async () => {
-      const result = await service.getAvailablePersonas();
+      const result = service.getAvailablePersonas();
 
       expect(result.isError).toBe(false);
       expect(result.data?.personas).toEqual([

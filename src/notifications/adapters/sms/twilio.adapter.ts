@@ -66,11 +66,11 @@ export class TwilioAdapter extends ISmsChannelAdapter {
     }
   }
 
-  async healthCheck(): Promise<boolean> {
+  healthCheck(): Promise<boolean> {
     try {
-      return !!this.client;
+      return Promise.resolve(!!this.client);
     } catch {
-      return false;
+      return Promise.resolve(false);
     }
   }
 }

@@ -2,7 +2,7 @@ import { Controller } from '@nestjs/common';
 
 @Controller()
 export class BaseController {
-  async response({
+  response({
     message,
     data,
     metaData,

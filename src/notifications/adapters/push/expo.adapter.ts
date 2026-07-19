@@ -79,7 +79,7 @@ export class ExpoAdapter extends IPushChannelAdapter {
     }
   }
 
-  async healthCheck(): Promise<boolean> {
-    return true;
+  healthCheck(): Promise<boolean> {
+    return Promise.resolve(true);
   }
 }

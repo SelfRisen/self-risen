@@ -567,8 +567,8 @@ export class UserController extends BaseController {
       },
     },
   })
-  async getAvailablePersonas() {
-    const personas = await this.userService.getAvailablePersonas();
+  getAvailablePersonas() {
+    const personas = this.userService.getAvailablePersonas();
 
     if (personas.isError) throw personas.error;
 

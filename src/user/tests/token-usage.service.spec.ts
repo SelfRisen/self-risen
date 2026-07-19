@@ -69,7 +69,7 @@ describe('TokenUsageService', () => {
 
     it('throws Forbidden when projected usage exceeds the limit', async () => {
       tx.user.findUnique.mockResolvedValue({
-        tokensUsedThisMonth: 29500,
+        tokensUsedThisMonth: 299500,
         tokenLimitPerMonth: 300000,
         tokenResetDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
       });
@@ -139,8 +139,8 @@ describe('TokenUsageService', () => {
         expect.objectContaining({
           tokensUsedThisMonth: 7500,
           tokenLimitPerMonth: 300000,
-          tokensRemaining: 22500,
-          usagePercentage: 25,
+          tokensRemaining: 292500,
+          usagePercentage: 2.5,
         }),
       );
       expect(result.daysUntilReset).toBeGreaterThanOrEqual(9);

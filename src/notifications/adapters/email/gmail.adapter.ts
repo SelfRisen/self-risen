@@ -173,7 +173,7 @@ export class GmailAdapter extends IEmailChannelAdapter {
     }
   }
 
-  async healthCheck(): Promise<boolean> {
+  healthCheck(): Promise<boolean> {
     try {
       const mailUsername = this.configService.get<string>('MAIL_USERNAME');
       const oauthClientId = this.configService.get<string>('OAUTH_CLIENTID');
@@ -184,15 +184,17 @@ export class GmailAdapter extends IEmailChannelAdapter {
         'OAUTH_REFRESH_TOKEN',
       );
 
-      return !!(
-        mailUsername &&
-        oauthClientId &&
-        oauthClientSecret &&
-        oauthRefreshToken &&
-        this.transporter
+      return Promise.resolve(
+        !!(
+          mailUsername &&
+          oauthClientId &&
+          oauthClientSecret &&
+          oauthRefreshToken &&
+          this.transporter
+        ),
       );
     } catch {
-      return false;
+      return Promise.resolve(false);
     }
   }
 }
