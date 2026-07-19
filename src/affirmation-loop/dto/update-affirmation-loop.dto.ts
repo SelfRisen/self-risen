@@ -30,7 +30,7 @@ export class UpdateAffirmationLoopDto {
 
   @ApiPropertyOptional({
     description:
-      'Target loop duration in seconds (1–300). The merged audio is capped at this length.',
+      'Target loop duration in seconds (1–900). The merged audio is capped at this length.',
     example: 180,
     minimum: 1,
     maximum: MAX_LOOP_DURATION_SECONDS,
