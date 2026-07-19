@@ -32,9 +32,10 @@ describe('NotificationQueueService', () => {
     mockAdapter = {
       name: 'Mailjet',
       channel: NotificationChannelTypeEnum.EMAIL,
-      send: jest
-        .fn()
-        .mockResolvedValue({ status: NotificationStatusEnum.SENT, messageId: 'm1' }),
+      send: jest.fn().mockResolvedValue({
+        status: NotificationStatusEnum.SENT,
+        messageId: 'm1',
+      }),
       healthCheck: jest.fn().mockResolvedValue(true),
     };
 

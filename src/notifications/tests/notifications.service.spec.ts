@@ -74,7 +74,9 @@ describe('NotificationsService', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
       // Pass the same mock object in as the transaction client
-      $transaction: jest.fn((fn: (tx: any) => Promise<unknown>) => fn(mockPrisma)),
+      $transaction: jest.fn((fn: (tx: any) => Promise<unknown>) =>
+        fn(mockPrisma),
+      ),
     };
 
     service = new NotificationsService(

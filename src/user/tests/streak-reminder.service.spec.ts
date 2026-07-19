@@ -65,7 +65,12 @@ describe('StreakReminderService', () => {
     it('notifies users whose local time matches the current hour', async () => {
       jest.useFakeTimers().setSystemTime(new Date('2024-01-15T08:00:00Z'));
       mockPrisma.user.findMany.mockResolvedValue([
-        { id: 'u1', streak: 4, streakReminderTimes: ['08:00'], timezone: 'UTC' },
+        {
+          id: 'u1',
+          streak: 4,
+          streakReminderTimes: ['08:00'],
+          timezone: 'UTC',
+        },
       ]);
 
       await service.sendCustomTimeReminders();
@@ -79,7 +84,12 @@ describe('StreakReminderService', () => {
     it('skips users whose reminder time does not match the current hour', async () => {
       jest.useFakeTimers().setSystemTime(new Date('2024-01-15T08:00:00Z'));
       mockPrisma.user.findMany.mockResolvedValue([
-        { id: 'u1', streak: 4, streakReminderTimes: ['09:00'], timezone: 'UTC' },
+        {
+          id: 'u1',
+          streak: 4,
+          streakReminderTimes: ['09:00'],
+          timezone: 'UTC',
+        },
       ]);
 
       await service.sendCustomTimeReminders();
@@ -99,9 +109,16 @@ describe('StreakReminderService', () => {
     it('does not throw when a notification fails', async () => {
       jest.useFakeTimers().setSystemTime(new Date('2024-01-15T08:00:00Z'));
       mockPrisma.user.findMany.mockResolvedValue([
-        { id: 'u1', streak: 4, streakReminderTimes: ['08:00'], timezone: 'UTC' },
+        {
+          id: 'u1',
+          streak: 4,
+          streakReminderTimes: ['08:00'],
+          timezone: 'UTC',
+        },
       ]);
-      mockNotificationService.notifyUser.mockRejectedValue(new Error('push failed'));
+      mockNotificationService.notifyUser.mockRejectedValue(
+        new Error('push failed'),
+      );
 
       await expect(service.sendCustomTimeReminders()).resolves.toBeUndefined();
     });

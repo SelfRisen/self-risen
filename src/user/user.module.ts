@@ -8,7 +8,12 @@ import { StreakReminderService } from './streak-reminder.service';
 @Module({
   imports: [StorageModule, CommonModule],
   controllers: [UserController],
-  providers: [UserService, TextToSpeechService, TokenUsageService, StreakReminderService],
+  providers: [
+    UserService,
+    TextToSpeechService,
+    TokenUsageService,
+    StreakReminderService,
+  ],
   exports: [TokenUsageService], // Export so other modules can use it
 })
-export class UserModule { }
+export class UserModule {}

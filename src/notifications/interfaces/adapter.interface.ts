@@ -1,4 +1,7 @@
-import { NotificationChannelTypeEnum, NotificationStatusEnum } from '../enums/notification.enum';
+import {
+  NotificationChannelTypeEnum,
+  NotificationStatusEnum,
+} from '../enums/notification.enum';
 
 export interface NotificationChannelRequest {
   recipient: string; // email, phone, deviceToken, etc.
@@ -36,4 +39,3 @@ export abstract class ISmsChannelAdapter extends INotificationChannelAdapter {
 export abstract class IPushChannelAdapter extends INotificationChannelAdapter {
   readonly channel = NotificationChannelTypeEnum.PUSH;
 }
-

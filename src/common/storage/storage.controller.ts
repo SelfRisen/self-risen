@@ -15,7 +15,14 @@ import {
   FilesInterceptor,
   FileFieldsInterceptor,
 } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags, ApiBody, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+  ApiBody,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { FirebaseGuard } from '@alpha018/nestjs-firebase-auth';
 import { FirebaseUser } from 'src/common';
 import { auth } from 'firebase-admin';
@@ -27,7 +34,7 @@ import { UploadFileResponseDto, UploadFilesResponseDto } from './dto';
 @ApiBearerAuth('firebase')
 @Controller('storage')
 export class StorageController {
-  constructor(private readonly storageService: StorageService) { }
+  constructor(private readonly storageService: StorageService) {}
 
   @Post('upload/image')
   @UseInterceptors(FileInterceptor('file'))
@@ -88,7 +95,8 @@ export class StorageController {
             type: 'string',
             format: 'binary',
           },
-          description: 'Image files to upload (max 10 files, JPEG, PNG, GIF, WebP, SVG)',
+          description:
+            'Image files to upload (max 10 files, JPEG, PNG, GIF, WebP, SVG)',
         },
       },
       required: ['files'],
@@ -178,7 +186,8 @@ export class StorageController {
         file: {
           type: 'string',
           format: 'binary',
-          description: 'Video file to upload (MP4, MPEG, QuickTime, AVI, WebM, OGG)',
+          description:
+            'Video file to upload (MP4, MPEG, QuickTime, AVI, WebM, OGG)',
         },
       },
       required: ['file'],
@@ -319,4 +328,3 @@ export class StorageController {
     };
   }
 }
-

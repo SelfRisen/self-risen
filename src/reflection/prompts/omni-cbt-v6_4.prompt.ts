@@ -444,4 +444,3 @@ Return only a valid JSON object including all schema keys.
   \"confidence\": \"High | Medium | Low\"
 }
 `;
-

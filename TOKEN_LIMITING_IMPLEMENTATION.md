@@ -8,7 +8,7 @@ Implemented a comprehensive token limiting system to prevent users from exceedin
 ### 1. Database Schema Changes (`prisma/schema.prisma`)
 Added three new fields to the `User` model:
 - `tokensUsedThisMonth` (Int, default: 0) - Tracks current month's token usage
-- `tokenLimitPerMonth` (Int, default: 30000) - Monthly token limit (30k tokens)
+- `tokenLimitPerMonth` (Int, default: 300000) - Monthly token limit (300k tokens)
 - `tokenResetDate` (DateTime, default: now()) - Date when counter resets
 
 **Migration:** `20260203111403_add_token_tracking`
@@ -106,7 +106,7 @@ Enhanced user profile response:
 
 ### Normal Flow
 1. User submits belief text for affirmation generation
-2. System estimates tokens needed (~1000 tokens avg)
+2. System estimates tokens needed (~6500 tokens avg with OMNI-CBT)
 3. Checks user's remaining token balance
 4. If sufficient, makes OpenAI API call
 5. Tracks actual tokens used from OpenAI response
@@ -124,8 +124,8 @@ When a user exceeds their limit:
 
 **Example Error:**
 ```
-Monthly token limit exceeded. You have 500 tokens remaining out of 30000. 
-This operation requires approximately 1000 tokens. 
+Monthly token limit exceeded. You have 500 tokens remaining out of 300000. 
+This operation requires approximately 6500 tokens. 
 Your limit will reset in 15 day(s).
 ```
 
@@ -168,7 +168,7 @@ Your limit will reset in 15 day(s).
 
 ## Configuration
 
-Default limit: **30,000 tokens/month**
+Default limit: **300,000 tokens/month** (~45 NLP affirmation generations with OMNI-CBT)
 
 To adjust for specific user:
 ```typescript
@@ -177,7 +177,7 @@ await tokenUsageService.updateTokenLimit(userId, newLimit);
 
 To change default for all new users, update:
 ```prisma
-tokenLimitPerMonth  Int  @default(30000)
+tokenLimitPerMonth  Int  @default(300000)
 ```
 
 ## Monitoring

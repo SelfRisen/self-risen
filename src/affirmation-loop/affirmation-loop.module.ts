@@ -13,21 +13,21 @@ import { StaterVideosModule } from 'src/stater-videos/stater-videos.module';
 import { ReflectionModule } from 'src/reflection/reflection.module';
 
 @Module({
-    imports: [
-        DatabaseModule,
-        StorageModule,
-        StaterVideosModule,
-        ReflectionModule,
-    ],
-    controllers: [AffirmationLoopController],
-    providers: [
-        AffirmationLoopService,
-        AudioMergeService,
-        AudioMergeProcessor,
-        LoopReminderService,
-        LoopTokenResetService,
-        StreakService,
-        StreakInterceptor,
-    ],
+  imports: [
+    DatabaseModule,
+    StorageModule,
+    StaterVideosModule,
+    ReflectionModule,
+  ],
+  controllers: [AffirmationLoopController],
+  providers: [
+    AffirmationLoopService,
+    AudioMergeService,
+    AudioMergeProcessor,
+    LoopReminderService,
+    LoopTokenResetService,
+    StreakService,
+    StreakInterceptor,
+  ],
 })
 export class AffirmationLoopModule {}

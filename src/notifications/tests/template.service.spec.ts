@@ -1,7 +1,6 @@
 jest.mock('isomorphic-dompurify', () => ({
   // Minimal sanitizer: strip <script>…</script> so we can assert sanitization runs
-  sanitize: (value: string) =>
-    value.replace(/<script[\s\S]*?<\/script>/gi, ''),
+  sanitize: (value: string) => value.replace(/<script[\s\S]*?<\/script>/gi, ''),
 }));
 
 jest.mock('fs', () => ({
@@ -54,9 +53,7 @@ describe('TemplateService', () => {
     expect(result.subject).toBe('Welcome');
     expect(result.content).toBe('<h1>Welcome</h1><p>Glad you are here</p>');
     expect(result.htmlBody).toBe('<h1>Welcome</h1><p>Glad you are here</p>');
-    expect(result.variables).toEqual(
-      expect.arrayContaining(['title', 'body']),
-    );
+    expect(result.variables).toEqual(expect.arrayContaining(['title', 'body']));
   });
 
   it('does not set htmlBody for non-email channels', async () => {

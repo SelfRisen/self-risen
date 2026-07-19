@@ -1,6 +1,6 @@
 jest.mock('src/common', () => ({
-    BaseService: class BaseService {},
-    logger: { log: jest.fn(), error: jest.fn(), warn: jest.fn() },
+  BaseService: class BaseService {},
+  logger: { log: jest.fn(), error: jest.fn(), warn: jest.fn() },
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
@@ -15,160 +15,164 @@ import { INotificationService } from 'src/notifications/interfaces/notification.
 import { NotificationTypeEnum } from 'src/notifications/enums/notification.enum';
 
 describe('AudioMergeProcessor', () => {
-    let processor: AudioMergeProcessor;
-    let mockPrisma: any;
-    let mockTts: any;
-    let mockMerge: any;
-    let mockStorage: any;
-    let mockNotification: { notifyUser: jest.Mock };
+  let processor: AudioMergeProcessor;
+  let mockPrisma: any;
+  let mockTts: any;
+  let mockMerge: any;
+  let mockStorage: any;
+  let mockNotification: { notifyUser: jest.Mock };
 
-    const baseLoop = {
-        id: 'loop-1',
-        userId: 'user-1',
-        durationSeconds: 180,
-        backgroundMusicKey: 'meditation',
-        voicePreference: 'SAGE' as const,
-        items: [
-            {
-                sortOrder: 0,
-                affirmation: {
-                    id: 'aff-1',
-                    affirmationText: 'I am strong',
-                    audioUrl: 'https://audio.test/old.mp3',
-                    ttsVoicePreference: 'RIVER' as const,
-                },
-            },
-        ],
-        user: { id: 'user-1' },
+  const baseLoop = {
+    id: 'loop-1',
+    userId: 'user-1',
+    durationSeconds: 180,
+    backgroundMusicKey: 'meditation',
+    voicePreference: 'SAGE' as const,
+    items: [
+      {
+        sortOrder: 0,
+        affirmation: {
+          id: 'aff-1',
+          affirmationText: 'I am strong',
+          audioUrl: 'https://audio.test/old.mp3',
+          ttsVoicePreference: 'RIVER' as const,
+        },
+      },
+    ],
+    user: { id: 'user-1' },
+  };
+
+  beforeEach(async () => {
+    mockTts = {
+      generateAffirmationAudio: jest
+        .fn()
+        .mockResolvedValue('https://audio.test/new.mp3'),
     };
 
-    beforeEach(async () => {
-        mockTts = {
-            generateAffirmationAudio: jest.fn().mockResolvedValue('https://audio.test/new.mp3'),
-        };
+    mockMerge = {
+      createTempDir: jest.fn().mockReturnValue('/tmp/audio-merge-loop-1'),
+      mergeLoopAudio: jest.fn().mockResolvedValue(90),
+      cleanupTempDir: jest.fn(),
+    };
 
-        mockMerge = {
-            createTempDir: jest.fn().mockReturnValue('/tmp/audio-merge-loop-1'),
-            mergeLoopAudio: jest.fn().mockResolvedValue(90),
-            cleanupTempDir: jest.fn(),
-        };
+    mockStorage = {
+      downloadToFile: jest.fn().mockResolvedValue(undefined),
+      uploadBufferAtPath: jest.fn().mockResolvedValue({
+        path: 'loops/user-1/loop-1.mp3',
+        url: 'https://signed.test/loop.mp3',
+      }),
+    };
 
-        mockStorage = {
-            downloadToFile: jest.fn().mockResolvedValue(undefined),
-            uploadBufferAtPath: jest.fn().mockResolvedValue({
-                path: 'loops/user-1/loop-1.mp3',
-                url: 'https://signed.test/loop.mp3',
+    mockNotification = { notifyUser: jest.fn().mockResolvedValue({}) };
+
+    mockPrisma = {
+      affirmationLoop: {
+        findUnique: jest.fn().mockResolvedValue(baseLoop),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      affirmation: {
+        update: jest.fn().mockResolvedValue({}),
+      },
+      user: {
+        update: jest.fn().mockResolvedValue({}),
+      },
+      $transaction: jest.fn().mockResolvedValue([]),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AudioMergeProcessor,
+        { provide: DatabaseProvider, useValue: mockPrisma },
+        { provide: StorageService, useValue: mockStorage },
+        {
+          provide: StaterVideosService,
+          useValue: {
+            getSoundByName: jest.fn().mockReturnValue({
+              url: 'https://music.test/bg.mp3',
+              name: 'meditation',
             }),
-        };
+          },
+        },
+        { provide: TextToSpeechService, useValue: mockTts },
+        { provide: AudioMergeService, useValue: mockMerge },
+        { provide: INotificationService, useValue: mockNotification },
+      ],
+    }).compile();
 
-        mockNotification = { notifyUser: jest.fn().mockResolvedValue({}) };
+    processor = module.get(AudioMergeProcessor);
 
-        mockPrisma = {
-            affirmationLoop: {
-                findUnique: jest.fn().mockResolvedValue(baseLoop),
-                update: jest.fn().mockResolvedValue({}),
-            },
-            affirmation: {
-                update: jest.fn().mockResolvedValue({}),
-            },
-            user: {
-                update: jest.fn().mockResolvedValue({}),
-            },
-            $transaction: jest.fn().mockResolvedValue([]),
-        };
+    jest
+      .spyOn(require('fs/promises'), 'readFile')
+      .mockResolvedValue(Buffer.from('mp3'));
+  });
 
-        const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                AudioMergeProcessor,
-                { provide: DatabaseProvider, useValue: mockPrisma },
-                { provide: StorageService, useValue: mockStorage },
-                {
-                    provide: StaterVideosService,
-                    useValue: {
-                        getSoundByName: jest.fn().mockReturnValue({
-                            url: 'https://music.test/bg.mp3',
-                            name: 'meditation',
-                        }),
-                    },
-                },
-                { provide: TextToSpeechService, useValue: mockTts },
-                { provide: AudioMergeService, useValue: mockMerge },
-                { provide: INotificationService, useValue: mockNotification },
-            ],
-        }).compile();
+  it('re-TTS when loop requests voice different from affirmation', async () => {
+    mockPrisma.affirmationLoop.findUnique.mockResolvedValue({
+      ...baseLoop,
+      voicePreference: 'SAGE',
+    });
+    const job = {
+      data: { loopId: 'loop-1' },
+      opts: { attempts: 2 },
+      attemptsMade: 2,
+    } as any;
 
-        processor = module.get(AudioMergeProcessor);
+    await processor.handleMerge(job);
 
-        jest.spyOn(require('fs/promises'), 'readFile').mockResolvedValue(Buffer.from('mp3'));
+    expect(mockTts.generateAffirmationAudio).toHaveBeenCalled();
+    expect(mockMerge.mergeLoopAudio).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.any(String),
+      expect.any(String),
+      180,
+    );
+    expect(mockPrisma.affirmationLoop.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'loop-1' },
+        data: expect.objectContaining({
+          status: AffirmationLoopStatus.READY,
+          durationSeconds: 90,
+        }),
+      }),
+    );
+  });
+
+  it('refunds token and notifies user on final failure', async () => {
+    mockPrisma.affirmationLoop.findUnique.mockResolvedValue({
+      userId: 'user-1',
+      status: AffirmationLoopStatus.PROCESSING,
     });
 
-    it('re-TTS when loop requests voice different from affirmation', async () => {
-        mockPrisma.affirmationLoop.findUnique.mockResolvedValue({
-            ...baseLoop,
-            voicePreference: 'SAGE',
-        });
-        const job = {
-            data: { loopId: 'loop-1' },
-            opts: { attempts: 2 },
-            attemptsMade: 2,
-        } as any;
+    const job = {
+      data: { loopId: 'loop-1' },
+      opts: { attempts: 2 },
+      attemptsMade: 2,
+    } as any;
 
-        await processor.handleMerge(job);
+    await processor.onFailed(job, new Error('ffmpeg failed'));
 
-        expect(mockTts.generateAffirmationAudio).toHaveBeenCalled();
-        expect(mockMerge.mergeLoopAudio).toHaveBeenCalledWith(
-            expect.any(Array),
-            expect.any(String),
-            expect.any(String),
-            180,
-        );
-        expect(mockPrisma.affirmationLoop.update).toHaveBeenCalledWith(
-            expect.objectContaining({
-                where: { id: 'loop-1' },
-                data: expect.objectContaining({
-                    status: AffirmationLoopStatus.READY,
-                    durationSeconds: 90,
-                }),
-            }),
-        );
-    });
+    expect(mockPrisma.$transaction).toHaveBeenCalled();
+    expect(mockNotification.notifyUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        type: NotificationTypeEnum.AFFIRMATION_LOOP_FAILED,
+        metadata: expect.objectContaining({
+          loopId: 'loop-1',
+          title: 'Loop generation failed',
+        }),
+      }),
+    );
+  });
 
-    it('refunds token and notifies user on final failure', async () => {
-        mockPrisma.affirmationLoop.findUnique.mockResolvedValue({
-            userId: 'user-1',
-            status: AffirmationLoopStatus.PROCESSING,
-        });
+  it('does not refund on non-final attempt', async () => {
+    const job = {
+      data: { loopId: 'loop-1' },
+      opts: { attempts: 2 },
+      attemptsMade: 1,
+    } as any;
 
-        const job = {
-            data: { loopId: 'loop-1' },
-            opts: { attempts: 2 },
-            attemptsMade: 2,
-        } as any;
+    await processor.onFailed(job, new Error('retry'));
 
-        await processor.onFailed(job, new Error('ffmpeg failed'));
-
-        expect(mockPrisma.$transaction).toHaveBeenCalled();
-        expect(mockNotification.notifyUser).toHaveBeenCalledWith(
-            expect.objectContaining({
-                userId: 'user-1',
-                type: NotificationTypeEnum.AFFIRMATION_LOOP_FAILED,
-                metadata: expect.objectContaining({
-                    loopId: 'loop-1',
-                    title: 'Loop generation failed',
-                }),
-            }),
-        );
-    });
-
-    it('does not refund on non-final attempt', async () => {
-        const job = {
-            data: { loopId: 'loop-1' },
-            opts: { attempts: 2 },
-            attemptsMade: 1,
-        } as any;
-
-        await processor.onFailed(job, new Error('retry'));
-
-        expect(mockPrisma.$transaction).not.toHaveBeenCalled();
-    });
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
 });

@@ -31,7 +31,8 @@ export class TwilioAdapter extends ISmsChannelAdapter {
       if (!this.client) {
         return {
           status: NotificationStatusEnum.FAILED,
-          error: 'Twilio client not initialized. Check TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN configuration.',
+          error:
+            'Twilio client not initialized. Check TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN configuration.',
         };
       }
 
@@ -73,4 +74,3 @@ export class TwilioAdapter extends ISmsChannelAdapter {
     }
   }
 }
-

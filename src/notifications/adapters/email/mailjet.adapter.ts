@@ -31,7 +31,8 @@ export class MailjetAdapter extends IEmailChannelAdapter {
   ): Promise<NotificationChannelResponse> {
     try {
       const fromEmail = this.configService.get<string>('MAILJET_FROM_EMAIL');
-      const fromName = this.configService.get<string>('MAILJET_FROM_NAME') || 'Self-Risen';
+      const fromName =
+        this.configService.get<string>('MAILJET_FROM_NAME') || 'Self-Risen';
 
       if (!fromEmail) {
         return {

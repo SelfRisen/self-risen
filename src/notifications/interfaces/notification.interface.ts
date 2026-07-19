@@ -66,4 +66,3 @@ export abstract class INotificationService {
     req: ExternalUserNotificationRequest,
   ): Promise<NotificationResult[]>;
 }
-

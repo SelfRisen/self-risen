@@ -1,15 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsOptional, IsDateString } from 'class-validator';
+import { IsBoolean, IsOptional } from 'class-validator';
 
 export class UpdateFocusDto {
-    @ApiProperty({ required: false })
-    @IsBoolean()
-    @IsOptional()
-    isActive?: boolean;
+  @ApiProperty({ required: false })
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
 
-    // @ApiProperty({ required: false })
-    // @IsDateString()
-    // @IsOptional()
-    // completedAt?: string;
+  // @ApiProperty({ required: false })
+  // @IsDateString()
+  // @IsOptional()
+  // completedAt?: string;
 }
-

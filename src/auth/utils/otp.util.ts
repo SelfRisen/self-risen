@@ -11,8 +11,8 @@ export const MAX_OTP_ATTEMPTS = 5;
  * @returns 4-digit OTP as string with leading zeros if needed
  */
 export function generateOtp(): string {
-    const otp = crypto.randomInt(0, 10000).toString();
-    return otp.padStart(4, '0');
+  const otp = crypto.randomInt(0, 10000).toString();
+  return otp.padStart(4, '0');
 }
 
 /**
@@ -21,7 +21,7 @@ export function generateOtp(): string {
  * @returns Hashed OTP
  */
 export function hashOtp(otp: string): string {
-    return crypto.createHash('sha256').update(otp).digest('hex');
+  return crypto.createHash('sha256').update(otp).digest('hex');
 }
 
 /**
@@ -31,10 +31,9 @@ export function hashOtp(otp: string): string {
  * @returns true if OTP matches, false otherwise
  */
 export function verifyOtp(otp: string, hashedOtp: string): boolean {
-    const hashedInput = hashOtp(otp);
-    return crypto.timingSafeEqual(
-        Buffer.from(hashedInput),
-        Buffer.from(hashedOtp)
-    );
+  const hashedInput = hashOtp(otp);
+  return crypto.timingSafeEqual(
+    Buffer.from(hashedInput),
+    Buffer.from(hashedOtp),
+  );
 }
-

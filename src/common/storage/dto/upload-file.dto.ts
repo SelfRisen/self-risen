@@ -21,4 +21,3 @@ export class UploadFilesResponseDto {
   @ApiProperty({ type: [UploadFileResponseDto] })
   files: UploadFileResponseDto[];
 }
-

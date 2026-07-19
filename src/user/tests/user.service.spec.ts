@@ -30,7 +30,7 @@ describe('UserService', () => {
     avatar: null,
     ttsVoicePreference: TtsVoicePreference.SAGE,
     tokensUsedThisMonth: 6000,
-    tokenLimitPerMonth: 30000,
+    tokenLimitPerMonth: 300000,
     tokenResetDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
     streak: 5,
     sessions: 12,
@@ -58,7 +58,9 @@ describe('UserService', () => {
 
     mockTts = {
       getPersonaMetadata: jest.fn((pref?: string | null) =>
-        pref === TtsVoicePreference.SAGE || pref === 'Sage' ? sagePersona : null,
+        pref === TtsVoicePreference.SAGE || pref === 'Sage'
+          ? sagePersona
+          : null,
       ),
       convertNameToEnum: jest.fn((name: string) =>
         name === 'Sage' ? TtsVoicePreference.SAGE : null,
@@ -134,7 +136,10 @@ describe('UserService', () => {
     });
 
     it('returns profile with token usage summary', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser, _count: { reflectionSessions: 3 } });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...mockUser,
+        _count: { reflectionSessions: 3 },
+      });
 
       const result = await service.getUserProfile('fb-123');
 
@@ -142,7 +147,7 @@ describe('UserService', () => {
       expect(result.data?.tokenUsage).toEqual(
         expect.objectContaining({
           tokensUsedThisMonth: 6000,
-          tokenLimitPerMonth: 30000,
+          tokenLimitPerMonth: 300000,
           tokensRemaining: 24000,
           usagePercentage: 20,
         }),
@@ -186,20 +191,28 @@ describe('UserService', () => {
 
     it('updates name/username without location', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser });
-      mockPrisma.user.update.mockResolvedValue({ ...mockUser, name: 'New Name' });
+      mockPrisma.user.update.mockResolvedValue({
+        ...mockUser,
+        name: 'New Name',
+      });
 
       const result = await service.updateUser('fb-123', { name: 'New Name' });
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.user.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { firebaseId: 'fb-123' }, data: { name: 'New Name' } }),
+        expect.objectContaining({
+          where: { firebaseId: 'fb-123' },
+          data: { name: 'New Name' },
+        }),
       );
     });
 
     it('rejects an invalid persona name', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser });
 
-      const result = await service.updateUser('fb-123', { ttsVoicePreference: 'Nope' });
+      const result = await service.updateUser('fb-123', {
+        ttsVoicePreference: 'Nope',
+      });
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -240,7 +253,10 @@ describe('UserService', () => {
 
   describe('changeName', () => {
     it('updates the name', async () => {
-      mockPrisma.user.update.mockResolvedValue({ ...mockUser, name: 'Renamed' });
+      mockPrisma.user.update.mockResolvedValue({
+        ...mockUser,
+        name: 'Renamed',
+      });
 
       const result = await service.changeName('fb-123', { name: 'Renamed' });
 
@@ -259,9 +275,14 @@ describe('UserService', () => {
 
   describe('changeUsername', () => {
     it('updates the username', async () => {
-      mockPrisma.user.update.mockResolvedValue({ ...mockUser, username: 'newname' });
+      mockPrisma.user.update.mockResolvedValue({
+        ...mockUser,
+        username: 'newname',
+      });
 
-      const result = await service.changeUsername('fb-123', { username: 'newname' });
+      const result = await service.changeUsername('fb-123', {
+        username: 'newname',
+      });
 
       expect(result.isError).toBe(false);
       expect(result.data?.username).toBe('newname');
@@ -310,8 +331,13 @@ describe('UserService', () => {
 
     it('uploads the file and stores the returned URL', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser });
-      mockStorageService.uploadFile.mockResolvedValue({ url: 'https://cdn/x.png' });
-      mockPrisma.user.update.mockResolvedValue({ ...mockUser, avatar: 'https://cdn/x.png' });
+      mockStorageService.uploadFile.mockResolvedValue({
+        url: 'https://cdn/x.png',
+      });
+      mockPrisma.user.update.mockResolvedValue({
+        ...mockUser,
+        avatar: 'https://cdn/x.png',
+      });
 
       const result = await service.uploadAvatar('fb-123', file);
 
@@ -344,7 +370,9 @@ describe('UserService', () => {
 
   describe('changeTtsVoicePreference', () => {
     it('rejects an invalid persona name', async () => {
-      const result = await service.changeTtsVoicePreference('fb-123', { ttsVoicePreference: 'Nope' });
+      const result = await service.changeTtsVoicePreference('fb-123', {
+        ttsVoicePreference: 'Nope',
+      });
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -354,18 +382,24 @@ describe('UserService', () => {
     it('updates the preference for a valid persona', async () => {
       mockPrisma.user.update.mockResolvedValue({ ...mockUser });
 
-      const result = await service.changeTtsVoicePreference('fb-123', { ttsVoicePreference: 'Sage' });
+      const result = await service.changeTtsVoicePreference('fb-123', {
+        ttsVoicePreference: 'Sage',
+      });
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.user.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: { ttsVoicePreference: TtsVoicePreference.SAGE } }),
+        expect.objectContaining({
+          data: { ttsVoicePreference: TtsVoicePreference.SAGE },
+        }),
       );
     });
 
     it('maps P2025 to NotFound', async () => {
       mockPrisma.user.update.mockRejectedValue(P2025);
 
-      const result = await service.changeTtsVoicePreference('fb-123', { ttsVoicePreference: 'Sage' });
+      const result = await service.changeTtsVoicePreference('fb-123', {
+        ttsVoicePreference: 'Sage',
+      });
 
       expect(result.error).toBeInstanceOf(NotFoundException);
     });
@@ -398,7 +432,11 @@ describe('UserService', () => {
 
       const result = await service.getStreakReminderPreferences('fb-123');
 
-      expect(result.data).toEqual({ enabled: true, times: [], timezone: 'UTC' });
+      expect(result.data).toEqual({
+        enabled: true,
+        times: [],
+        timezone: 'UTC',
+      });
     });
 
     it('returns NotFound when missing', async () => {
@@ -422,13 +460,19 @@ describe('UserService', () => {
       });
 
       expect(result.isError).toBe(false);
-      expect(result.data).toEqual({ enabled: false, times: ['09:00'], timezone: 'UTC' });
+      expect(result.data).toEqual({
+        enabled: false,
+        times: ['09:00'],
+        timezone: 'UTC',
+      });
     });
 
     it('maps P2025 to NotFound', async () => {
       mockPrisma.user.update.mockRejectedValue(P2025);
 
-      const result = await service.updateStreakReminderPreferences('fb-123', { enabled: true });
+      const result = await service.updateStreakReminderPreferences('fb-123', {
+        enabled: true,
+      });
 
       expect(result.error).toBeInstanceOf(NotFoundException);
     });

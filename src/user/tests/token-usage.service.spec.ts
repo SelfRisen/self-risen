@@ -45,13 +45,15 @@ describe('TokenUsageService', () => {
     it('throws when the user is not found', async () => {
       tx.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.checkTokenLimit('user-1')).rejects.toThrow('User not found');
+      await expect(service.checkTokenLimit('user-1')).rejects.toThrow(
+        'User not found',
+      );
     });
 
     it('resets the counter once the reset date has passed', async () => {
       tx.user.findUnique.mockResolvedValue({
         tokensUsedThisMonth: 5000,
-        tokenLimitPerMonth: 30000,
+        tokenLimitPerMonth: 300000,
         tokenResetDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
       });
 
@@ -68,24 +70,26 @@ describe('TokenUsageService', () => {
     it('throws Forbidden when projected usage exceeds the limit', async () => {
       tx.user.findUnique.mockResolvedValue({
         tokensUsedThisMonth: 29500,
-        tokenLimitPerMonth: 30000,
+        tokenLimitPerMonth: 300000,
         tokenResetDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
       });
 
-      await expect(service.checkTokenLimit('user-1', 1000)).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
+      await expect(
+        service.checkTokenLimit('user-1', 1000),
+      ).rejects.toBeInstanceOf(ForbiddenException);
       expect(tx.user.update).not.toHaveBeenCalled();
     });
 
     it('passes when there is enough budget', async () => {
       tx.user.findUnique.mockResolvedValue({
         tokensUsedThisMonth: 1000,
-        tokenLimitPerMonth: 30000,
+        tokenLimitPerMonth: 300000,
         tokenResetDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
       });
 
-      await expect(service.checkTokenLimit('user-1', 1000)).resolves.toBeUndefined();
+      await expect(
+        service.checkTokenLimit('user-1', 1000),
+      ).resolves.toBeUndefined();
       expect(tx.user.update).not.toHaveBeenCalled();
     });
   });
@@ -107,7 +111,9 @@ describe('TokenUsageService', () => {
     it('swallows errors so it never breaks the main flow', async () => {
       mockPrisma.$transaction.mockRejectedValue(new Error('db down'));
 
-      await expect(service.trackTokenUsage('user-1', 250)).resolves.toBeUndefined();
+      await expect(
+        service.trackTokenUsage('user-1', 250),
+      ).resolves.toBeUndefined();
     });
   });
 
@@ -115,13 +121,15 @@ describe('TokenUsageService', () => {
     it('throws when the user is not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.getTokenUsage('user-1')).rejects.toThrow('User not found');
+      await expect(service.getTokenUsage('user-1')).rejects.toThrow(
+        'User not found',
+      );
     });
 
     it('returns computed usage stats', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({
         tokensUsedThisMonth: 7500,
-        tokenLimitPerMonth: 30000,
+        tokenLimitPerMonth: 300000,
         tokenResetDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
       });
 
@@ -130,7 +138,7 @@ describe('TokenUsageService', () => {
       expect(result).toEqual(
         expect.objectContaining({
           tokensUsedThisMonth: 7500,
-          tokenLimitPerMonth: 30000,
+          tokenLimitPerMonth: 300000,
           tokensRemaining: 22500,
           usagePercentage: 25,
         }),

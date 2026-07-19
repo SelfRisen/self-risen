@@ -4,4 +4,3 @@ export { CreateVisionBoardForCategoryDto } from './create-vision-board-for-categ
 export { UpdateVisionDto } from './update-vision.dto';
 export { SetVisionSoundDto } from './set-vision-sound.dto';
 export { ReorderVisionDto, ReorderSoundDto } from './reorder.dto';
-

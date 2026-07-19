@@ -28,10 +28,8 @@ export class CompressionService {
     this.QUALITY_SMALL = config.COMPRESSION_QUALITY_SMALL ?? 85; // < 100KB
     this.QUALITY_MEDIUM = config.COMPRESSION_QUALITY_MEDIUM ?? 75; // 100KB - 1MB
     this.QUALITY_LARGE = config.COMPRESSION_QUALITY_LARGE ?? 65; // > 1MB
-    this.ENABLE_IMAGE_COMPRESSION =
-      config.ENABLE_IMAGE_COMPRESSION !== 'false'; // Default to true
-    this.ENABLE_VIDEO_COMPRESSION =
-      config.ENABLE_VIDEO_COMPRESSION !== 'false'; // Default to true
+    this.ENABLE_IMAGE_COMPRESSION = config.ENABLE_IMAGE_COMPRESSION !== 'false'; // Default to true
+    this.ENABLE_VIDEO_COMPRESSION = config.ENABLE_VIDEO_COMPRESSION !== 'false'; // Default to true
   }
 
   // Max dimensions for images (optional resize)
@@ -70,7 +68,9 @@ export class CompressionService {
 
     // Skip very small files if option is set
     if (options?.skipIfSmall && originalSize < this.MIN_COMPRESS_SIZE) {
-      this.logger.debug(`Skipping compression for small file (${originalSize} bytes)`);
+      this.logger.debug(
+        `Skipping compression for small file (${originalSize} bytes)`,
+      );
       return null;
     }
 
@@ -139,7 +139,9 @@ export class CompressionService {
 
     // Skip very small files if option is set
     if (options?.skipIfSmall && originalSize < this.MIN_COMPRESS_SIZE * 10) {
-      this.logger.debug(`Skipping compression for small video file (${originalSize} bytes)`);
+      this.logger.debug(
+        `Skipping compression for small video file (${originalSize} bytes)`,
+      );
       return null;
     }
 
@@ -155,7 +157,10 @@ export class CompressionService {
 
     const inputExt = this.getExtensionFromMime(file.mimetype);
     const tmpDir = os.tmpdir();
-    const inputPath = path.join(tmpDir, `ffmpeg-input-${Date.now()}${inputExt}`);
+    const inputPath = path.join(
+      tmpDir,
+      `ffmpeg-input-${Date.now()}${inputExt}`,
+    );
 
     try {
       // Write input to temp file for probing and compression
@@ -187,7 +192,11 @@ export class CompressionService {
 
       let compressedBuffer: Buffer | null = null;
 
-      for (let attempt = 1; attempt <= this.MAX_COMPRESSION_ATTEMPTS; attempt++) {
+      for (
+        let attempt = 1;
+        attempt <= this.MAX_COMPRESSION_ATTEMPTS;
+        attempt++
+      ) {
         const targetBitrate = `${Math.floor(targetBitrateNum / 1000)}k`;
         this.logger.debug(
           `Compression attempt ${attempt}/${this.MAX_COMPRESSION_ATTEMPTS}: ${file.originalname}, Original: ${(originalSize / (1024 * 1024)).toFixed(2)}MB, Target bitrate: ${targetBitrate}`,
@@ -243,7 +252,11 @@ export class CompressionService {
       );
       return null;
     } finally {
-      try { fs.unlinkSync(inputPath); } catch {}
+      try {
+        fs.unlinkSync(inputPath);
+      } catch {
+        // Best-effort cleanup; the temp file may already be gone.
+      }
     }
   }
 
@@ -254,7 +267,7 @@ export class CompressionService {
     return new Promise((resolve, reject) => {
       // Use ffmpeg.getAvailableEncoders to check if ffmpeg is available
       // This is a lightweight check that doesn't require a file
-      ffmpeg.getAvailableEncoders((err, encoders) => {
+      ffmpeg.getAvailableEncoders((err) => {
         if (err) {
           // If we can't get encoders, ffmpeg is likely not installed
           reject(new Error('ffmpeg binary not found or not accessible'));
@@ -319,8 +332,10 @@ export class CompressionService {
           .outputOptions([
             '-preset fast',
             `-b:v ${targetBitrate}`,
-            '-maxrate', targetBitrate,
-            '-bufsize', `${parseInt(targetBitrate) * 2}k`,
+            '-maxrate',
+            targetBitrate,
+            '-bufsize',
+            `${parseInt(targetBitrate) * 2}k`,
             '-movflags +faststart',
           ])
           .format('mp4')
@@ -332,7 +347,11 @@ export class CompressionService {
               const result = fs.readFileSync(outputPath);
               resolve(result);
             } catch (readErr) {
-              reject(new Error(`Failed to read compressed output: ${readErr.message}`));
+              reject(
+                new Error(
+                  `Failed to read compressed output: ${readErr.message}`,
+                ),
+              );
             }
           })
           .save(outputPath);
@@ -340,7 +359,11 @@ export class CompressionService {
 
       return compressedBuffer;
     } finally {
-      try { fs.unlinkSync(outputPath); } catch {}
+      try {
+        fs.unlinkSync(outputPath);
+      } catch {
+        // Best-effort cleanup; the temp file may already be gone.
+      }
     }
   }
 }

@@ -25,4 +25,3 @@ export enum NotificationTypeEnum {
   SESSION_COMPLETED = 'SESSION_COMPLETED',
   MANUAL = 'MANUAL',
 }
-

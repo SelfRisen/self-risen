@@ -148,7 +148,10 @@ describe('ReflectionService', () => {
         { provide: DatabaseProvider, useValue: mockPrisma },
         { provide: StorageService, useValue: mockStorageService },
         { provide: TranscriptionService, useValue: mockTranscriptionService },
-        { provide: NlpTransformationService, useValue: mockNlpTransformationService },
+        {
+          provide: NlpTransformationService,
+          useValue: mockNlpTransformationService,
+        },
         { provide: TextToSpeechService, useValue: mockTextToSpeechService },
         { provide: INotificationService, useValue: mockNotificationService },
         { provide: StaterVideosService, useValue: mockStaterVideosService },
@@ -164,7 +167,9 @@ describe('ReflectionService', () => {
       mockPrisma.wheelCategory.findFirst.mockResolvedValue(mockCategory);
       mockPrisma.reflectionSession.create.mockResolvedValue(mockSession);
 
-      const result = await service.createSession('firebase-uid-123', { categoryId: 'cat-1' });
+      const result = await service.createSession('firebase-uid-123', {
+        categoryId: 'cat-1',
+      });
 
       expect(result.isError).toBe(false);
       expect(result.data?.id).toBe('session-123');
@@ -174,7 +179,9 @@ describe('ReflectionService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.createSession('nonexistent-firebase-id', { categoryId: 'cat-1' });
+      const result = await service.createSession('nonexistent-firebase-id', {
+        categoryId: 'cat-1',
+      });
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -184,7 +191,9 @@ describe('ReflectionService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.wheelCategory.findFirst.mockResolvedValue(null);
 
-      const result = await service.createSession('firebase-uid-123', { categoryId: 'nonexistent-cat' });
+      const result = await service.createSession('firebase-uid-123', {
+        categoryId: 'nonexistent-cat',
+      });
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -196,7 +205,10 @@ describe('ReflectionService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.reflectionSession.findFirst.mockResolvedValue(mockSession);
 
-      const result = await service.getSessionById('firebase-uid-123', 'session-123');
+      const result = await service.getSessionById(
+        'firebase-uid-123',
+        'session-123',
+      );
 
       expect(result.isError).toBe(false);
       expect(result.data?.id).toBe('session-123');
@@ -206,7 +218,10 @@ describe('ReflectionService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.reflectionSession.findFirst.mockResolvedValue(null);
 
-      const result = await service.getSessionById('firebase-uid-123', 'nonexistent-session');
+      const result = await service.getSessionById(
+        'firebase-uid-123',
+        'nonexistent-session',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -214,7 +229,10 @@ describe('ReflectionService', () => {
   });
 
   describe('createReflectionSound', () => {
-    const mockMusic = { url: 'https://storage.com/sound.mp3', name: 'bright-glow' };
+    const mockMusic = {
+      url: 'https://storage.com/sound.mp3',
+      name: 'bright-glow',
+    };
     const mockReflectionSound = {
       id: 'ref-sound-123',
       reflectionSessionId: 'session-123',
@@ -228,14 +246,23 @@ describe('ReflectionService', () => {
 
     it('should create reflection sound when session has none', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockPrisma.reflectionSession.findFirst.mockResolvedValue({ ...mockSession, reflectionSound: null });
+      mockPrisma.reflectionSession.findFirst.mockResolvedValue({
+        ...mockSession,
+        reflectionSound: null,
+      });
       mockStaterVideosService.getSoundByName.mockReturnValue(mockMusic);
       mockPrisma.reflectionSound.create.mockResolvedValue(mockReflectionSound);
 
-      const result = await service.createReflectionSound('firebase-uid-123', 'session-123', 'bright-glow');
+      const result = await service.createReflectionSound(
+        'firebase-uid-123',
+        'session-123',
+        'bright-glow',
+      );
 
       expect(result.isError).toBe(false);
-      expect(mockStaterVideosService.getSoundByName).toHaveBeenCalledWith('bright-glow');
+      expect(mockStaterVideosService.getSoundByName).toHaveBeenCalledWith(
+        'bright-glow',
+      );
       expect(mockPrisma.reflectionSound.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           reflectionSessionId: 'session-123',
@@ -251,13 +278,20 @@ describe('ReflectionService', () => {
         ...mockSession,
         reflectionSound: mockReflectionSound,
       });
-      mockStaterVideosService.getSoundByName.mockReturnValue({ url: 'https://storage.com/new-sound.mp3', name: 'bright-glow' });
+      mockStaterVideosService.getSoundByName.mockReturnValue({
+        url: 'https://storage.com/new-sound.mp3',
+        name: 'bright-glow',
+      });
       mockPrisma.reflectionSound.update.mockResolvedValue({
         ...mockReflectionSound,
         soundUrl: 'https://storage.com/new-sound.mp3',
       });
 
-      const result = await service.createReflectionSound('firebase-uid-123', 'session-123', 'bright-glow');
+      const result = await service.createReflectionSound(
+        'firebase-uid-123',
+        'session-123',
+        'bright-glow',
+      );
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.reflectionSound.update).toHaveBeenCalled();
@@ -267,7 +301,11 @@ describe('ReflectionService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.reflectionSession.findFirst.mockResolvedValue(null);
 
-      const result = await service.createReflectionSound('firebase-uid-123', 'nonexistent-session', 'bright-glow');
+      const result = await service.createReflectionSound(
+        'firebase-uid-123',
+        'nonexistent-session',
+        'bright-glow',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -275,10 +313,17 @@ describe('ReflectionService', () => {
 
     it('should return error when sound name not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockPrisma.reflectionSession.findFirst.mockResolvedValue({ ...mockSession, reflectionSound: null });
+      mockPrisma.reflectionSession.findFirst.mockResolvedValue({
+        ...mockSession,
+        reflectionSound: null,
+      });
       mockStaterVideosService.getSoundByName.mockReturnValue(null);
 
-      const result = await service.createReflectionSound('firebase-uid-123', 'session-123', 'unknown-sound');
+      const result = await service.createReflectionSound(
+        'firebase-uid-123',
+        'session-123',
+        'unknown-sound',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -302,7 +347,10 @@ describe('ReflectionService', () => {
         reflectionSound: mockReflectionSound,
       });
 
-      const result = await service.getSoundForReflection('firebase-uid-123', 'session-123');
+      const result = await service.getSoundForReflection(
+        'firebase-uid-123',
+        'session-123',
+      );
 
       expect(result.isError).toBe(false);
       expect(result.data?.sound).toEqual(mockReflectionSound);
@@ -310,9 +358,15 @@ describe('ReflectionService', () => {
 
     it('should return null sound when session has none', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockPrisma.reflectionSession.findFirst.mockResolvedValue({ ...mockSession, reflectionSound: null });
+      mockPrisma.reflectionSession.findFirst.mockResolvedValue({
+        ...mockSession,
+        reflectionSound: null,
+      });
 
-      const result = await service.getSoundForReflection('firebase-uid-123', 'session-123');
+      const result = await service.getSoundForReflection(
+        'firebase-uid-123',
+        'session-123',
+      );
 
       expect(result.isError).toBe(false);
       expect(result.data?.sound).toBeNull();
@@ -353,7 +407,11 @@ describe('ReflectionService', () => {
         status: 'BELIEF_CAPTURED',
       });
 
-      const result = await service.submitBelief('firebase-uid-123', 'session-123', { text: 'I am not healthy' });
+      const result = await service.submitBelief(
+        'firebase-uid-123',
+        'session-123',
+        { text: 'I am not healthy' },
+      );
 
       expect(result.isError).toBe(false);
       expect(result.data?.status).toBe('BELIEF_CAPTURED');
@@ -362,15 +420,25 @@ describe('ReflectionService', () => {
     it('should successfully submit belief with audio file', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.reflectionSession.findFirst.mockResolvedValue(mockSession);
-      mockTranscriptionService.transcribeAudio.mockResolvedValue('Transcribed text');
+      mockTranscriptionService.transcribeAudio.mockResolvedValue(
+        'Transcribed text',
+      );
       mockPrisma.reflectionSession.update.mockResolvedValue({
         ...mockSession,
         rawBeliefText: 'Transcribed text',
         status: 'BELIEF_CAPTURED',
       });
 
-      const mockAudioFile = { buffer: Buffer.from('audio'), mimetype: 'audio/mp3' } as Express.Multer.File;
-      const result = await service.submitBelief('firebase-uid-123', 'session-123', {}, mockAudioFile);
+      const mockAudioFile = {
+        buffer: Buffer.from('audio'),
+        mimetype: 'audio/mp3',
+      } as Express.Multer.File;
+      const result = await service.submitBelief(
+        'firebase-uid-123',
+        'session-123',
+        {},
+        mockAudioFile,
+      );
 
       expect(result.isError).toBe(false);
       expect(mockTranscriptionService.transcribeAudio).toHaveBeenCalled();
@@ -383,7 +451,11 @@ describe('ReflectionService', () => {
         status: 'BELIEF_CAPTURED',
       });
 
-      const result = await service.submitBelief('firebase-uid-123', 'session-123', { text: 'test' });
+      const result = await service.submitBelief(
+        'firebase-uid-123',
+        'session-123',
+        { text: 'test' },
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -393,7 +465,11 @@ describe('ReflectionService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.reflectionSession.findFirst.mockResolvedValue(mockSession);
 
-      const result = await service.submitBelief('firebase-uid-123', 'session-123', {});
+      const result = await service.submitBelief(
+        'firebase-uid-123',
+        'session-123',
+        {},
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -410,12 +486,16 @@ describe('ReflectionService', () => {
 
     it('should successfully generate affirmation', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockPrisma.reflectionSession.findFirst.mockResolvedValue(sessionWithBelief);
+      mockPrisma.reflectionSession.findFirst.mockResolvedValue(
+        sessionWithBelief,
+      );
       mockNlpTransformationService.transformBelief.mockResolvedValue({
         limitingBelief: 'I am not healthy',
         generatedAffirmation: 'I am healthy and vibrant',
       });
-      mockTextToSpeechService.generateAffirmationAudio.mockResolvedValue('https://audio-url.com/audio.mp3');
+      mockTextToSpeechService.generateAffirmationAudio.mockResolvedValue(
+        'https://audio-url.com/audio.mp3',
+      );
       mockPrisma.affirmation.create.mockResolvedValue({
         id: 'affirmation-123',
         sessionId: 'session-123',
@@ -435,12 +515,17 @@ describe('ReflectionService', () => {
       });
       mockNotificationService.notifyUser.mockResolvedValue([]);
 
-      const result = await service.generateAffirmation('firebase-uid-123', 'session-123');
+      const result = await service.generateAffirmation(
+        'firebase-uid-123',
+        'session-123',
+      );
 
       expect(result.isError).toBe(false);
       expect(result.data?.status).toBe('AFFIRMATION_GENERATED');
       expect(mockPrisma.affirmation.create).toHaveBeenCalled();
-      expect(mockTextToSpeechService.generateAffirmationAudio).toHaveBeenCalledWith(
+      expect(
+        mockTextToSpeechService.generateAffirmationAudio,
+      ).toHaveBeenCalledWith(
         'I am healthy and vibrant',
         mockUser.id,
         expect.anything(),
@@ -467,12 +552,16 @@ describe('ReflectionService', () => {
       };
 
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockPrisma.reflectionSession.findFirst.mockResolvedValue(sessionWithExistingAffirmation);
+      mockPrisma.reflectionSession.findFirst.mockResolvedValue(
+        sessionWithExistingAffirmation,
+      );
       mockNlpTransformationService.transformBelief.mockResolvedValue({
         limitingBelief: 'I am not healthy',
         generatedAffirmation: 'I choose health every day',
       });
-      mockTextToSpeechService.generateAffirmationAudio.mockResolvedValue('https://audio-url.com/new.mp3');
+      mockTextToSpeechService.generateAffirmationAudio.mockResolvedValue(
+        'https://audio-url.com/new.mp3',
+      );
       mockPrisma.affirmation.create.mockResolvedValue({
         id: 'affirmation-new',
         sessionId: 'session-123',
@@ -489,10 +578,15 @@ describe('ReflectionService', () => {
         category: mockCategory,
       });
 
-      const result = await service.generateAffirmation('firebase-uid-123', 'session-123');
+      const result = await service.generateAffirmation(
+        'firebase-uid-123',
+        'session-123',
+      );
 
       expect(result.isError).toBe(false);
-      expect(mockTextToSpeechService.generateAffirmationAudio).toHaveBeenCalledWith(
+      expect(
+        mockTextToSpeechService.generateAffirmationAudio,
+      ).toHaveBeenCalledWith(
         'I choose health every day',
         mockUser.id,
         expect.anything(),
@@ -509,7 +603,9 @@ describe('ReflectionService', () => {
 
     it('should override payload and not persist when OMNI safety gate triggers', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockPrisma.reflectionSession.findFirst.mockResolvedValue(sessionWithBelief);
+      mockPrisma.reflectionSession.findFirst.mockResolvedValue(
+        sessionWithBelief,
+      );
       mockNlpTransformationService.transformBelief.mockResolvedValue({
         limitingBelief: 'I am not healthy',
         generatedAffirmation: '',
@@ -541,7 +637,10 @@ describe('ReflectionService', () => {
         category: mockCategory,
       });
 
-      const result = await service.generateAffirmation('firebase-uid-123', 'session-123');
+      const result = await service.generateAffirmation(
+        'firebase-uid-123',
+        'session-123',
+      );
 
       expect(result.isError).toBe(false);
       expect(result.data?.status).toBe('AFFIRMATION_GENERATED');
@@ -550,7 +649,9 @@ describe('ReflectionService', () => {
         'This sounds serious. I’m concerned about your immediate safety. Please contact your local emergency services, go to the nearest emergency room, or reach out to a trusted person who can help you right now.',
       );
       expect(mockPrisma.affirmation.create).not.toHaveBeenCalled();
-      expect(mockTextToSpeechService.generateAffirmationAudio).not.toHaveBeenCalled();
+      expect(
+        mockTextToSpeechService.generateAffirmationAudio,
+      ).not.toHaveBeenCalled();
       expect(mockPrisma.reflectionSession.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -564,7 +665,10 @@ describe('ReflectionService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.reflectionSession.findFirst.mockResolvedValue(mockSession);
 
-      const result = await service.generateAffirmation('firebase-uid-123', 'session-123');
+      const result = await service.generateAffirmation(
+        'firebase-uid-123',
+        'session-123',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -578,7 +682,10 @@ describe('ReflectionService', () => {
         rawBeliefText: '',
       });
 
-      const result = await service.generateAffirmation('firebase-uid-123', 'session-123');
+      const result = await service.generateAffirmation(
+        'firebase-uid-123',
+        'session-123',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -594,14 +701,20 @@ describe('ReflectionService', () => {
 
     it('should successfully re-record belief', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockPrisma.reflectionSession.findFirst.mockResolvedValue(sessionWithBelief);
+      mockPrisma.reflectionSession.findFirst.mockResolvedValue(
+        sessionWithBelief,
+      );
       mockPrisma.reflectionSession.update.mockResolvedValue({
         ...sessionWithBelief,
         rawBeliefText: 'New belief',
         beliefRerecordCount: 1,
       });
 
-      const result = await service.reRecordBelief('firebase-uid-123', 'session-123', { text: 'New belief' });
+      const result = await service.reRecordBelief(
+        'firebase-uid-123',
+        'session-123',
+        { text: 'New belief' },
+      );
 
       expect(result.isError).toBe(false);
       expect(result.data?.rawBeliefText).toBe('New belief');
@@ -611,7 +724,11 @@ describe('ReflectionService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.reflectionSession.findFirst.mockResolvedValue(mockSession);
 
-      const result = await service.reRecordBelief('firebase-uid-123', 'session-123', { text: 'New belief' });
+      const result = await service.reRecordBelief(
+        'firebase-uid-123',
+        'session-123',
+        { text: 'New belief' },
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -627,15 +744,26 @@ describe('ReflectionService', () => {
 
     it('should successfully record user affirmation', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockPrisma.reflectionSession.findFirst.mockResolvedValue(sessionWithAffirmation);
-      mockStorageService.uploadFile.mockResolvedValue({ url: 'https://storage.com/audio.mp3' });
+      mockPrisma.reflectionSession.findFirst.mockResolvedValue(
+        sessionWithAffirmation,
+      );
+      mockStorageService.uploadFile.mockResolvedValue({
+        url: 'https://storage.com/audio.mp3',
+      });
       mockPrisma.reflectionSession.update.mockResolvedValue({
         ...sessionWithAffirmation,
         userAffirmationAudioUrl: 'https://storage.com/audio.mp3',
       });
 
-      const mockAudioFile = { buffer: Buffer.from('audio'), mimetype: 'audio/mp3' } as Express.Multer.File;
-      const result = await service.recordUserAffirmation('firebase-uid-123', 'session-123', mockAudioFile);
+      const mockAudioFile = {
+        buffer: Buffer.from('audio'),
+        mimetype: 'audio/mp3',
+      } as Express.Multer.File;
+      const result = await service.recordUserAffirmation(
+        'firebase-uid-123',
+        'session-123',
+        mockAudioFile,
+      );
 
       expect(result.isError).toBe(false);
       expect(mockStorageService.uploadFile).toHaveBeenCalled();
@@ -645,8 +773,15 @@ describe('ReflectionService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.reflectionSession.findFirst.mockResolvedValue(mockSession);
 
-      const mockAudioFile = { buffer: Buffer.from('audio'), mimetype: 'audio/mp3' } as Express.Multer.File;
-      const result = await service.recordUserAffirmation('firebase-uid-123', 'session-123', mockAudioFile);
+      const mockAudioFile = {
+        buffer: Buffer.from('audio'),
+        mimetype: 'audio/mp3',
+      } as Express.Multer.File;
+      const result = await service.recordUserAffirmation(
+        'firebase-uid-123',
+        'session-123',
+        mockAudioFile,
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -663,7 +798,10 @@ describe('ReflectionService', () => {
         lastPlayedAt: new Date(),
       });
 
-      const result = await service.trackPlayback('firebase-uid-123', 'session-123');
+      const result = await service.trackPlayback(
+        'firebase-uid-123',
+        'session-123',
+      );
 
       expect(result.isError).toBe(false);
       expect(result.data?.playbackCount).toBe(1);
@@ -673,7 +811,10 @@ describe('ReflectionService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.reflectionSession.findFirst.mockResolvedValue(null);
 
-      const result = await service.trackPlayback('firebase-uid-123', 'nonexistent-session');
+      const result = await service.trackPlayback(
+        'firebase-uid-123',
+        'nonexistent-session',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -692,10 +833,16 @@ describe('ReflectionService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.reflectionSession.findFirst
         .mockResolvedValueOnce(sessionWithAffirmation)
-        .mockResolvedValueOnce({ ...sessionWithAffirmation, waves: [mockWave] });
+        .mockResolvedValueOnce({
+          ...sessionWithAffirmation,
+          waves: [mockWave],
+        });
       mockPrisma.wave.create.mockResolvedValue(mockWave);
 
-      const result = await service.createWave('firebase-uid-123', { sessionId: 'session-123', durationDays: 20 });
+      const result = await service.createWave('firebase-uid-123', {
+        sessionId: 'session-123',
+        durationDays: 20,
+      });
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.wave.create).toHaveBeenCalled();
@@ -708,7 +855,10 @@ describe('ReflectionService', () => {
         waves: [mockWave],
       });
 
-      const result = await service.createWave('firebase-uid-123', { sessionId: 'session-123', durationDays: 20 });
+      const result = await service.createWave('firebase-uid-123', {
+        sessionId: 'session-123',
+        durationDays: 20,
+      });
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -722,7 +872,10 @@ describe('ReflectionService', () => {
         selectedAffirmationText: null,
       });
 
-      const result = await service.createWave('firebase-uid-123', { sessionId: 'session-123', durationDays: 20 });
+      const result = await service.createWave('firebase-uid-123', {
+        sessionId: 'session-123',
+        durationDays: 20,
+      });
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -738,7 +891,9 @@ describe('ReflectionService', () => {
         durationDays: 30,
       });
 
-      const result = await service.updateWave('firebase-uid-123', 'wave-123', { durationDays: 30 });
+      const result = await service.updateWave('firebase-uid-123', 'wave-123', {
+        durationDays: 30,
+      });
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.wave.update).toHaveBeenCalled();
@@ -748,7 +903,11 @@ describe('ReflectionService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.wave.findFirst.mockResolvedValue(null);
 
-      const result = await service.updateWave('firebase-uid-123', 'nonexistent-wave', { durationDays: 30 });
+      const result = await service.updateWave(
+        'firebase-uid-123',
+        'nonexistent-wave',
+        { durationDays: 30 },
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -761,7 +920,9 @@ describe('ReflectionService', () => {
         session: { id: 'session-123', userId: 'different-user' },
       });
 
-      const result = await service.updateWave('firebase-uid-123', 'wave-123', { durationDays: 30 });
+      const result = await service.updateWave('firebase-uid-123', 'wave-123', {
+        durationDays: 30,
+      });
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -784,7 +945,10 @@ describe('ReflectionService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.wave.findFirst.mockResolvedValue(null);
 
-      const result = await service.deleteWave('firebase-uid-123', 'nonexistent-wave');
+      const result = await service.deleteWave(
+        'firebase-uid-123',
+        'nonexistent-wave',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -801,17 +965,27 @@ describe('ReflectionService', () => {
 
     it('should successfully regenerate voice', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockPrisma.reflectionSession.findFirst.mockResolvedValue(sessionWithAffirmation);
-      mockTextToSpeechService.generateAffirmationAudio.mockResolvedValue('https://new-audio.com/audio.mp3');
+      mockPrisma.reflectionSession.findFirst.mockResolvedValue(
+        sessionWithAffirmation,
+      );
+      mockTextToSpeechService.generateAffirmationAudio.mockResolvedValue(
+        'https://new-audio.com/audio.mp3',
+      );
       mockPrisma.reflectionSession.update.mockResolvedValue({
         ...sessionWithAffirmation,
         selectedAffirmationAudioUrl: 'https://new-audio.com/audio.mp3',
       });
 
-      const result = await service.regenerateAffirmationVoice('firebase-uid-123', 'session-123', { voicePreference: 'Sage' });
+      const result = await service.regenerateAffirmationVoice(
+        'firebase-uid-123',
+        'session-123',
+        { voicePreference: 'Sage' },
+      );
 
       expect(result.isError).toBe(false);
-      expect(mockTextToSpeechService.generateAffirmationAudio).toHaveBeenCalledWith(
+      expect(
+        mockTextToSpeechService.generateAffirmationAudio,
+      ).toHaveBeenCalledWith(
         'I am healthy and vibrant',
         'user-123',
         TtsVoicePreference.SAGE,
@@ -820,13 +994,24 @@ describe('ReflectionService', () => {
 
     it('should use user preference when no voice specified', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockPrisma.reflectionSession.findFirst.mockResolvedValue(sessionWithAffirmation);
-      mockTextToSpeechService.generateAffirmationAudio.mockResolvedValue('https://audio.com/audio.mp3');
-      mockPrisma.reflectionSession.update.mockResolvedValue(sessionWithAffirmation);
+      mockPrisma.reflectionSession.findFirst.mockResolvedValue(
+        sessionWithAffirmation,
+      );
+      mockTextToSpeechService.generateAffirmationAudio.mockResolvedValue(
+        'https://audio.com/audio.mp3',
+      );
+      mockPrisma.reflectionSession.update.mockResolvedValue(
+        sessionWithAffirmation,
+      );
 
-      await service.regenerateAffirmationVoice('firebase-uid-123', 'session-123');
+      await service.regenerateAffirmationVoice(
+        'firebase-uid-123',
+        'session-123',
+      );
 
-      expect(mockTextToSpeechService.generateAffirmationAudio).toHaveBeenCalledWith(
+      expect(
+        mockTextToSpeechService.generateAffirmationAudio,
+      ).toHaveBeenCalledWith(
         'I am healthy and vibrant',
         'user-123',
         TtsVoicePreference.RIVER,
@@ -842,7 +1027,10 @@ describe('ReflectionService', () => {
         affirmations: [],
       });
 
-      const result = await service.regenerateAffirmationVoice('firebase-uid-123', 'session-123');
+      const result = await service.regenerateAffirmationVoice(
+        'firebase-uid-123',
+        'session-123',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -856,7 +1044,10 @@ describe('ReflectionService', () => {
         affirmations: [],
       });
 
-      const result = await service.regenerateAffirmationVoice('firebase-uid-123', 'session-123');
+      const result = await service.regenerateAffirmationVoice(
+        'firebase-uid-123',
+        'session-123',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);

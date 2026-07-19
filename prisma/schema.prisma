@@ -29,7 +29,7 @@ model User {
   lastLoggedOutAt       DateTime?
   ttsVoicePreference    TtsVoicePreference? @default(ALEX)
   tokensUsedThisMonth   Int                 @default(0)
-  tokenLimitPerMonth    Int                 @default(30000) // Default limit: 30k tokens per month
+  tokenLimitPerMonth    Int                 @default(300000) // Default limit: 300k tokens per month
   tokenResetDate        DateTime            @default(now())
   streakReminderEnabled Boolean             @default(true)
   streakReminderTimes   String[]            @default([])

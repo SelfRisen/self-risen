@@ -98,14 +98,23 @@ describe('JournalService', () => {
 
     it('should successfully create a journal entry with image', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockStorageService.uploadFile.mockResolvedValue({ url: 'https://storage.com/new-image.jpg' });
+      mockStorageService.uploadFile.mockResolvedValue({
+        url: 'https://storage.com/new-image.jpg',
+      });
       mockPrisma.journal.create.mockResolvedValue({
         ...mockJournal,
         imageUrl: 'https://storage.com/new-image.jpg',
       });
 
-      const mockImageFile = { buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as Express.Multer.File;
-      const result = await service.createJournal('firebase-uid-123', createDto, mockImageFile);
+      const mockImageFile = {
+        buffer: Buffer.from('image'),
+        mimetype: 'image/jpeg',
+      } as Express.Multer.File;
+      const result = await service.createJournal(
+        'firebase-uid-123',
+        createDto,
+        mockImageFile,
+      );
 
       expect(result.isError).toBe(false);
       expect(mockStorageService.uploadFile).toHaveBeenCalledWith(
@@ -133,7 +142,10 @@ describe('JournalService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.createJournal('nonexistent-firebase-id', createDto);
+      const result = await service.createJournal(
+        'nonexistent-firebase-id',
+        createDto,
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -141,10 +153,19 @@ describe('JournalService', () => {
 
     it('should return error when image upload fails', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockStorageService.uploadFile.mockRejectedValue(new Error('Upload failed'));
+      mockStorageService.uploadFile.mockRejectedValue(
+        new Error('Upload failed'),
+      );
 
-      const mockImageFile = { buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as Express.Multer.File;
-      const result = await service.createJournal('firebase-uid-123', createDto, mockImageFile);
+      const mockImageFile = {
+        buffer: Buffer.from('image'),
+        mimetype: 'image/jpeg',
+      } as Express.Multer.File;
+      const result = await service.createJournal(
+        'firebase-uid-123',
+        createDto,
+        mockImageFile,
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -171,7 +192,12 @@ describe('JournalService', () => {
       mockPrisma.journal.count.mockResolvedValue(5);
       mockPrisma.journal.findMany.mockResolvedValue([mockJournal]);
 
-      const result = await service.getAllJournals('firebase-uid-123', 1, 10, 'First');
+      const result = await service.getAllJournals(
+        'firebase-uid-123',
+        1,
+        10,
+        'First',
+      );
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.journal.findMany).toHaveBeenCalledWith(
@@ -239,7 +265,10 @@ describe('JournalService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.journal.findFirst.mockResolvedValue(mockJournal);
 
-      const result = await service.getJournalById('firebase-uid-123', 'journal-123');
+      const result = await service.getJournalById(
+        'firebase-uid-123',
+        'journal-123',
+      );
 
       expect(result.isError).toBe(false);
       expect(result.data?.id).toBe('journal-123');
@@ -249,7 +278,10 @@ describe('JournalService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.getJournalById('nonexistent-firebase-id', 'journal-123');
+      const result = await service.getJournalById(
+        'nonexistent-firebase-id',
+        'journal-123',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -259,7 +291,10 @@ describe('JournalService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.journal.findFirst.mockResolvedValue(null);
 
-      const result = await service.getJournalById('firebase-uid-123', 'nonexistent-journal');
+      const result = await service.getJournalById(
+        'firebase-uid-123',
+        'nonexistent-journal',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -296,7 +331,11 @@ describe('JournalService', () => {
         text: 'Updated text content',
       });
 
-      const result = await service.updateJournal('firebase-uid-123', 'journal-123', updateDto);
+      const result = await service.updateJournal(
+        'firebase-uid-123',
+        'journal-123',
+        updateDto,
+      );
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.journal.update).toHaveBeenCalledWith({
@@ -311,14 +350,24 @@ describe('JournalService', () => {
     it('should successfully update journal with new image', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.journal.findFirst.mockResolvedValue(mockJournal);
-      mockStorageService.uploadFile.mockResolvedValue({ url: 'https://storage.com/new-image.jpg' });
+      mockStorageService.uploadFile.mockResolvedValue({
+        url: 'https://storage.com/new-image.jpg',
+      });
       mockPrisma.journal.update.mockResolvedValue({
         ...mockJournal,
         imageUrl: 'https://storage.com/new-image.jpg',
       });
 
-      const mockImageFile = { buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as Express.Multer.File;
-      const result = await service.updateJournal('firebase-uid-123', 'journal-123', {}, mockImageFile);
+      const mockImageFile = {
+        buffer: Buffer.from('image'),
+        mimetype: 'image/jpeg',
+      } as Express.Multer.File;
+      const result = await service.updateJournal(
+        'firebase-uid-123',
+        'journal-123',
+        {},
+        mockImageFile,
+      );
 
       expect(result.isError).toBe(false);
       expect(mockStorageService.uploadFile).toHaveBeenCalledWith(
@@ -349,7 +398,11 @@ describe('JournalService', () => {
       mockPrisma.journal.update.mockResolvedValue(mockJournal);
 
       const partialDto = { title: 'New Title', text: undefined, date: null };
-      await service.updateJournal('firebase-uid-123', 'journal-123', partialDto as any);
+      await service.updateJournal(
+        'firebase-uid-123',
+        'journal-123',
+        partialDto as any,
+      );
 
       expect(mockPrisma.journal.update).toHaveBeenCalledWith({
         where: { id: 'journal-123' },
@@ -360,7 +413,11 @@ describe('JournalService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.updateJournal('nonexistent-firebase-id', 'journal-123', updateDto);
+      const result = await service.updateJournal(
+        'nonexistent-firebase-id',
+        'journal-123',
+        updateDto,
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -370,7 +427,11 @@ describe('JournalService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.journal.findFirst.mockResolvedValue(null);
 
-      const result = await service.updateJournal('firebase-uid-123', 'nonexistent-journal', updateDto);
+      const result = await service.updateJournal(
+        'firebase-uid-123',
+        'nonexistent-journal',
+        updateDto,
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -379,10 +440,20 @@ describe('JournalService', () => {
     it('should return error when image upload fails', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.journal.findFirst.mockResolvedValue(mockJournal);
-      mockStorageService.uploadFile.mockRejectedValue(new Error('Upload failed'));
+      mockStorageService.uploadFile.mockRejectedValue(
+        new Error('Upload failed'),
+      );
 
-      const mockImageFile = { buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as Express.Multer.File;
-      const result = await service.updateJournal('firebase-uid-123', 'journal-123', {}, mockImageFile);
+      const mockImageFile = {
+        buffer: Buffer.from('image'),
+        mimetype: 'image/jpeg',
+      } as Express.Multer.File;
+      const result = await service.updateJournal(
+        'firebase-uid-123',
+        'journal-123',
+        {},
+        mockImageFile,
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -395,7 +466,10 @@ describe('JournalService', () => {
       mockPrisma.journal.findFirst.mockResolvedValue(mockJournal);
       mockPrisma.journal.delete.mockResolvedValue(mockJournal);
 
-      const result = await service.deleteJournal('firebase-uid-123', 'journal-123');
+      const result = await service.deleteJournal(
+        'firebase-uid-123',
+        'journal-123',
+      );
 
       expect(result.isError).toBe(false);
       expect(result.data?.message).toBe('Journal entry deleted successfully');
@@ -407,7 +481,10 @@ describe('JournalService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.deleteJournal('nonexistent-firebase-id', 'journal-123');
+      const result = await service.deleteJournal(
+        'nonexistent-firebase-id',
+        'journal-123',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -417,7 +494,10 @@ describe('JournalService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.journal.findFirst.mockResolvedValue(null);
 
-      const result = await service.deleteJournal('firebase-uid-123', 'nonexistent-journal');
+      const result = await service.deleteJournal(
+        'firebase-uid-123',
+        'nonexistent-journal',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
