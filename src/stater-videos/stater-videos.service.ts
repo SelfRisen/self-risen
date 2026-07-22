@@ -62,42 +62,42 @@ export class StaterVideosService extends BaseService {
       //     name: 'bright-glow'
       // },
       {
-        url: 'https://satyfurcysfjxwfhcizv.supabase.co/storage/v1/object/public/uploads/videos/starters/OrUQsjFHWOdTMmDzuD71Fl6AVgA3/832d2098-11fe-40d6-a514-f25eb36a5c31-1775146711989.mp4',
+        url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/videos/Starter%20Videos/Iq07yTL63rTLJc52pWZlvasf5uI2/4b5a52e2-f553-412f-ad48-38b61f001233-1784722645596.mp4',
         name: 'golden-waves',
       },
       {
-        url: 'https://satyfurcysfjxwfhcizv.supabase.co/storage/v1/object/public/uploads/videos/starters/OrUQsjFHWOdTMmDzuD71Fl6AVgA3/e7c06a04-7426-4d61-a0eb-3ee6e728cdfa-1775147474510.mp4',
+        url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/videos/Starter%20Videos/Iq07yTL63rTLJc52pWZlvasf5uI2/9637806b-1f45-42ae-8e2c-e203445b0b9a-1784723531196.mp4',
         name: 'golden-sun',
       },
       {
-        url: 'https://lstprxumviehmvbebcub.supabase.co/storage/v1/object/public/uploads/videos/starters/t7D57nFbnSPlFRuZw4uZqIuJL2Y2/78a8efd8-a10c-4b48-a309-832b46ffa034-1768768252248.mp4',
+        url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/videos/Starter%20Videos/Iq07yTL63rTLJc52pWZlvasf5uI2/5bc789b3-fc94-44c9-89c4-b8aaa09c173b-1784722434809.mp4',
         name: 'ocean-view',
       },
-      // {
-      //     url: 'https://lstprxumviehmvbebcub.supabase.co/storage/v1/object/public/uploads/videos/starters/t7D57nFbnSPlFRuZw4uZqIuJL2Y2/a8efb95b-b8d8-4372-bf2e-732cccb343b6-1768768401303.mp4',
-      //     name: 'sun'
-      // }
+      {
+        url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/videos/Starter%20Videos/Iq07yTL63rTLJc52pWZlvasf5uI2/e1c20606-f1b7-4d33-955f-4e7fe6c462d4-1784723956783.mp4',
+        name: 'Axis',
+      },
+      {
+        url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/videos/Starter%20Videos/Iq07yTL63rTLJc52pWZlvasf5uI2/5c3bb701-e255-4e57-81a2-b77886c06b2e-1784726811509.mp4',
+        name: 'sun-rise',
+      },
     ];
 
     const dark = [
       {
-        url: 'https://satyfurcysfjxwfhcizv.supabase.co/storage/v1/object/public/uploads/videos/starters/OrUQsjFHWOdTMmDzuD71Fl6AVgA3/b65073de-3d15-4db7-b5d4-4e15a884c238-1775150837039.mp4',
-        name: 'Axis',
-      },
-      {
-        url: 'https://satyfurcysfjxwfhcizv.supabase.co/storage/v1/object/public/uploads/videos/starters/OrUQsjFHWOdTMmDzuD71Fl6AVgA3/0d9876c0-69a2-462b-a9f5-ecb257d16359-1775147923266.mp4',
+        url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/videos/Starter%20Videos/Iq07yTL63rTLJc52pWZlvasf5uI2/1184b21f-8630-4d59-a61e-f0278eb6caf7-1784725366003.mp4',
         name: 'mystic-forest',
       },
+      // {
+      //   url: 'https://satyfurcysfjxwfhcizv.supabase.co/storage/v1/object/public/uploads/videos/starters/OrUQsjFHWOdTMmDzuD71Fl6AVgA3/912eba84-76e0-4cf8-b805-fb6999cb48a2-1775146277440.mp4',
+      //   name: 'high-sea',
+      // },
       {
-        url: 'https://satyfurcysfjxwfhcizv.supabase.co/storage/v1/object/public/uploads/videos/starters/OrUQsjFHWOdTMmDzuD71Fl6AVgA3/912eba84-76e0-4cf8-b805-fb6999cb48a2-1775146277440.mp4',
-        name: 'high-sea',
-      },
-      {
-        url: 'https://satyfurcysfjxwfhcizv.supabase.co/storage/v1/object/public/uploads/videos/starters/OrUQsjFHWOdTMmDzuD71Fl6AVgA3/123e3b0c-ebe6-4997-b77b-ffe7ac44fce7-1775147688657.mp4',
+        url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/videos/Starter%20Videos/Iq07yTL63rTLJc52pWZlvasf5uI2/25bcd41d-23af-4a05-9c25-82cd10d50869-1784723157989.mp4',
         name: 'ice',
       },
       {
-        url: 'https://satyfurcysfjxwfhcizv.supabase.co/storage/v1/object/public/uploads/videos/starters/OrUQsjFHWOdTMmDzuD71Fl6AVgA3/bf8317cd-a8a2-40d7-a402-7a1d4ef67138-1775146979127.mp4',
+        url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/videos/Starter%20Videos/Iq07yTL63rTLJc52pWZlvasf5uI2/64d2f2ea-a93a-4a03-a557-da59670bcfbb-1784722804107.mp4',
         name: 'space-odyssey',
       },
     ];
