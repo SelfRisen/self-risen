@@ -29,7 +29,7 @@ CREATE TABLE "User" (
     "lastLoggedOutAt" TIMESTAMP(3),
     "ttsVoicePreference" "TtsVoicePreference" DEFAULT 'ALEX',
     "tokensUsedThisMonth" INTEGER NOT NULL DEFAULT 0,
-    "tokenLimitPerMonth" INTEGER NOT NULL DEFAULT 30000,
+    "tokenLimitPerMonth" INTEGER NOT NULL DEFAULT 300000,
     "tokenResetDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "streakReminderEnabled" BOOLEAN NOT NULL DEFAULT true,
     "streakReminderTimes" TEXT[] DEFAULT ARRAY[]::TEXT[],
