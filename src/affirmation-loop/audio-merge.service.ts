@@ -9,10 +9,14 @@ import { config } from 'src/common/config';
 export const MAX_LOOP_DURATION_SECONDS = 300;
 const FADE_SECONDS = 3;
 const BACKGROUND_VOLUME = 0.25;
+const MAX_INTRO_SKIP_SECONDS = 20;
+const INTRO_SILENCE_NOISE_DB = '-30dB';
+const INTRO_SILENCE_MIN_DURATION = 0.5;
 
 @Injectable()
 export class AudioMergeService {
     private readonly logger = new Logger(AudioMergeService.name);
+    private readonly introSkipCache = new Map<string, number>();
 
     constructor() {
         if (config.FFMPEG_PATH) {
@@ -23,12 +27,17 @@ export class AudioMergeService {
     /**
      * Concatenate affirmation tracks, mix with background music, apply fade and cap.
      * Returns output path and duration in seconds.
+     *
+     * @param backgroundCacheKey - Stable identifier for the background track (e.g. its
+     * source URL), used to cache its detected intro length across merges instead of
+     * re-running silence detection on every loop that uses the same track.
      */
     async mergeLoopAudio(
         affirmationPaths: string[],
         backgroundPath: string,
         outputPath: string,
         maxDurationSeconds = MAX_LOOP_DURATION_SECONDS,
+        backgroundCacheKey?: string,
     ): Promise<number> {
         const cappedMaxDuration = Math.min(
             Math.max(1, maxDurationSeconds),
@@ -42,6 +51,10 @@ export class AudioMergeService {
         const rawDuration = await this.probeDurationSeconds(affirmationsPath);
         const mixDuration = Math.min(rawDuration, cappedMaxDuration);
         const fadeStart = Math.max(0, mixDuration - FADE_SECONDS);
+        const introSkipSeconds = await this.getBackgroundIntroSkipSeconds(
+            backgroundPath,
+            backgroundCacheKey,
+        );
 
         await this.mixWithBackground(
             backgroundPath,
@@ -49,6 +62,7 @@ export class AudioMergeService {
             outputPath,
             mixDuration,
             fadeStart,
+            introSkipSeconds,
         );
 
         const finalDuration = await this.probeDurationSeconds(outputPath);
@@ -85,16 +99,24 @@ export class AudioMergeService {
         outputPath: string,
         durationSeconds: number,
         fadeStartSeconds: number,
+        introSkipSeconds = 0,
     ): Promise<void> {
         const filterComplex =
             `[0:a]volume=${BACKGROUND_VOLUME}[bg];` +
             `[1:a][bg]amix=inputs=2:duration=first:dropout_transition=0[mixed];` +
             `[mixed]afade=t=out:st=${fadeStartSeconds}:d=${FADE_SECONDS}[out]`;
 
+        const backgroundInputOptions = ['-stream_loop', '-1'];
+        if (introSkipSeconds > 0) {
+            // Seek past the track's baked-in intro before looping, so affirmations
+            // aren't front-loaded with the intro's dead air on every repeat.
+            backgroundInputOptions.unshift('-ss', String(introSkipSeconds));
+        }
+
         await this.runFfmpeg((command) =>
             command
                 .input(backgroundPath)
-                .inputOptions(['-stream_loop', '-1'])
+                .inputOptions(backgroundInputOptions)
                 .input(affirmationsPath)
                 .complexFilter(filterComplex)
                 .outputOptions([
@@ -108,6 +130,64 @@ export class AudioMergeService {
                 .format('mp3')
                 .output(outputPath),
         );
+    }
+
+    private async getBackgroundIntroSkipSeconds(
+        backgroundPath: string,
+        cacheKey?: string,
+    ): Promise<number> {
+        if (cacheKey && this.introSkipCache.has(cacheKey)) {
+            return this.introSkipCache.get(cacheKey)!;
+        }
+
+        const skipSeconds = await this.detectIntroSkipSeconds(backgroundPath);
+
+        if (cacheKey) {
+            this.introSkipCache.set(cacheKey, skipSeconds);
+        }
+
+        return skipSeconds;
+    }
+
+    /**
+     * Detects a quiet lead-in at the start of a background track using ffmpeg's
+     * silencedetect filter, so it can be skipped before looping the track under
+     * affirmations. Best-effort: returns 0 (no skip) if nothing is detected or the
+     * probe fails, so a bad detection never breaks a merge.
+     */
+    private detectIntroSkipSeconds(filePath: string): Promise<number> {
+        return new Promise((resolve) => {
+            let stderrOutput = '';
+
+            ffmpeg()
+                .input(filePath)
+                .outputOptions([
+                    '-af',
+                    `silencedetect=noise=${INTRO_SILENCE_NOISE_DB}:d=${INTRO_SILENCE_MIN_DURATION}`,
+                    '-f',
+                    'null',
+                ])
+                .output(process.platform === 'win32' ? 'NUL' : '/dev/null')
+                .on('stderr', (line: string) => {
+                    stderrOutput += `${line}\n`;
+                })
+                .on('end', () => {
+                    const match = stderrOutput.match(/silence_end:\s*([\d.]+)/);
+                    const seconds = match ? parseFloat(match[1]) : 0;
+                    resolve(
+                        Number.isFinite(seconds) && seconds > 0
+                            ? Math.min(seconds, MAX_INTRO_SKIP_SECONDS)
+                            : 0,
+                    );
+                })
+                .on('error', (err) => {
+                    this.logger.warn(
+                        `Intro-skip detection failed for ${filePath}: ${err.message}`,
+                    );
+                    resolve(0);
+                })
+                .run();
+        });
     }
 
     async probeDurationSeconds(filePath: string): Promise<number> {
