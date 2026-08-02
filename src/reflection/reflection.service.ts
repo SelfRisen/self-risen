@@ -366,6 +366,7 @@ export class ReflectionService extends BaseService {
                 affirmations: {
                     orderBy: { createdAt: 'desc' },
                 },
+                category: true,
             },
         });
 
@@ -392,6 +393,8 @@ export class ReflectionService extends BaseService {
             transformation = await this.nlpTransformationService.transformBelief(
                 session.rawBeliefText,
                 user.id, // Pass userId for token tracking
+                session.affirmations.map((affirmation) => affirmation.affirmationText),
+                session.category?.name,
             );
         } catch (error) {
             if (error instanceof ForbiddenException) {
