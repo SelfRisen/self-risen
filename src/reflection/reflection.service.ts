@@ -392,6 +392,7 @@ export class ReflectionService extends BaseService {
             transformation = await this.nlpTransformationService.transformBelief(
                 session.rawBeliefText,
                 user.id, // Pass userId for token tracking
+                session.affirmations.map((affirmation) => affirmation.affirmationText),
             );
         } catch (error) {
             if (error instanceof ForbiddenException) {
