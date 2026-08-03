@@ -1478,9 +1478,13 @@ export class ReflectionService extends BaseService {
     const pageSize = Math.max(1, Math.min(100, Math.floor(limit)));
     const skip = (pageNumber - 1) * pageSize;
 
+    // Scoped to one session: return every generated variation, so the
+    // belief-affirmations-summary screen can let the user compare and pick.
+    // Unscoped (the "my affirmations"/loop-builder library view): only the
+    // affirmation actually chosen per belief, not every rejected draft.
     const whereClause = sessionId
       ? { sessionId, session: { userId: user.id } }
-      : { session: { userId: user.id } };
+      : { isSelected: true, session: { userId: user.id } };
 
     // When filtering by session, validate it exists before querying (so we can return 404 if invalid)
     if (sessionId) {
