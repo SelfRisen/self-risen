@@ -60,6 +60,15 @@ export class AffirmationLoopResponseDto {
   @ApiProperty({
     required: false,
     nullable: true,
+    description:
+      'The single reflection session ID this loop can start a wave against, present only when every affirmation in the loop belongs to the same session.',
+    example: '2f6d2f1e-2a5a-4b1a-9c3b-6b6b1a6c9f10',
+  })
+  waveSessionId?: string | null;
+
+  @ApiProperty({
+    required: false,
+    nullable: true,
     description: 'Error detail when status is FAILED',
     example: 'ffmpeg error: ...',
   })
