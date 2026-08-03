@@ -4,8 +4,6 @@ import { StorageService } from './storage.service';
 import { StorageController } from './storage.controller';
 import { SupabaseStorageService } from './supabase-storage.service';
 import { CompressionService } from './compression.service';
-import { config } from '../config';
-import { StorageProvider } from './storage.service';
 
 @Module({
   imports: [ConfigModule],
@@ -32,7 +30,6 @@ import { StorageProvider } from './storage.service';
       inject: [SupabaseStorageService, CompressionService],
     },
   ],
-  exports: [StorageService],
+  exports: [StorageService, SupabaseStorageService],
 })
-export class StorageModule { }
-
+export class StorageModule {}

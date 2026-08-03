@@ -46,7 +46,10 @@ export class TemplateService {
 
     // Sanitize metadata before substitution
     const sanitizedMetadata = this.sanitizeMetadata(metadata);
-    const rendered = this.substituteVariables(templateContent, sanitizedMetadata);
+    const rendered = this.substituteVariables(
+      templateContent,
+      sanitizedMetadata,
+    );
 
     return {
       templateId,
@@ -78,10 +81,7 @@ export class TemplateService {
         'push_affirmation_loop_ready',
     };
 
-    return (
-      mapping[`${type}_${channel}`] ||
-      `default_${channel.toLowerCase()}`
-    );
+    return mapping[`${type}_${channel}`] || `default_${channel.toLowerCase()}`;
   }
 
   private async getTemplateContent(
@@ -111,7 +111,7 @@ export class TemplateService {
         // Return fallback template
         return this.FALLBACK_TEMPLATE;
       }
-    } catch (error) {
+    } catch {
       // Return fallback template
       return this.FALLBACK_TEMPLATE;
     }
@@ -133,14 +133,16 @@ export class TemplateService {
   }
 
   private sanitizeMetadata(metadata: Record<string, any>): Record<string, any> {
-    return Object.entries(metadata).reduce((acc, [key, value]) => {
-      if (typeof value === 'string') {
-        acc[key] = DOMPurify.sanitize(value);
-      } else {
-        acc[key] = value;
-      }
-      return acc;
-    }, {} as Record<string, any>);
+    return Object.entries(metadata).reduce(
+      (acc, [key, value]) => {
+        if (typeof value === 'string') {
+          acc[key] = DOMPurify.sanitize(value);
+        } else {
+          acc[key] = value;
+        }
+        return acc;
+      },
+      {} as Record<string, any>,
+    );
   }
 }
-

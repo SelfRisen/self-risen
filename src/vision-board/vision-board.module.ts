@@ -7,15 +7,9 @@ import { CommonModule } from 'src/common/common.module';
 import { StaterVideosModule } from 'src/stater-videos/stater-videos.module';
 
 @Module({
-    imports: [
-        CommonModule,
-        DatabaseModule,
-        StorageModule,
-        StaterVideosModule,
-    ],
-    controllers: [VisionBoardController],
-    providers: [VisionBoardService],
-    exports: [VisionBoardService],
+  imports: [CommonModule, DatabaseModule, StorageModule, StaterVideosModule],
+  controllers: [VisionBoardController],
+  providers: [VisionBoardService],
+  exports: [VisionBoardService],
 })
-export class VisionBoardModule { }
-
+export class VisionBoardModule {}

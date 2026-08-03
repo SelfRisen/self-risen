@@ -31,7 +31,8 @@ export class MailjetAdapter extends IEmailChannelAdapter {
   ): Promise<NotificationChannelResponse> {
     try {
       const fromEmail = this.configService.get<string>('MAILJET_FROM_EMAIL');
-      const fromName = this.configService.get<string>('MAILJET_FROM_NAME') || 'Self-Risen';
+      const fromName =
+        this.configService.get<string>('MAILJET_FROM_NAME') || 'Self-Risen';
 
       if (!fromEmail) {
         return {
@@ -83,14 +84,16 @@ export class MailjetAdapter extends IEmailChannelAdapter {
     }
   }
 
-  async healthCheck(): Promise<boolean> {
+  healthCheck(): Promise<boolean> {
     try {
       const apiKey = this.configService.get<string>('MAILJET_API_KEY');
       const secretKey = this.configService.get<string>('MAILJET_SECRET_KEY');
       const fromEmail = this.configService.get<string>('MAILJET_FROM_EMAIL');
-      return !!(apiKey && secretKey && fromEmail && this.mailjet);
+      return Promise.resolve(
+        !!(apiKey && secretKey && fromEmail && this.mailjet),
+      );
     } catch {
-      return false;
+      return Promise.resolve(false);
     }
   }
 }

@@ -6,6 +6,5 @@ import { DatabaseProvider } from 'src/database/database.provider';
   imports: [],
   controllers: [AuthController],
   providers: [AuthService, DatabaseProvider],
-
 })
-export class AuthModule { }
+export class AuthModule {}

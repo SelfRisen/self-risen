@@ -34,9 +34,7 @@ export interface FindAuditLogOptions {
 export class AuditLogRepository {
   constructor(private prisma: DatabaseProvider) {}
 
-  async create(
-    params: CreateAuditLogParams,
-  ) {
+  async create(params: CreateAuditLogParams) {
     // For external notifications, use recipientContact as recipientId
     // For user notifications, use the actual userId
     const recipientId = params.recipientId || params.recipientContact;
@@ -94,4 +92,3 @@ export class AuditLogRepository {
     return logs;
   }
 }
-

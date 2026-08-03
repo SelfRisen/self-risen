@@ -75,14 +75,19 @@ export class StorageService {
     compressionService?: CompressionService,
   ) {
     // Determine which provider to use (defaults to 'firebase')
-    const storageProvider = (config.STORAGE_PROVIDER as StorageProvider) || StorageProvider.SUPABASE;
+    const storageProvider =
+      (config.STORAGE_PROVIDER as StorageProvider) || StorageProvider.SUPABASE;
     this.provider = storageProvider;
 
-    console.log(`[StorageService] Initializing with provider: ${this.provider}`);
+    console.log(
+      `[StorageService] Initializing with provider: ${this.provider}`,
+    );
 
     if (this.provider === StorageProvider.SUPABASE) {
       if (!supabaseService) {
-        throw new Error('SupabaseStorageService is required when using Supabase provider');
+        throw new Error(
+          'SupabaseStorageService is required when using Supabase provider',
+        );
       }
       this.supabaseService = supabaseService;
       console.log(`[StorageService] Using Supabase Storage`);
@@ -92,7 +97,9 @@ export class StorageService {
       if (!bucketName) {
         throw new Error('FIREBASE_STORAGE_BUCKET is not configured');
       }
-      console.log(`[StorageService] Using Firebase Storage with bucket: ${bucketName}`);
+      console.log(
+        `[StorageService] Using Firebase Storage with bucket: ${bucketName}`,
+      );
       this.bucket = admin.storage().bucket(bucketName);
     }
 
@@ -102,10 +109,7 @@ export class StorageService {
   /**
    * Validate file type and size
    */
-  private validateFile(
-    file: Express.Multer.File,
-    fileType: FileType,
-  ): void {
+  private validateFile(file: Express.Multer.File, fileType: FileType): void {
     const allowedTypes =
       fileType === FileType.IMAGE
         ? this.ALLOWED_IMAGE_TYPES
@@ -127,18 +131,22 @@ export class StorageService {
     if (!mimetype || !allowedTypes.includes(mimetype)) {
       // Fallback: check file extension for common cases (especially for iOS/React Native)
       const extensionToMimeMap: Record<string, string[]> = {
-        'm4a': ['audio/m4a', 'audio/x-m4a', 'audio/mp4'],
-        'mp3': ['audio/mpeg', 'audio/mp3'],
-        'wav': ['audio/wav'],
-        'ogg': ['audio/ogg'],
-        'aac': ['audio/aac'],
-        'webm': ['audio/webm'],
+        m4a: ['audio/m4a', 'audio/x-m4a', 'audio/mp4'],
+        mp3: ['audio/mpeg', 'audio/mp3'],
+        wav: ['audio/wav'],
+        ogg: ['audio/ogg'],
+        aac: ['audio/aac'],
+        webm: ['audio/webm'],
       };
 
       // If mimetype doesn't match but extension suggests it's a valid audio file, allow it
-      if (fileType === FileType.AUDIO && fileExtension && extensionToMimeMap[fileExtension]) {
+      if (
+        fileType === FileType.AUDIO &&
+        fileExtension &&
+        extensionToMimeMap[fileExtension]
+      ) {
         const expectedMimes = extensionToMimeMap[fileExtension];
-        if (expectedMimes.some(mime => allowedTypes.includes(mime))) {
+        if (expectedMimes.some((mime) => allowedTypes.includes(mime))) {
           // File extension matches an allowed type, proceed with validation
           // The mimetype will be accepted even if it's one of the alternative forms
         } else {
@@ -200,7 +208,9 @@ export class StorageService {
     userId: string,
     folder?: string,
   ): Promise<UploadResult> {
-    console.log(`[StorageService.uploadFile] Provider: ${this.provider}, FileType: ${fileType}, UserId: ${userId}, Folder: ${folder}`);
+    console.log(
+      `[StorageService.uploadFile] Provider: ${this.provider}, FileType: ${fileType}, UserId: ${userId}, Folder: ${folder}`,
+    );
 
     if (this.provider === StorageProvider.SUPABASE) {
       console.log(`[StorageService.uploadFile] Using Supabase provider`);
@@ -209,7 +219,9 @@ export class StorageService {
 
     // Firebase implementation
     console.log(`[StorageService.uploadFile] Using Firebase provider`);
-    console.log(`[StorageService.uploadFile] Bucket: ${this.bucket?.name || 'NOT SET'}`);
+    console.log(
+      `[StorageService.uploadFile] Bucket: ${this.bucket?.name || 'NOT SET'}`,
+    );
 
     // Store original file for validation
     const originalFile = { ...file };
@@ -218,7 +230,8 @@ export class StorageService {
     if (this.compressionService) {
       try {
         if (fileType === FileType.IMAGE) {
-          const compressionResult = await this.compressionService.compressImage(file);
+          const compressionResult =
+            await this.compressionService.compressImage(file);
           if (compressionResult) {
             file.buffer = compressionResult.buffer;
             file.mimetype = compressionResult.mimetype;
@@ -228,7 +241,8 @@ export class StorageService {
             );
           }
         } else if (fileType === FileType.VIDEO) {
-          const compressionResult = await this.compressionService.compressVideo(file);
+          const compressionResult =
+            await this.compressionService.compressVideo(file);
           if (compressionResult) {
             file.buffer = compressionResult.buffer;
             file.mimetype = compressionResult.mimetype;
@@ -261,7 +275,9 @@ export class StorageService {
 
     // Create file reference
     const fileRef = this.bucket.file(filePath);
-    console.log(`[StorageService.uploadFile] File reference created, attempting upload...`);
+    console.log(
+      `[StorageService.uploadFile] File reference created, attempting upload...`,
+    );
 
     // Set metadata
     const metadata = {
@@ -276,19 +292,25 @@ export class StorageService {
 
     // Upload file
     try {
-      console.log(`[StorageService.uploadFile] Starting file upload to Firebase...`);
+      console.log(
+        `[StorageService.uploadFile] Starting file upload to Firebase...`,
+      );
       await fileRef.save(file.buffer, {
         metadata,
         public: false, // Set to true if you want public access
       });
-      console.log(`[StorageService.uploadFile] File uploaded successfully, generating signed URL...`);
+      console.log(
+        `[StorageService.uploadFile] File uploaded successfully, generating signed URL...`,
+      );
 
       // Get signed URL (valid for 1 year, adjust as needed)
       const [url] = await fileRef.getSignedUrl({
         action: 'read',
         expires: '03-01-2500', // Far future date
       });
-      console.log(`[StorageService.uploadFile] Signed URL generated successfully`);
+      console.log(
+        `[StorageService.uploadFile] Signed URL generated successfully`,
+      );
 
       return {
         url,
@@ -350,16 +372,17 @@ export class StorageService {
       const fileRef = this.bucket.file(filePath);
       await fileRef.delete();
     } catch (error) {
-      throw new BadRequestException(
-        `Failed to delete file: ${error.message}`,
-      );
+      throw new BadRequestException(`Failed to delete file: ${error.message}`);
     }
   }
 
   /**
    * Get a signed URL for a file
    */
-  async getSignedUrl(filePath: string, expiresIn: string = '1h'): Promise<string> {
+  async getSignedUrl(
+    filePath: string,
+    expiresIn: string = '1h',
+  ): Promise<string> {
     if (this.provider === StorageProvider.SUPABASE) {
       // Convert expiresIn string to seconds
       const expiresInSeconds = this.parseExpiresIn(expiresIn);
@@ -384,9 +407,10 @@ export class StorageService {
    * Download a file from a URL or storage path to a local path.
    */
   async downloadToFile(source: string, destPath: string): Promise<void> {
-    const url = source.startsWith('http://') || source.startsWith('https://')
-      ? source
-      : await this.getSignedUrl(source, '1h');
+    const url =
+      source.startsWith('http://') || source.startsWith('https://')
+        ? source
+        : await this.getSignedUrl(source, '1h');
 
     const response = await fetch(url);
     if (!response.ok) {
@@ -401,7 +425,9 @@ export class StorageService {
       return;
     }
 
-    const nodeStream = Readable.fromWeb(response.body as import('stream/web').ReadableStream);
+    const nodeStream = Readable.fromWeb(
+      response.body as import('stream/web').ReadableStream,
+    );
     await pipeline(nodeStream, createWriteStream(destPath));
   }
 
@@ -414,7 +440,11 @@ export class StorageService {
     contentType: string,
   ): Promise<UploadResult> {
     if (this.provider === StorageProvider.SUPABASE) {
-      return this.supabaseService!.uploadBufferAtPath(buffer, filePath, contentType);
+      return this.supabaseService!.uploadBufferAtPath(
+        buffer,
+        filePath,
+        contentType,
+      );
     }
 
     try {
@@ -435,9 +465,7 @@ export class StorageService {
         size: buffer.length,
       };
     } catch (error) {
-      throw new BadRequestException(
-        `Failed to upload file: ${error.message}`,
-      );
+      throw new BadRequestException(`Failed to upload file: ${error.message}`);
     }
   }
 
@@ -462,4 +490,3 @@ export class StorageService {
     return value * (multipliers[unit] || 3600);
   }
 }
-

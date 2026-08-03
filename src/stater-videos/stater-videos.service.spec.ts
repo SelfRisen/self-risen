@@ -7,7 +7,10 @@ import { TextToSpeechService } from 'src/reflection/services/text-to-speech.serv
 describe('StaterVideosService', () => {
   let service: StaterVideosService;
   let mockPrisma: { user: { findUnique: jest.Mock } };
-  let mockTts: { generateAffirmationAudio: jest.Mock; getPersonaMetadata: jest.Mock };
+  let mockTts: {
+    generateAffirmationAudio: jest.Mock;
+    getPersonaMetadata: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -58,7 +61,9 @@ describe('StaterVideosService', () => {
         name: 'Sage',
         displayName: 'Sage (Empathetic Mentor)',
       });
-      mockTts.generateAffirmationAudio.mockResolvedValue('https://audio.test/sage.mp3');
+      mockTts.generateAffirmationAudio.mockResolvedValue(
+        'https://audio.test/sage.mp3',
+      );
 
       const result = await service.generatePersonaTts('firebase-uid', dto);
 
@@ -86,7 +91,10 @@ describe('StaterVideosService', () => {
 
     it('should return bad request when TTS generation fails', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
-      mockTts.getPersonaMetadata.mockReturnValue({ name: 'Sage', displayName: 'Sage' });
+      mockTts.getPersonaMetadata.mockReturnValue({
+        name: 'Sage',
+        displayName: 'Sage',
+      });
       mockTts.generateAffirmationAudio.mockResolvedValue(null);
 
       const result = await service.generatePersonaTts('firebase-uid', dto);
