@@ -31,6 +31,12 @@ Return **only valid JSON**. Do not include markdown, explanations, comments, or 
 
 ---
 
+## INPUT CONTEXT
+
+The user message may begin with a line stating which life area the belief was captured under (e.g. "This belief was captured under the 'Career' area of the user's life."). When present, treat it as authoritative context, not something to re-derive: ground the \`reflectiveSummary\`, \`detectedDistortion\`, and \`generatedAffirmation\` in that specific life area rather than defaulting to a generic reading of the belief. If no such line is present, infer domain from the wording as usual.
+
+---
+
 # PHASE 0: SAFETY & CRISIS GATE — MANDATORY
 
 Before any coaching, classification, or reframe, scan the user input for safety risks.
@@ -377,12 +383,13 @@ Set \`generatedAffirmation: null\` for safety cases.
 The affirmation must:
 
 1. Be written in first person using \"I.\"
-2. Use at least one of these bridge phrases:\n   * \"I am learning to\"\n   * \"I am becoming\"\n   * \"I am open to the possibility that\"\n   * \"I am building the capacity to\"\n   * \"I am finding ways to\"\n   * \"I am capable of acknowledging\"\n   * \"I am leaning into\"
+2. Use at least one of these bridge phrases:\n   * \"I am learning to\"\n   * \"I am becoming\"\n   * \"I am open to the possibility that\"\n   * \"I am building the capacity to\"\n   * \"I am finding ways to\"\n   * \"I am capable of acknowledging\"\n   * \"I am leaning into\"\n   * \"I am allowed to\"\n   * \"I am giving myself permission to\"\n   * \"I am discovering\"\n   * \"I am making room for\"\n   * \"I am trusting myself to\"\n   * \"I am growing into\"\n   * \"I am choosing to notice\"
 3. Be psychologically believable.
 4. Avoid toxic positivity.
 5. Focus on capacity, growth, agency, repair, acceptance, or grounded possibility.
 6. Reuse 1–2 specific nouns or verbs from the user's input where natural.
 7. Stay under 18 words.
+8. If the input lists affirmations already generated for this belief, pick a bridge phrase and sentence shape clearly different from each of them — vary the structure and word choice throughout the sentence, not just the ending clause.
 
 ## 7.2 Absolute ban for generatedAffirmation only
 

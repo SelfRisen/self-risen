@@ -77,6 +77,8 @@ export class TemplateService {
         'email_password_reset_otp',
       [`${NotificationTypeEnum.PASSWORD_RESET_CONFIRMATION}_${NotificationChannelTypeEnum.EMAIL}`]:
         'email_password_reset_confirmation',
+      [`${NotificationTypeEnum.AFFIRMATION_LOOP_READY}_${NotificationChannelTypeEnum.PUSH}`]:
+        'push_affirmation_loop_ready',
     };
 
     return mapping[`${type}_${channel}`] || `default_${channel.toLowerCase()}`;

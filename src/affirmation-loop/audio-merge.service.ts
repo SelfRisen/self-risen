@@ -9,6 +9,9 @@ import { config } from 'src/common/config';
 export const MAX_LOOP_DURATION_SECONDS = 900;
 const FADE_SECONDS = 3;
 const BACKGROUND_VOLUME = 0.25;
+const MAX_INTRO_SKIP_SECONDS = 20;
+const INTRO_SILENCE_NOISE_DB = '-30dB';
+const INTRO_SILENCE_MIN_DURATION = 0.5;
 
 @Injectable()
 export class AudioMergeService {
