@@ -77,6 +77,8 @@ describe('ReflectionService', () => {
     jest.clearAllMocks();
 
     mockPrisma = {
+      $transaction: jest.fn((fn: any) => fn(mockPrisma)),
+      $executeRaw: jest.fn().mockResolvedValue(undefined),
       user: {
         findUnique: jest.fn(),
       },

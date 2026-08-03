@@ -79,11 +79,15 @@ export class NlpTransformationService extends BaseService {
    *
    * @param beliefText - The user's raw belief text
    * @param userId - The user's database ID for token tracking
+   * @param previousAffirmations - Affirmations already generated for this session, so the model avoids repeating them
+   * @param focusAreaCategory - The Wheel of Life category (e.g. "Career", "Health") this belief was captured under, so the reflection and affirmation ground themselves in that life area instead of staying generic
    * @returns Object containing limiting belief and generated affirmation
    */
   async transformBelief(
     beliefText: string,
     userId?: string,
+    previousAffirmations?: string[],
+    focusAreaCategory?: string,
   ): Promise<TransformBeliefResult> {
     if (!this.openai) {
       if (config.NODE_ENV === 'development') {
@@ -129,15 +133,29 @@ export class NlpTransformationService extends BaseService {
 
       const model = config.OPENAI_NLP_MODEL || 'gpt-3.5-turbo';
 
+      const priorAffirmations = (previousAffirmations ?? []).filter(
+        (text) => text && text.trim().length > 0,
+      );
+
+      let userContent = focusAreaCategory
+        ? `This belief was captured under the "${focusAreaCategory}" area of the user's life. Ground the reflective summary and affirmation in that specific life area rather than staying generic.\n\n${beliefText}`
+        : beliefText;
+
+      if (priorAffirmations.length > 0) {
+        userContent += `\n\nAffirmations already generated for this belief (do not repeat these; use a different bridge phrase and a different angle such as agency, acceptance, or growth):\n${priorAffirmations
+          .map((text) => `- ${text}`)
+          .join('\n')}`;
+      }
+
       const response = await this.openai.chat.completions.create(
         {
           model: model,
           messages: [
             { role: 'system', content: this.systemPrompt },
-            { role: 'user', content: beliefText },
+            { role: 'user', content: userContent },
           ],
           response_format: { type: 'json_object' },
-          temperature: 0.7,
+          temperature: priorAffirmations.length > 0 ? 0.9 : 0.7,
           max_tokens: maxResponseTokens,
         },
         { signal: abortController.signal },

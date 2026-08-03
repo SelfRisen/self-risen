@@ -406,164 +406,184 @@ export class ReflectionService extends BaseService {
       return this.HandleError(new NotFoundException('User not found'));
     }
 
-    // Validate session ownership and status
-    const session = await this.prisma.reflectionSession.findFirst({
-      where: {
-        id: sessionId,
-        userId: user.id,
-      },
-      include: {
-        affirmations: {
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-    });
+    // Holds a per-session advisory lock for the whole read-generate-write flow below,
+    // so two overlapping generate-affirmation calls for the same session (e.g. a client
+    // retry after a timeout while the first request is still running) can't both read
+    // the same "previous affirmations" snapshot and produce near-duplicate output.
+    return this.prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${sessionId}))`;
 
-    if (!session) {
-      return this.HandleError(
-        new NotFoundException('Reflection session not found'),
-      );
-    }
-
-    if (
-      session.status !== 'BELIEF_CAPTURED' &&
-      session.status !== 'AFFIRMATION_GENERATED'
-    ) {
-      return this.HandleError(
-        new BadRequestException(
-          `Cannot generate affirmation. Session must be in BELIEF_CAPTURED or AFFIRMATION_GENERATED status. Current status: ${session.status}`,
-        ),
-      );
-    }
-
-    if (!session.rawBeliefText || session.rawBeliefText.trim().length === 0) {
-      return this.HandleError(
-        new BadRequestException(
-          'Cannot generate affirmation. No belief text found in session.',
-        ),
-      );
-    }
-
-    let transformation;
-    try {
-      transformation = await this.nlpTransformationService.transformBelief(
-        session.rawBeliefText,
-        user.id, // Pass userId for token tracking
-      );
-    } catch (error) {
-      if (error instanceof ForbiddenException) {
-        this.logger.warn(`Token limit exceeded for user ${user.id}`);
-        return this.HandleError(error);
-      }
-      this.logger.error(
-        `Error generating affirmation: ${error.message}`,
-        error.stack,
-      );
-      return this.HandleError(
-        new BadRequestException(
-          `Failed to generate affirmation: ${error.message}`,
-        ),
-      );
-    }
-
-    // OMNI-CBT safety intercept: if the model flags a safety issue, do not persist the model payload.
-    if (transformation.omni?.isSafetyIssue === true) {
-      const hardcodedSafetyPayload = this.getHardcodedSafetyPayload(
-        transformation.omni,
-      );
-
-      const updateData: any = {
-        limitingBelief: transformation.limitingBelief,
-        status: 'AFFIRMATION_GENERATED',
-        selectedAffirmationText: hardcodedSafetyPayload,
-        selectedAffirmationAudioUrl: null,
-      };
-
-      const updatedSession = await this.prisma.reflectionSession.update({
-        where: { id: sessionId },
-        data: updateData,
-        include: {
-          category: {
-            select: { id: true, name: true },
+        // Validate session ownership and status
+        const session = await tx.reflectionSession.findFirst({
+          where: {
+            id: sessionId,
+            userId: user.id,
           },
-          affirmations: {
-            orderBy: { createdAt: 'desc' },
+          include: {
+            affirmations: {
+              orderBy: { createdAt: 'desc' },
+            },
+            category: true,
           },
-        },
-      });
+        });
 
-      this.logger.warn(
-        `OMNI safety gate triggered; returning hardcoded payload for session ${sessionId} (riskType=${transformation.omni.riskType}, riskLevel=${transformation.omni.riskLevel})`,
-      );
-      return this.Results({
-        ...updatedSession,
-        isSafetyOverride: true,
-        userMessage: hardcodedSafetyPayload,
-      });
-    }
+        if (!session) {
+          return this.HandleError(
+            new NotFoundException('Reflection session not found'),
+          );
+        }
 
-    // Single path: create affirmation and update session (no second NLP call)
-    const isFirstAffirmation = session.affirmations.length === 0;
-    const nextOrder = session.affirmations.length;
+        if (
+          session.status !== 'BELIEF_CAPTURED' &&
+          session.status !== 'AFFIRMATION_GENERATED'
+        ) {
+          return this.HandleError(
+            new BadRequestException(
+              `Cannot generate affirmation. Session must be in BELIEF_CAPTURED or AFFIRMATION_GENERATED status. Current status: ${session.status}`,
+            ),
+          );
+        }
 
-    const voiceForTts = dto?.voicePreference
-      ? (this.textToSpeechService.convertNameToEnum(dto.voicePreference) ??
-        user.ttsVoicePreference)
-      : user.ttsVoicePreference;
-    const voiceToStore = voiceForTts ?? null;
+        if (
+          !session.rawBeliefText ||
+          session.rawBeliefText.trim().length === 0
+        ) {
+          return this.HandleError(
+            new BadRequestException(
+              'Cannot generate affirmation. No belief text found in session.',
+            ),
+          );
+        }
 
-    let audioUrl: string | null = null;
-    if (transformation.generatedAffirmation) {
-      try {
-        audioUrl = await this.textToSpeechService.generateAffirmationAudio(
-          transformation.generatedAffirmation,
-          user.id,
-          voiceForTts ?? undefined,
+        let transformation;
+        try {
+          transformation = await this.nlpTransformationService.transformBelief(
+            session.rawBeliefText,
+            user.id, // Pass userId for token tracking
+            session.affirmations.map(
+              (affirmation) => affirmation.affirmationText,
+            ),
+            session.category?.name,
+          );
+        } catch (error) {
+          if (error instanceof ForbiddenException) {
+            this.logger.warn(`Token limit exceeded for user ${user.id}`);
+            return this.HandleError(error);
+          }
+          this.logger.error(
+            `Error generating affirmation: ${error.message}`,
+            error.stack,
+          );
+          return this.HandleError(
+            new BadRequestException(
+              `Failed to generate affirmation: ${error.message}`,
+            ),
+          );
+        }
+
+        // OMNI-CBT safety intercept: if the model flags a safety issue, do not persist the model payload.
+        if (transformation.omni?.isSafetyIssue === true) {
+          const hardcodedSafetyPayload = this.getHardcodedSafetyPayload(
+            transformation.omni,
+          );
+
+          const updateData: any = {
+            limitingBelief: transformation.limitingBelief,
+            status: 'AFFIRMATION_GENERATED',
+            selectedAffirmationText: hardcodedSafetyPayload,
+            selectedAffirmationAudioUrl: null,
+          };
+
+          const updatedSession = await tx.reflectionSession.update({
+            where: { id: sessionId },
+            data: updateData,
+            include: {
+              category: {
+                select: { id: true, name: true },
+              },
+              affirmations: {
+                orderBy: { createdAt: 'desc' },
+              },
+            },
+          });
+
+          this.logger.warn(
+            `OMNI safety gate triggered; returning hardcoded payload for session ${sessionId} (riskType=${transformation.omni.riskType}, riskLevel=${transformation.omni.riskLevel})`,
+          );
+          return this.Results({
+            ...updatedSession,
+            isSafetyOverride: true,
+            userMessage: hardcodedSafetyPayload,
+          });
+        }
+
+        // Single path: create affirmation and update session (no second NLP call)
+        const isFirstAffirmation = session.affirmations.length === 0;
+        const nextOrder = session.affirmations.length;
+
+        const voiceForTts = dto?.voicePreference
+          ? (this.textToSpeechService.convertNameToEnum(dto.voicePreference) ??
+            user.ttsVoicePreference)
+          : user.ttsVoicePreference;
+        const voiceToStore = voiceForTts ?? null;
+
+        let audioUrl: string | null = null;
+        if (transformation.generatedAffirmation) {
+          try {
+            audioUrl = await this.textToSpeechService.generateAffirmationAudio(
+              transformation.generatedAffirmation,
+              user.id,
+              voiceForTts ?? undefined,
+            );
+          } catch (ttsError) {
+            this.logger.warn(
+              `TTS generation failed: ${ttsError.message}. Continuing without audio.`,
+            );
+          }
+        }
+
+        const newAffirmation = await tx.affirmation.create({
+          data: {
+            sessionId: sessionId,
+            affirmationText: transformation.generatedAffirmation,
+            audioUrl,
+            isSelected: isFirstAffirmation,
+            order: nextOrder,
+            ttsVoicePreference: voiceToStore,
+          },
+        });
+
+        const updateData: any = {
+          limitingBelief: transformation.limitingBelief,
+          status: 'AFFIRMATION_GENERATED',
+        };
+        if (isFirstAffirmation) {
+          updateData.selectedAffirmationText =
+            transformation.generatedAffirmation;
+          updateData.selectedAffirmationAudioUrl = audioUrl;
+        }
+
+        const updatedSession = await tx.reflectionSession.update({
+          where: { id: sessionId },
+          data: updateData,
+          include: {
+            category: {
+              select: { id: true, name: true },
+            },
+            affirmations: {
+              orderBy: { createdAt: 'desc' },
+            },
+          },
+        });
+
+        this.logger.log(
+          `Created affirmation ${newAffirmation.id} for session ${sessionId} (order: ${nextOrder}, selected: ${isFirstAffirmation})`,
         );
-      } catch (ttsError) {
-        this.logger.warn(
-          `TTS generation failed: ${ttsError.message}. Continuing without audio.`,
-        );
-      }
-    }
-
-    const newAffirmation = await this.prisma.affirmation.create({
-      data: {
-        sessionId: sessionId,
-        affirmationText: transformation.generatedAffirmation,
-        audioUrl,
-        isSelected: isFirstAffirmation,
-        order: nextOrder,
-        ttsVoicePreference: voiceToStore,
+        return this.Results(updatedSession);
       },
-    });
-
-    const updateData: any = {
-      limitingBelief: transformation.limitingBelief,
-      status: 'AFFIRMATION_GENERATED',
-    };
-    if (isFirstAffirmation) {
-      updateData.selectedAffirmationText = transformation.generatedAffirmation;
-      updateData.selectedAffirmationAudioUrl = audioUrl;
-    }
-
-    const updatedSession = await this.prisma.reflectionSession.update({
-      where: { id: sessionId },
-      data: updateData,
-      include: {
-        category: {
-          select: { id: true, name: true },
-        },
-        affirmations: {
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-    });
-
-    this.logger.log(
-      `Created affirmation ${newAffirmation.id} for session ${sessionId} (order: ${nextOrder}, selected: ${isFirstAffirmation})`,
+      { timeout: 60000, maxWait: 10000 },
     );
-    return this.Results(updatedSession);
   }
 
   private getHardcodedSafetyPayload(omni: OmniCbtResponse): string {
