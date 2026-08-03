@@ -203,7 +203,10 @@ export class AffirmationLoopService extends BaseService {
     const loop = await this.prisma.affirmationLoop.findFirst({
       where: { id: loopId, userId: user.id },
       include: {
-        items: { orderBy: { sortOrder: 'asc' } },
+        items: {
+          orderBy: { sortOrder: 'asc' },
+          include: { affirmation: { select: { sessionId: true } } },
+        },
       },
     });
 
@@ -492,10 +495,24 @@ export class AffirmationLoopService extends BaseService {
       description: string | null;
       createdAt: Date;
       updatedAt: Date;
-      items: { affirmationId: string; sortOrder: number }[];
+      items: {
+        affirmationId: string;
+        sortOrder: number;
+        affirmation?: { sessionId: string };
+      }[];
     },
     audioUrl: string | null,
   ) {
+    // A loop can bundle affirmations from different reflection sessions; a
+    // wave can only be started against a single session, so only surface one
+    // when every item in this loop actually shares it.
+    const sessionIds = new Set(
+      loop.items
+        .map((item) => item.affirmation?.sessionId)
+        .filter((id): id is string => !!id),
+    );
+    const waveSessionId = sessionIds.size === 1 ? [...sessionIds][0] : null;
+
     return {
       id: loop.id,
       status: loop.status,
@@ -508,6 +525,7 @@ export class AffirmationLoopService extends BaseService {
       affirmationIds: loop.items
         .sort((a, b) => a.sortOrder - b.sortOrder)
         .map((i) => i.affirmationId),
+      waveSessionId,
       errorMessage: loop.errorMessage,
       createdAt: loop.createdAt,
       updatedAt: loop.updatedAt,
