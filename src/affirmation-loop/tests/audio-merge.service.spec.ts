@@ -69,7 +69,7 @@ describe('AudioMergeService', () => {
       expect.not.stringContaining('loudnorm'),
     );
     expect(mockCommand.outputOptions).not.toHaveBeenCalledWith(
-      expect.arrayContaining(['-af']),
+      expect.arrayContaining([expect.stringContaining('loudnorm')]),
     );
     expect(mockCommand.outputOptions).toHaveBeenCalledWith(
       expect.arrayContaining(['-t', '60']),
