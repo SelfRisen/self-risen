@@ -125,6 +125,7 @@ describe('AudioMergeProcessor', () => {
       expect.any(String),
       expect.any(String),
       180,
+      'https://music.test/bg.mp3',
     );
     expect(mockPrisma.affirmationLoop.update).toHaveBeenCalledWith(
       expect.objectContaining({
