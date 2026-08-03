@@ -41,6 +41,66 @@ export class StaterVideosController extends BaseController {
     });
   }
 
+  @Get('meditations')
+  @ApiOperation({
+    summary: 'List meditation tracks',
+    description:
+      'Returns admin-curated meditation audio tracks uploaded to the Meditations/ folder in storage.',
+  })
+  @ApiResponse({ status: 200, description: 'Meditation tracks retrieved' })
+  async getMeditations() {
+    const result = await this.staterVideosService.getResourceBankMedia(
+      'meditations',
+    );
+    if (result.isError) throw result.error;
+
+    return this.response({
+      message: 'Meditation tracks retrieved',
+      data: result.data,
+    });
+  }
+
+  @Get('breath-work')
+  @ApiOperation({
+    summary: 'List breath work tracks',
+    description:
+      'Returns admin-curated breath work audio tracks uploaded to the Breath Work/ folder in storage.',
+  })
+  @ApiResponse({ status: 200, description: 'Breath work tracks retrieved' })
+  async getBreathWork() {
+    const result = await this.staterVideosService.getResourceBankMedia(
+      'breath-work',
+    );
+    if (result.isError) throw result.error;
+
+    return this.response({
+      message: 'Breath work tracks retrieved',
+      data: result.data,
+    });
+  }
+
+  @Get('emotional-processing')
+  @ApiOperation({
+    summary: 'List emotional processing tracks',
+    description:
+      'Returns admin-curated emotional processing audio tracks uploaded to the Emotional Processing/ folder in storage.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Emotional processing tracks retrieved',
+  })
+  async getEmotionalProcessing() {
+    const result = await this.staterVideosService.getResourceBankMedia(
+      'emotional-processing',
+    );
+    if (result.isError) throw result.error;
+
+    return this.response({
+      message: 'Emotional processing tracks retrieved',
+      data: result.data,
+    });
+  }
+
   @Post('tts')
   @UseGuards(FirebaseGuard)
   @ApiBearerAuth('firebase')

@@ -6,15 +6,49 @@ import {
 import { BaseService } from 'src/common';
 import { DatabaseProvider } from 'src/database/database.provider';
 import { TextToSpeechService } from 'src/reflection/services/text-to-speech.service';
+import { SupabaseStorageService } from 'src/common/storage/supabase-storage.service';
 import { GeneratePersonaTtsDto } from './dto';
+
+/**
+ * Resource Bank sections, each backed by its own admin-curated subfolder
+ * in storage -- one folder per section for clarity and sorting.
+ */
+export const RESOURCE_BANK_FOLDERS = {
+  meditations: 'Meditations',
+  'breath-work': 'Breath Work',
+  'emotional-processing': 'Emotional Processing',
+} as const;
+
+export type ResourceBankSection = keyof typeof RESOURCE_BANK_FOLDERS;
 
 @Injectable()
 export class StaterVideosService extends BaseService {
   constructor(
     private prisma: DatabaseProvider,
     private textToSpeechService: TextToSpeechService,
+    private supabaseStorageService: SupabaseStorageService,
   ) {
     super();
+  }
+
+  /**
+   * Lists media for a Resource Bank section from its curated storage
+   * subfolder. Admin-uploaded content -- no DB record needed, files just
+   * need to be uploaded to that folder to appear here.
+   */
+  async getResourceBankMedia(section: ResourceBankSection) {
+    const folder = RESOURCE_BANK_FOLDERS[section];
+    const files = await this.supabaseStorageService.listPublicFiles(folder);
+    return this.Results(
+      files.map((file) => ({
+        name: file.name.replace(/\.[^/.]+$/, ''),
+        url: file.url,
+      })),
+    );
+  }
+
+  async getMeditations() {
+    return this.getResourceBankMedia('meditations');
   }
 
   async generatePersonaTts(firebaseId: string, dto: GeneratePersonaTtsDto) {
