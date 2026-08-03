@@ -135,6 +135,7 @@ export class AudioMergeProcessor {
         bgDest,
         outputPath,
         loop.durationSeconds ?? undefined,
+        sound.url,
       );
 
       const outputBuffer = await fs.readFile(outputPath);
@@ -156,6 +157,8 @@ export class AudioMergeProcessor {
         },
       });
 
+      const loopName = loop.name || 'Your loop';
+
       await this.notificationService.notifyUser({
         userId: loop.userId,
         type: NotificationTypeEnum.AFFIRMATION_LOOP_READY,
@@ -165,10 +168,10 @@ export class AudioMergeProcessor {
           { type: NotificationChannelTypeEnum.IN_APP },
         ],
         metadata: {
-          title: 'Your affirmation loop is ready.',
-          body: 'Your affirmation loop is ready.',
+          title: `"${loopName}" is ready`,
+          body: `Your loop "${loopName}" is ready to play.`,
           loopId,
-          screen: 'AffirmationLoop',
+          screen: 'LoopDetail',
         },
       });
 
