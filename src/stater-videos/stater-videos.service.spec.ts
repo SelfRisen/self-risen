@@ -3,6 +3,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { StaterVideosService } from './stater-videos.service';
 import { DatabaseProvider } from '../database/database.provider';
 import { TextToSpeechService } from 'src/reflection/services/text-to-speech.service';
+import { SupabaseStorageService } from 'src/common/storage/supabase-storage.service';
 
 describe('StaterVideosService', () => {
   let service: StaterVideosService;
@@ -11,6 +12,7 @@ describe('StaterVideosService', () => {
     generateAffirmationAudio: jest.Mock;
     getPersonaMetadata: jest.Mock;
   };
+  let mockStorage: { listPublicFiles: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -20,16 +22,54 @@ describe('StaterVideosService', () => {
       generateAffirmationAudio: jest.fn(),
       getPersonaMetadata: jest.fn(),
     };
+    mockStorage = {
+      listPublicFiles: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StaterVideosService,
         { provide: DatabaseProvider, useValue: mockPrisma },
         { provide: TextToSpeechService, useValue: mockTts },
+        { provide: SupabaseStorageService, useValue: mockStorage },
       ],
     }).compile();
 
     service = module.get<StaterVideosService>(StaterVideosService);
+  });
+
+  describe('getResourceBankMedia', () => {
+    it('lists meditations from the Meditations folder, stripping extensions', async () => {
+      mockStorage.listPublicFiles.mockResolvedValue([
+        { name: 'Deep Focus.mp3', url: 'https://storage.test/Meditations/Deep%20Focus.mp3' },
+      ]);
+
+      const result = await service.getResourceBankMedia('meditations');
+
+      expect(mockStorage.listPublicFiles).toHaveBeenCalledWith('Meditations');
+      expect(result.isError).toBe(false);
+      expect(result.data).toEqual([
+        { name: 'Deep Focus', url: 'https://storage.test/Meditations/Deep%20Focus.mp3' },
+      ]);
+    });
+
+    it('lists breath work from the Breath Work folder', async () => {
+      mockStorage.listPublicFiles.mockResolvedValue([]);
+
+      await service.getResourceBankMedia('breath-work');
+
+      expect(mockStorage.listPublicFiles).toHaveBeenCalledWith('Breath Work');
+    });
+
+    it('lists emotional processing from the Emotional Processing folder', async () => {
+      mockStorage.listPublicFiles.mockResolvedValue([]);
+
+      await service.getResourceBankMedia('emotional-processing');
+
+      expect(mockStorage.listPublicFiles).toHaveBeenCalledWith(
+        'Emotional Processing',
+      );
+    });
   });
 
   describe('getSoundByName', () => {
