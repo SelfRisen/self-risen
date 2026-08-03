@@ -3,7 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-  UnauthorizedException
+  UnauthorizedException,
 } from '@nestjs/common';
 import { User } from '@prisma/client';
 import { BaseService, config, logger } from 'src/common';
@@ -19,12 +19,22 @@ import {
   VerifyPasswordResetOtpDto,
   GoogleSignInDto,
   AppleSignInDto,
+  FacebookSignInDto,
 } from './dto';
 import { buildUserLocaleUpdate } from './utils/user-locale.util';
 import { auth } from 'firebase-admin';
 import { INotificationService } from 'src/notifications/interfaces/notification.interface';
-import { NotificationTypeEnum, NotificationChannelTypeEnum, NotificationStatusEnum } from 'src/notifications/enums/notification.enum';
-import { generateOtp, hashOtp, verifyOtp } from './utils/otp.util';
+import {
+  NotificationTypeEnum,
+  NotificationChannelTypeEnum,
+  NotificationStatusEnum,
+} from 'src/notifications/enums/notification.enum';
+import {
+  generateOtp,
+  hashOtp,
+  verifyOtp,
+  MAX_OTP_ATTEMPTS,
+} from './utils/otp.util';
 import { randomUUID } from 'crypto';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
 
@@ -51,19 +61,19 @@ export class AuthService extends BaseService {
       if (error.code === 'auth/email-already-exists') {
         logger.error(`User with email ${email} already exists`);
         return this.HandleError(
-          new ConflictException('User with this email already exists')
+          new ConflictException('User with this email already exists'),
         );
       }
       if (error.code === 'auth/invalid-email') {
         logger.error(`Invalid email address: ${email}`);
-        return this.HandleError(
-          new ConflictException('Invalid email address')
-        );
+        return this.HandleError(new ConflictException('Invalid email address'));
       }
       if (error.code === 'auth/weak-password') {
         logger.error(`Weak password detected for email: ${email}`);
         return this.HandleError(
-          new ConflictException('Password is too weak. Please use a password with at least 6 characters.')
+          new ConflictException(
+            'Password is too weak. Please use a password with at least 6 characters.',
+          ),
         );
       }
       return this.HandleError(error);
@@ -96,18 +106,20 @@ export class AuthService extends BaseService {
           name,
           lastLoggedInAt: new Date(),
           ...locationData,
-        }
+        },
       });
 
       return this.Results({
         user,
-        firebaseId: firebaseUser.uid
+        firebaseId: firebaseUser.uid,
       });
     } catch (error) {
       try {
         await auth().deleteUser(firebaseUser.uid);
       } catch (deleteError) {
-        logger.error(`Failed to rollback Firebase user ${firebaseUser.uid}: ${deleteError.message || deleteError}`);
+        logger.error(
+          `Failed to rollback Firebase user ${firebaseUser.uid}: ${deleteError.message || deleteError}`,
+        );
       }
       return this.HandleError(error);
     }
@@ -116,16 +128,14 @@ export class AuthService extends BaseService {
   async setUserName(firebaseId: string, payload: SetUserNameDto) {
     const { username } = payload;
     const user = await this.prisma.user.findUnique({
-      where: { firebaseId }
+      where: { firebaseId },
     });
     if (!user) {
-      return this.HandleError(
-        new NotFoundException('User not found')
-      );
+      return this.HandleError(new NotFoundException('User not found'));
     }
     const userwithusername = await this.prisma.user.update({
       where: { id: user.id },
-      data: { username }
+      data: { username },
     });
     return this.Results(userwithusername);
   }
@@ -146,7 +156,7 @@ export class AuthService extends BaseService {
             password,
             returnSecureToken: true,
           }),
-        }
+        },
       );
 
       const data = await response.json();
@@ -154,20 +164,25 @@ export class AuthService extends BaseService {
       if (!response.ok) {
         logger.error(`Firebase authentication failed: ${JSON.stringify(data)}`);
 
-        if (data.error?.message === 'INVALID_PASSWORD' || data.error?.message === 'EMAIL_NOT_FOUND') {
+        if (
+          data.error?.message === 'INVALID_PASSWORD' ||
+          data.error?.message === 'EMAIL_NOT_FOUND'
+        ) {
           return this.HandleError(
-            new UnauthorizedException('Invalid email or password')
+            new UnauthorizedException('Invalid email or password'),
           );
         }
 
         if (data.error?.message === 'USER_DISABLED') {
           return this.HandleError(
-            new UnauthorizedException('User account has been disabled')
+            new UnauthorizedException('User account has been disabled'),
           );
         }
 
         return this.HandleError(
-          new UnauthorizedException(data.error?.message || 'Authentication failed')
+          new UnauthorizedException(
+            data.error?.message || 'Authentication failed',
+          ),
         );
       }
 
@@ -179,18 +194,16 @@ export class AuthService extends BaseService {
         logger.error(`Failed to verify ID token: ${error.message || error}`);
         return this.HandleError(
           // new UnauthorizedException('Failed to verify authentication token')
-          new UnauthorizedException('User not found')
+          new UnauthorizedException('User not found'),
         );
       }
 
       const user = await this.prisma.user.findUnique({
-        where: { firebaseId: verifiedUser.uid }
+        where: { firebaseId: verifiedUser.uid },
       });
 
       if (!user) {
-        return this.HandleError(
-          new UnauthorizedException('User not found')
-        );
+        return this.HandleError(new UnauthorizedException('User not found'));
       }
 
       await this.prisma.user.update({
@@ -207,7 +220,7 @@ export class AuthService extends BaseService {
     } catch (error) {
       logger.error(`Login2 error: ${error.message || error}`);
       return this.HandleError(
-        new UnauthorizedException('Authentication failed. Please try again.')
+        new UnauthorizedException('Authentication failed. Please try again.'),
       );
     }
   }
@@ -218,13 +231,15 @@ export class AuthService extends BaseService {
     try {
       // Verify Google ID token with Google's tokeninfo endpoint
       const tokenInfoResponse = await fetch(
-        `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`,
       );
 
       if (!tokenInfoResponse.ok) {
-        logger.error(`Google token verification failed: ${tokenInfoResponse.statusText}`);
+        logger.error(
+          `Google token verification failed: ${tokenInfoResponse.statusText}`,
+        );
         return this.HandleError(
-          new UnauthorizedException('Invalid Google ID token')
+          new UnauthorizedException('Invalid Google ID token'),
         );
       }
 
@@ -234,19 +249,18 @@ export class AuthService extends BaseService {
       if (!tokenInfo.email || !tokenInfo.sub) {
         logger.error(`Invalid Google token info: ${JSON.stringify(tokenInfo)}`);
         return this.HandleError(
-          new UnauthorizedException('Invalid Google token information')
+          new UnauthorizedException('Invalid Google token information'),
         );
       }
 
       // Extract user information from Google token
-      const googleUserId = tokenInfo.sub; // Google user ID
       const email = tokenInfo.email;
       const name = tokenInfo.name || email.split('@')[0];
       const picture = tokenInfo.picture || null;
 
       // Check if user exists in database by email (since we don't have Firebase UID yet)
       let user = await this.prisma.user.findUnique({
-        where: { email }
+        where: { email },
       });
 
       let firebaseUid: string;
@@ -280,15 +294,17 @@ export class AuthService extends BaseService {
             token: customToken,
             returnSecureToken: true,
           }),
-        }
+        },
       );
 
       const tokenData = await tokenResponse.json();
 
       if (!tokenResponse.ok) {
-        logger.error(`Failed to exchange custom token: ${JSON.stringify(tokenData)}`);
+        logger.error(
+          `Failed to exchange custom token: ${JSON.stringify(tokenData)}`,
+        );
         return this.HandleError(
-          new UnauthorizedException('Failed to generate authentication tokens')
+          new UnauthorizedException('Failed to generate authentication tokens'),
         );
       }
 
@@ -299,7 +315,110 @@ export class AuthService extends BaseService {
     } catch (error) {
       logger.error(`Google sign-in error: ${error.message || error}`);
       return this.HandleError(
-        new UnauthorizedException('Google sign-in failed. Please try again.')
+        new UnauthorizedException('Google sign-in failed. Please try again.'),
+      );
+    }
+  }
+
+  async signInWithFacebook(payload: FacebookSignInDto) {
+    const { accessToken } = payload;
+
+    try {
+      // Verify Facebook access token and fetch profile via Graph API
+      const graphResponse = await fetch(
+        `https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${accessToken}`,
+      );
+
+      if (!graphResponse.ok) {
+        logger.error(
+          `Facebook token verification failed: ${graphResponse.statusText}`,
+        );
+        return this.HandleError(
+          new UnauthorizedException('Invalid Facebook access token'),
+        );
+      }
+
+      const profile = await graphResponse.json();
+
+      // Validate profile info
+      if (!profile.id) {
+        logger.error(`Invalid Facebook profile: ${JSON.stringify(profile)}`);
+        return this.HandleError(
+          new UnauthorizedException('Invalid Facebook token information'),
+        );
+      }
+
+      // Email is required for user creation
+      const email = profile.email;
+      if (!email) {
+        logger.error(
+          `Facebook profile missing email: ${JSON.stringify(profile)}`,
+        );
+        return this.HandleError(
+          new UnauthorizedException('Email is required for Facebook sign-in'),
+        );
+      }
+
+      const name = profile.name || email.split('@')[0];
+      const picture = profile.picture?.data?.url || null;
+
+      // Check if user exists in database by email
+      let user = await this.prisma.user.findUnique({
+        where: { email },
+      });
+
+      let firebaseUid: string;
+      try {
+        const result = await this.createOrGetOAuthUser({
+          email,
+          name,
+          existingUser: user,
+          avatar: picture,
+        });
+        user = result.user;
+        firebaseUid = result.firebaseUid;
+      } catch (error) {
+        return this.HandleError(error);
+      }
+
+      // Generate Firebase tokens for API authentication
+      const customToken = await auth().createCustomToken(firebaseUid);
+
+      // Exchange custom token for ID token and refresh token
+      const firebaseWebApiKey = config.FIREBASE_API_KEY;
+      const tokenResponse = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${firebaseWebApiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            token: customToken,
+            returnSecureToken: true,
+          }),
+        },
+      );
+
+      const tokenData = await tokenResponse.json();
+
+      if (!tokenResponse.ok) {
+        logger.error(
+          `Failed to exchange custom token: ${JSON.stringify(tokenData)}`,
+        );
+        return this.HandleError(
+          new UnauthorizedException('Failed to generate authentication tokens'),
+        );
+      }
+
+      return this.Results({
+        accessToken: tokenData.idToken,
+        refreshToken: tokenData.refreshToken,
+      });
+    } catch (error) {
+      logger.error(`Facebook sign-in error: ${error.message || error}`);
+      return this.HandleError(
+        new UnauthorizedException('Facebook sign-in failed. Please try again.'),
       );
     }
   }
@@ -310,7 +429,7 @@ export class AuthService extends BaseService {
     try {
       // Create JWKS client for Apple's public keys
       const appleJWKS = createRemoteJWKSet(
-        new URL('https://appleid.apple.com/auth/keys')
+        new URL('https://appleid.apple.com/auth/keys'),
       );
 
       // Verify Apple identity token
@@ -321,9 +440,11 @@ export class AuthService extends BaseService {
           audience: config.APPLE_CLIENT_ID,
         });
       } catch (error) {
-        logger.error(`Apple token verification failed: ${error.message || error}`);
+        logger.error(
+          `Apple token verification failed: ${error.message || error}`,
+        );
         return this.HandleError(
-          new UnauthorizedException('Invalid Apple ID token')
+          new UnauthorizedException('Invalid Apple ID token'),
         );
       }
 
@@ -333,22 +454,28 @@ export class AuthService extends BaseService {
       if (!tokenPayload.sub) {
         logger.error(`Invalid Apple token payload: missing sub`);
         return this.HandleError(
-          new UnauthorizedException('Invalid Apple token information')
+          new UnauthorizedException('Invalid Apple token information'),
         );
       }
 
       // Extract user information from Apple token
-      const appleUserId = tokenPayload.sub; // Apple user ID
       const email = tokenPayload.email as string | undefined;
-      const emailVerified = tokenPayload.email_verified === true || tokenPayload.email_verified === 'true';
+      const emailVerified =
+        tokenPayload.email_verified === true ||
+        tokenPayload.email_verified === 'true';
 
       // Name is only provided on first sign-in, may be in tokenPayload.name or null
       let name: string | undefined;
       if (tokenPayload.name) {
         // If name is an object (first sign-in), extract first and last name
         if (typeof tokenPayload.name === 'object') {
-          const nameObj = tokenPayload.name as { firstName?: string; lastName?: string };
-          name = [nameObj.firstName, nameObj.lastName].filter(Boolean).join(' ') || undefined;
+          const nameObj = tokenPayload.name as {
+            firstName?: string;
+            lastName?: string;
+          };
+          name =
+            [nameObj.firstName, nameObj.lastName].filter(Boolean).join(' ') ||
+            undefined;
         } else if (typeof tokenPayload.name === 'string') {
           name = tokenPayload.name;
         }
@@ -356,15 +483,17 @@ export class AuthService extends BaseService {
 
       // Email is required for user creation
       if (!email) {
-        logger.error(`Apple token missing email: ${JSON.stringify(tokenPayload)}`);
+        logger.error(
+          `Apple token missing email: ${JSON.stringify(tokenPayload)}`,
+        );
         return this.HandleError(
-          new UnauthorizedException('Email is required for Apple sign-in')
+          new UnauthorizedException('Email is required for Apple sign-in'),
         );
       }
 
       // Check if user exists in database by email
       let user = await this.prisma.user.findUnique({
-        where: { email }
+        where: { email },
       });
 
       let firebaseUid: string;
@@ -397,15 +526,17 @@ export class AuthService extends BaseService {
             token: customToken,
             returnSecureToken: true,
           }),
-        }
+        },
       );
 
       const tokenData = await tokenResponse.json();
 
       if (!tokenResponse.ok) {
-        logger.error(`Failed to exchange custom token: ${JSON.stringify(tokenData)}`);
+        logger.error(
+          `Failed to exchange custom token: ${JSON.stringify(tokenData)}`,
+        );
         return this.HandleError(
-          new UnauthorizedException('Failed to generate authentication tokens')
+          new UnauthorizedException('Failed to generate authentication tokens'),
         );
       }
 
@@ -416,7 +547,7 @@ export class AuthService extends BaseService {
     } catch (error) {
       logger.error(`Apple sign-in error: ${error.message || error}`);
       return this.HandleError(
-        new UnauthorizedException('Apple sign-in failed. Please try again.')
+        new UnauthorizedException('Apple sign-in failed. Please try again.'),
       );
     }
   }
@@ -437,7 +568,7 @@ export class AuthService extends BaseService {
             grant_type: 'refresh_token',
             refresh_token: refreshToken,
           }).toString(),
-        }
+        },
       );
 
       const data = await response.json();
@@ -445,14 +576,21 @@ export class AuthService extends BaseService {
       if (!response.ok) {
         logger.error(`Firebase token refresh failed: ${JSON.stringify(data)}`);
 
-        if (data.error === 'TOKEN_EXPIRED' || data.error === 'INVALID_REFRESH_TOKEN') {
+        if (
+          data.error === 'TOKEN_EXPIRED' ||
+          data.error === 'INVALID_REFRESH_TOKEN'
+        ) {
           return this.HandleError(
-            new UnauthorizedException('Refresh token is invalid or expired. Please log in again.')
+            new UnauthorizedException(
+              'Refresh token is invalid or expired. Please log in again.',
+            ),
           );
         }
 
         return this.HandleError(
-          new UnauthorizedException(data.error?.message || 'Token refresh failed')
+          new UnauthorizedException(
+            data.error?.message || 'Token refresh failed',
+          ),
         );
       }
 
@@ -460,20 +598,24 @@ export class AuthService extends BaseService {
       try {
         verifiedUser = await auth().verifyIdToken(data.id_token, true);
       } catch (error) {
-        logger.error(`Failed to verify refreshed ID token: ${error.message || error}`);
+        logger.error(
+          `Failed to verify refreshed ID token: ${error.message || error}`,
+        );
         return this.HandleError(
-          new UnauthorizedException('Failed to verify refreshed authentication token')
+          new UnauthorizedException(
+            'Failed to verify refreshed authentication token',
+          ),
         );
       }
 
       // Find user in database to ensure they still exist
       const user = await this.prisma.user.findUnique({
-        where: { firebaseId: verifiedUser.uid }
+        where: { firebaseId: verifiedUser.uid },
       });
 
       if (!user) {
         return this.HandleError(
-          new UnauthorizedException('User profile not found')
+          new UnauthorizedException('User profile not found'),
         );
       }
 
@@ -485,26 +627,24 @@ export class AuthService extends BaseService {
     } catch (error) {
       logger.error(`RefreshToken error: ${error.message || error}`);
       return this.HandleError(
-        new UnauthorizedException('Token refresh failed. Please try again.')
+        new UnauthorizedException('Token refresh failed. Please try again.'),
       );
     }
   }
 
   async logout(firebaseId: string) {
     const user = await this.prisma.user.findUnique({
-      where: { firebaseId }
+      where: { firebaseId },
     });
     if (!user) {
-      return this.HandleError(
-        new UnauthorizedException('User not found')
-      );
+      return this.HandleError(new UnauthorizedException('User not found'));
     }
 
     await auth().revokeRefreshTokens(firebaseId);
 
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { lastLoggedOutAt: new Date() }
+      data: { lastLoggedOutAt: new Date() },
     });
 
     return this.Results(null);
@@ -515,24 +655,28 @@ export class AuthService extends BaseService {
 
     try {
       const user = await this.prisma.user.findUnique({
-        where: { email }
+        where: { email },
       });
 
       if (!user) {
-        logger.warn(`Password reset requested for non-existent email: ${email}`);
+        logger.warn(
+          `Password reset requested for non-existent email: ${email}`,
+        );
         return this.Results({
-          message: 'If an account with that email exists, a password reset OTP has been sent.'
+          message:
+            'If an account with that email exists, a password reset OTP has been sent.',
         });
       }
 
-      let firebaseUser: auth.UserRecord;
       try {
-        firebaseUser = await auth().getUserByEmail(email);
+        // Existence check only — the lookup throws if there is no such user.
+        await auth().getUserByEmail(email);
       } catch (error) {
         if (error.code === 'auth/user-not-found') {
           logger.warn(`Firebase user not found for email: ${email}`);
           return this.Results({
-            message: 'If an account with that email exists, a password reset OTP has been sent.'
+            message:
+              'If an account with that email exists, a password reset OTP has been sent.',
           });
         }
         throw error;
@@ -544,18 +688,22 @@ export class AuthService extends BaseService {
         where: {
           email,
           createdAt: {
-            gte: fiveMinutesAgo
-          }
+            gte: fiveMinutesAgo,
+          },
         },
         orderBy: {
-          createdAt: 'desc'
-        }
+          createdAt: 'desc',
+        },
       });
 
       if (recentOtp) {
-        logger.warn(`Password reset OTP requested too soon for email: ${email}`);
+        logger.warn(
+          `Password reset OTP requested too soon for email: ${email}`,
+        );
         return this.HandleError(
-          new ConflictException('Please wait 5 minutes before requesting another OTP.')
+          new ConflictException(
+            'Please wait 5 minutes before requesting another OTP.',
+          ),
         );
       }
 
@@ -569,20 +717,20 @@ export class AuthService extends BaseService {
         this.prisma.passwordResetOtp.updateMany({
           where: {
             email,
-            isUsed: false
+            isUsed: false,
           },
           data: {
-            isUsed: true
-          }
+            isUsed: true,
+          },
         }),
         this.prisma.passwordResetOtp.create({
           data: {
             email,
             otp: hashedOtp,
             expiresAt,
-            isUsed: false
-          }
-        })
+            isUsed: false,
+          },
+        }),
       ]);
 
       // Send OTP via email
@@ -603,31 +751,38 @@ export class AuthService extends BaseService {
 
         // Check if notification was queued successfully
         const emailResult = results.find(
-          (r) => r.channel.type === NotificationChannelTypeEnum.EMAIL
+          (r) => r.channel.type === NotificationChannelTypeEnum.EMAIL,
         );
 
-        if (!emailResult || emailResult.status === NotificationStatusEnum.FAILED) {
+        if (
+          !emailResult ||
+          emailResult.status === NotificationStatusEnum.FAILED
+        ) {
           throw new Error(
-            emailResult?.error || 'Failed to queue password reset email'
+            emailResult?.error || 'Failed to queue password reset email',
           );
         }
 
         logger.log(`Password reset OTP sent to email: ${email}`);
       } catch (emailError) {
-        logger.error(`Failed to send password reset OTP email: ${emailError.message || emailError}`);
+        logger.error(
+          `Failed to send password reset OTP email: ${emailError.message || emailError}`,
+        );
         // Mark the OTP as used since user can't receive it
         await this.prisma.passwordResetOtp.updateMany({
           where: {
             email,
             otp: hashedOtp,
-            isUsed: false
+            isUsed: false,
           },
           data: {
-            isUsed: true
-          }
+            isUsed: true,
+          },
         });
         return this.HandleError(
-          new ConflictException('Failed to send password reset email. Please try again later.')
+          new ConflictException(
+            'Failed to send password reset email. Please try again later.',
+          ),
         );
       }
 
@@ -636,7 +791,8 @@ export class AuthService extends BaseService {
       logger.error(`Forgot password error: ${error.message || error}`);
       // Return generic message even on error for security
       return this.Results({
-        message: 'If an account with that email exists, a password reset OTP has been sent.'
+        message:
+          'If an account with that email exists, a password reset OTP has been sent.',
       });
     }
   }
@@ -648,26 +804,28 @@ export class AuthService extends BaseService {
       // Validate password strength
       if (!this.validatePasswordStrength(newPassword)) {
         return this.HandleError(
-          new ConflictException('Password must be at least 8 characters long and contain a mix of letters, numbers, and special characters.')
+          new ConflictException(
+            'Password must be at least 8 characters long and contain a mix of letters, numbers, and special characters.',
+          ),
         );
       }
 
       // Check if new password is different from old password
       if (oldPassword === newPassword) {
         return this.HandleError(
-          new ConflictException('New password must be different from the current password')
+          new ConflictException(
+            'New password must be different from the current password',
+          ),
         );
       }
 
       // Find user by firebaseId
       const user = await this.prisma.user.findUnique({
-        where: { firebaseId }
+        where: { firebaseId },
       });
 
       if (!user) {
-        return this.HandleError(
-          new NotFoundException('User not found')
-        );
+        return this.HandleError(new NotFoundException('User not found'));
       }
 
       // Get Firebase user
@@ -675,7 +833,7 @@ export class AuthService extends BaseService {
 
       if (!firebaseUser.email) {
         return this.HandleError(
-          new UnauthorizedException('User email not found')
+          new UnauthorizedException('User email not found'),
         );
       }
 
@@ -693,36 +851,43 @@ export class AuthService extends BaseService {
             password: oldPassword,
             returnSecureToken: true,
           }),
-        }
+        },
       );
 
       const verifyData = await verifyResponse.json();
 
       if (!verifyResponse.ok) {
-        if (verifyData.error?.message === 'INVALID_PASSWORD' || verifyData.error?.message === 'EMAIL_NOT_FOUND') {
+        if (
+          verifyData.error?.message === 'INVALID_PASSWORD' ||
+          verifyData.error?.message === 'EMAIL_NOT_FOUND'
+        ) {
           return this.HandleError(
-            new UnauthorizedException('Current password is incorrect')
+            new UnauthorizedException('Current password is incorrect'),
           );
         }
         if (verifyData.error?.message === 'USER_DISABLED') {
           return this.HandleError(
-            new UnauthorizedException('User account has been disabled')
+            new UnauthorizedException('User account has been disabled'),
           );
         }
         return this.HandleError(
-          new UnauthorizedException(verifyData.error?.message || 'Failed to verify current password')
+          new UnauthorizedException(
+            verifyData.error?.message || 'Failed to verify current password',
+          ),
         );
       }
 
       // Old password is correct, now update to new password
       try {
         await auth().updateUser(firebaseId, {
-          password: newPassword
+          password: newPassword,
         });
       } catch (error) {
         if (error.code === 'auth/weak-password') {
           return this.HandleError(
-            new ConflictException('Password is too weak. Please use a password with at least 6 characters.')
+            new ConflictException(
+              'Password is too weak. Please use a password with at least 6 characters.',
+            ),
           );
         }
         return this.HandleError(error);
@@ -736,7 +901,9 @@ export class AuthService extends BaseService {
     } catch (error) {
       logger.error(`Change password error: ${error.message || error}`);
       return this.HandleError(
-        new UnauthorizedException('Failed to change password. Please try again.')
+        new UnauthorizedException(
+          'Failed to change password. Please try again.',
+        ),
       );
     }
   }
@@ -758,7 +925,7 @@ export class AuthService extends BaseService {
     }
 
     // Check for at least one number or special character
-    if (!/[0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    if (!/[0-9!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
       return false;
     }
 
@@ -775,42 +942,72 @@ export class AuthService extends BaseService {
           email,
           isUsed: false,
           expiresAt: {
-            gt: new Date() // Not expired
-          }
+            gt: new Date(), // Not expired
+          },
         },
         orderBy: {
-          createdAt: 'desc'
-        }
+          createdAt: 'desc',
+        },
       });
 
       if (!otpRecord) {
         return this.HandleError(
-          new UnauthorizedException('Invalid or expired OTP. Please request a new one.')
+          new UnauthorizedException(
+            'Invalid or expired OTP. Please request a new one.',
+          ),
+        );
+      }
+
+      if (otpRecord.attempts >= MAX_OTP_ATTEMPTS) {
+        await this.prisma.passwordResetOtp.update({
+          where: { id: otpRecord.id },
+          data: { isUsed: true },
+        });
+        return this.HandleError(
+          new UnauthorizedException(
+            'Too many failed attempts. Please request a new OTP.',
+          ),
         );
       }
 
       // Verify OTP matches
       if (!verifyOtp(otp, otpRecord.otp)) {
         logger.warn(`Invalid OTP provided for email: ${email}`);
+        const updated = await this.prisma.passwordResetOtp.update({
+          where: { id: otpRecord.id },
+          data: {
+            attempts: { increment: 1 },
+            ...(otpRecord.attempts + 1 >= MAX_OTP_ATTEMPTS
+              ? { isUsed: true }
+              : {}),
+          },
+        });
+        if (updated.attempts >= MAX_OTP_ATTEMPTS) {
+          return this.HandleError(
+            new UnauthorizedException(
+              'Too many failed attempts. Please request a new OTP.',
+            ),
+          );
+        }
         return this.HandleError(
-          new UnauthorizedException('Invalid OTP. Please check and try again.')
+          new UnauthorizedException('Invalid OTP. Please check and try again.'),
         );
       }
 
       // Mark OTP as verified (but not used yet)
       await this.prisma.passwordResetOtp.update({
         where: { id: otpRecord.id },
-        data: { verifiedAt: new Date() }
+        data: { verifiedAt: new Date() },
       });
 
       return this.Results({
         message: 'OTP verified successfully',
-        email: email
+        email: email,
       });
     } catch (error) {
       logger.error(`Verify OTP error: ${error.message || error}`);
       return this.HandleError(
-        new UnauthorizedException('Failed to verify OTP. Please try again.')
+        new UnauthorizedException('Failed to verify OTP. Please try again.'),
       );
     }
   }
@@ -822,7 +1019,9 @@ export class AuthService extends BaseService {
       // Validate password strength
       if (!this.validatePasswordStrength(newPassword)) {
         return this.HandleError(
-          new ConflictException('Password must be at least 8 characters long and contain a mix of letters, numbers, and special characters.')
+          new ConflictException(
+            'Password must be at least 8 characters long and contain a mix of letters, numbers, and special characters.',
+          ),
         );
       }
 
@@ -832,33 +1031,33 @@ export class AuthService extends BaseService {
           email,
           isUsed: false,
           verifiedAt: {
-            not: null // Must be verified
+            not: null, // Must be verified
           },
           expiresAt: {
-            gt: new Date() // Not expired
-          }
+            gt: new Date(), // Not expired
+          },
         },
         orderBy: {
-          createdAt: 'desc'
-        }
+          createdAt: 'desc',
+        },
       });
 
       if (!otpRecord) {
         return this.HandleError(
-          new UnauthorizedException('OTP not verified or expired. Please verify the OTP first.')
+          new UnauthorizedException(
+            'OTP not verified or expired. Please verify the OTP first.',
+          ),
         );
       }
 
       // Find user in database
       const user = await this.prisma.user.findUnique({
-        where: { email }
+        where: { email },
       });
 
       if (!user) {
         logger.warn(`Password reset attempted for non-existent user: ${email}`);
-        return this.HandleError(
-          new NotFoundException('User not found')
-        );
+        return this.HandleError(new NotFoundException('User not found'));
       }
 
       // Get Firebase user by email
@@ -868,7 +1067,7 @@ export class AuthService extends BaseService {
       } catch (error) {
         if (error.code === 'auth/user-not-found') {
           return this.HandleError(
-            new NotFoundException('Firebase user not found')
+            new NotFoundException('Firebase user not found'),
           );
         }
         throw error;
@@ -877,12 +1076,14 @@ export class AuthService extends BaseService {
       // Update password using Firebase Admin SDK
       try {
         await auth().updateUser(firebaseUser.uid, {
-          password: newPassword
+          password: newPassword,
         });
       } catch (error) {
         if (error.code === 'auth/weak-password') {
           return this.HandleError(
-            new ConflictException('Password is too weak. Please use a password with at least 6 characters.')
+            new ConflictException(
+              'Password is too weak. Please use a password with at least 6 characters.',
+            ),
           );
         }
         return this.HandleError(error);
@@ -891,14 +1092,16 @@ export class AuthService extends BaseService {
       // Mark OTP as used (single-use enforcement)
       await this.prisma.passwordResetOtp.update({
         where: { id: otpRecord.id },
-        data: { isUsed: true }
+        data: { isUsed: true },
       });
 
       // Revoke all refresh tokens for security
       try {
         await auth().revokeRefreshTokens(firebaseUser.uid);
       } catch (error) {
-        logger.error(`Failed to revoke refresh tokens after password reset: ${error.message || error}`);
+        logger.error(
+          `Failed to revoke refresh tokens after password reset: ${error.message || error}`,
+        );
         // Don't fail the request if token revocation fails
       }
 
@@ -916,25 +1119,31 @@ export class AuthService extends BaseService {
           },
         });
         const emailResult = results.find(
-          (r) => r.channel.type === NotificationChannelTypeEnum.EMAIL
+          (r) => r.channel.type === NotificationChannelTypeEnum.EMAIL,
         );
         if (emailResult?.status === NotificationStatusEnum.FAILED) {
-          logger.error(`Failed to send password reset confirmation: ${emailResult.error}`);
+          logger.error(
+            `Failed to send password reset confirmation: ${emailResult.error}`,
+          );
         }
       } catch (emailError) {
-        logger.error(`Failed to send password reset confirmation email: ${emailError.message || emailError}`);
+        logger.error(
+          `Failed to send password reset confirmation email: ${emailError.message || emailError}`,
+        );
         // Don't fail the request if email fails
       }
 
       logger.log(`Password reset successfully for user: ${email}`);
       return this.Results({
         message: 'Password reset successfully',
-        email: email
+        email: email,
       });
     } catch (error) {
       logger.error(`Reset password error: ${error.message || error}`);
       return this.HandleError(
-        new UnauthorizedException('Failed to reset password. Please try again.')
+        new UnauthorizedException(
+          'Failed to reset password. Please try again.',
+        ),
       );
     }
   }
@@ -969,7 +1178,7 @@ export class AuthService extends BaseService {
         email,
         displayName: name,
         ...(avatar !== undefined && { photoURL: avatar ?? undefined }),
-        ...(emailVerified !== undefined && { emailVerified })
+        ...(emailVerified !== undefined && { emailVerified }),
       });
       firebaseUid = firebaseUser.uid;
     } catch (error) {
@@ -977,7 +1186,9 @@ export class AuthService extends BaseService {
         const firebaseUser = await auth().getUserByEmail(email);
         firebaseUid = firebaseUser.uid;
       } else {
-        logger.error(`Failed to create Firebase user: ${error.message || error}`);
+        logger.error(
+          `Failed to create Firebase user: ${error.message || error}`,
+        );
         throw new UnauthorizedException('Failed to create user account');
       }
     }

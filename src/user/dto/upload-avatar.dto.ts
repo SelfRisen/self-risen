@@ -1,11 +1,11 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty } from '@nestjs/swagger';
 
 export class UploadAvatarDto {
-    @ApiProperty({
-        type: 'string',
-        format: 'binary',
-        description: 'Avatar image file (JPEG, PNG, GIF, WebP, SVG)',
-        example: 'avatar.jpg'
-    })
-    file: any;
+  @ApiProperty({
+    type: 'string',
+    format: 'binary',
+    description: 'Avatar image file (JPEG, PNG, GIF, WebP, SVG)',
+    example: 'avatar.jpg',
+  })
+  file: any;
 }

@@ -6,13 +6,9 @@ import { StorageModule } from 'src/common/storage/storage.module';
 import { CommonModule } from 'src/common/common.module';
 
 @Module({
-    imports: [
-        CommonModule,
-        DatabaseModule,
-        StorageModule,
-    ],
-    controllers: [JournalController],
-    providers: [JournalService],
-    exports: [JournalService],
+  imports: [CommonModule, DatabaseModule, StorageModule],
+  controllers: [JournalController],
+  providers: [JournalService],
+  exports: [JournalService],
 })
-export class JournalModule { }
+export class JournalModule {}

@@ -31,7 +31,9 @@ import { AffirmationLoopModule } from './affirmation-loop/affirmation-loop.modul
         // If Firebase is already initialized in main.ts, don't pass options
         // The module's buggy code will use getApp() which will get our initialized app
         if (admin.apps.length > 0) {
-          console.log('Firebase already initialized in main.ts, module will reuse existing app');
+          console.log(
+            'Firebase already initialized in main.ts, module will reuse existing app',
+          );
           // Don't pass options - let the module use getApp() to get our initialized app
           return {
             auth: {
@@ -52,14 +54,28 @@ import { AffirmationLoopModule } from './affirmation-loop/affirmation-loop.modul
 
         // Debug logging
         console.log('=== Firebase Configuration Debug ===');
-        console.log('Project ID:', projectId ? `✓ Set (${projectId})` : '✗ Missing');
-        console.log('Client Email:', clientEmail ? `✓ Set (${clientEmail})` : '✗ Missing');
-        console.log('Private Key:', privateKey ? `✓ Set (${privateKey.length} chars)` : '✗ Missing');
+        console.log(
+          'Project ID:',
+          projectId ? `✓ Set (${projectId})` : '✗ Missing',
+        );
+        console.log(
+          'Client Email:',
+          clientEmail ? `✓ Set (${clientEmail})` : '✗ Missing',
+        );
+        console.log(
+          'Private Key:',
+          privateKey ? `✓ Set (${privateKey.length} chars)` : '✗ Missing',
+        );
 
         // Fallback to JSON file if env vars are missing
         if (!projectId || !privateKey || !clientEmail) {
-          console.log('Environment variables missing, trying to load from firebase-credentials.json...');
-          const credentialsPath = path.join(process.cwd(), 'firebase-credentials.json');
+          console.log(
+            'Environment variables missing, trying to load from firebase-credentials.json...',
+          );
+          const credentialsPath = path.join(
+            process.cwd(),
+            'firebase-credentials.json',
+          );
 
           if (fs.existsSync(credentialsPath)) {
             try {
@@ -70,11 +86,17 @@ import { AffirmationLoopModule } from './affirmation-loop/affirmation-loop.modul
                 projectId: fileCredentials.project_id,
                 privateKey: fileCredentials.private_key.replace(/\\n/g, '\n'),
                 clientEmail: fileCredentials.client_email,
-                ...(fileCredentials.private_key_id && { privateKeyId: fileCredentials.private_key_id }),
-                ...(fileCredentials.client_id && { clientId: fileCredentials.client_id }),
+                ...(fileCredentials.private_key_id && {
+                  privateKeyId: fileCredentials.private_key_id,
+                }),
+                ...(fileCredentials.client_id && {
+                  clientId: fileCredentials.client_id,
+                }),
               };
 
-              console.log('✓ Loaded credentials from firebase-credentials.json');
+              console.log(
+                '✓ Loaded credentials from firebase-credentials.json',
+              );
 
               const storageBucket = config.FIREBASE_STORAGE_BUCKET;
               return {
@@ -97,21 +119,27 @@ import { AffirmationLoopModule } from './affirmation-loop/affirmation-loop.modul
           }
 
           throw new Error(
-            `Missing required Firebase credentials. ProjectId: ${!!projectId}, PrivateKey: ${!!privateKey}, ClientEmail: ${!!clientEmail}`
+            `Missing required Firebase credentials. ProjectId: ${!!projectId}, PrivateKey: ${!!privateKey}, ClientEmail: ${!!clientEmail}`,
           );
         }
 
         // Validate private key format
         if (!privateKey.includes('BEGIN PRIVATE KEY')) {
-          throw new Error('FIREBASE_PRIVATE_KEY is missing "BEGIN PRIVATE KEY" marker');
+          throw new Error(
+            'FIREBASE_PRIVATE_KEY is missing "BEGIN PRIVATE KEY" marker',
+          );
         }
 
         // Process private key - handle both \n and actual newlines
         let processedPrivateKey = privateKey.trim();
 
         // Remove surrounding quotes if present
-        if ((processedPrivateKey.startsWith('"') && processedPrivateKey.endsWith('"')) ||
-          (processedPrivateKey.startsWith("'") && processedPrivateKey.endsWith("'"))) {
+        if (
+          (processedPrivateKey.startsWith('"') &&
+            processedPrivateKey.endsWith('"')) ||
+          (processedPrivateKey.startsWith("'") &&
+            processedPrivateKey.endsWith("'"))
+        ) {
           processedPrivateKey = processedPrivateKey.slice(1, -1);
         }
 
@@ -121,8 +149,15 @@ import { AffirmationLoopModule } from './affirmation-loop/affirmation-loop.modul
         // Ensure proper formatting - should have newlines between markers and key content
         if (!processedPrivateKey.includes('\n')) {
           // If no newlines found, try to add them (this shouldn't happen but just in case)
-          processedPrivateKey = processedPrivateKey.replace(/-----BEGIN PRIVATE KEY-----/, '-----BEGIN PRIVATE KEY-----\n')
-            .replace(/-----END PRIVATE KEY-----/, '\n-----END PRIVATE KEY-----');
+          processedPrivateKey = processedPrivateKey
+            .replace(
+              /-----BEGIN PRIVATE KEY-----/,
+              '-----BEGIN PRIVATE KEY-----\n',
+            )
+            .replace(
+              /-----END PRIVATE KEY-----/,
+              '\n-----END PRIVATE KEY-----',
+            );
         }
 
         // Firebase Admin SDK expects camelCase properties
@@ -134,11 +169,23 @@ import { AffirmationLoopModule } from './affirmation-loop/affirmation-loop.modul
           ...(clientId && { clientId }),
         };
 
-        console.log('Creating Firebase credential with projectId:', credentials.projectId);
+        console.log(
+          'Creating Firebase credential with projectId:',
+          credentials.projectId,
+        );
         console.log('Private key length:', credentials.privateKey.length);
-        console.log('Private key has newlines:', credentials.privateKey.includes('\n'));
-        console.log('Private key starts with:', credentials.privateKey.substring(0, 50));
-        console.log('Private key ends with:', credentials.privateKey.substring(credentials.privateKey.length - 50));
+        console.log(
+          'Private key has newlines:',
+          credentials.privateKey.includes('\n'),
+        );
+        console.log(
+          'Private key starts with:',
+          credentials.privateKey.substring(0, 50),
+        );
+        console.log(
+          'Private key ends with:',
+          credentials.privateKey.substring(credentials.privateKey.length - 50),
+        );
 
         try {
           const certCredential = admin.credential.cert(credentials);
@@ -147,13 +194,18 @@ import { AffirmationLoopModule } from './affirmation-loop/affirmation-loop.modul
           // Verify the credential can actually get an access token
           // This will fail if credentials are invalid
           console.log('Testing credential by getting access token...');
-          certCredential.getAccessToken()
-            .then((token) => {
-              console.log('✓ Credential verified - access token obtained successfully');
+          certCredential
+            .getAccessToken()
+            .then(() => {
+              console.log(
+                '✓ Credential verified - access token obtained successfully',
+              );
             })
             .catch((err) => {
               console.error('✗ Credential verification failed:', err.message);
-              console.error('This means the credentials are invalid or the service account lacks permissions');
+              console.error(
+                'This means the credentials are invalid or the service account lacks permissions',
+              );
             });
 
           // The module expects 'options' to be passed directly to initializeApp
@@ -174,7 +226,10 @@ import { AffirmationLoopModule } from './affirmation-loop/affirmation-loop.modul
             },
           };
         } catch (error) {
-          console.error('✗ Failed to create Firebase credential:', error.message);
+          console.error(
+            '✗ Failed to create Firebase credential:',
+            error.message,
+          );
           throw new Error(`Invalid Firebase credentials: ${error.message}`);
         }
       },
@@ -200,4 +255,4 @@ import { AffirmationLoopModule } from './affirmation-loop/affirmation-loop.modul
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

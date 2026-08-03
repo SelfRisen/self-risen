@@ -1,10 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthService } from '../auth.service';
 import { DatabaseProvider } from '../../database/database.provider';
 import { INotificationService } from '../../notifications/interfaces/notification.interface';
-import { EmailService } from '../../common/email/email.service';
-import { NotificationChannelTypeEnum, NotificationStatusEnum } from '../../notifications/enums/notification.enum';
+import {
+  NotificationChannelTypeEnum,
+  NotificationStatusEnum,
+} from '../../notifications/enums/notification.enum';
 import * as otpUtil from '../utils/otp.util';
 
 // Mock firebase-admin
@@ -47,7 +53,6 @@ describe('AuthService', () => {
   let service: AuthService;
   let mockPrisma: any;
   let mockNotificationService: any;
-  let mockEmailService: any;
 
   const mockUser = {
     id: 'user-123',
@@ -85,16 +90,11 @@ describe('AuthService', () => {
       notifyExternalUser: jest.fn(),
     };
 
-    mockEmailService = {
-      sendPasswordResetConfirmation: jest.fn(),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: DatabaseProvider, useValue: mockPrisma },
         { provide: INotificationService, useValue: mockNotificationService },
-        { provide: EmailService, useValue: mockEmailService },
       ],
     }).compile();
 
@@ -165,7 +165,9 @@ describe('AuthService', () => {
     });
 
     it('should return error when email already exists in Firebase', async () => {
-      mockFirebaseAuth.createUser.mockRejectedValue({ code: 'auth/email-already-exists' });
+      mockFirebaseAuth.createUser.mockRejectedValue({
+        code: 'auth/email-already-exists',
+      });
 
       const result = await service.signUp(signUpPayload);
 
@@ -174,7 +176,9 @@ describe('AuthService', () => {
     });
 
     it('should return error for invalid email', async () => {
-      mockFirebaseAuth.createUser.mockRejectedValue({ code: 'auth/invalid-email' });
+      mockFirebaseAuth.createUser.mockRejectedValue({
+        code: 'auth/invalid-email',
+      });
 
       const result = await service.signUp(signUpPayload);
 
@@ -183,7 +187,9 @@ describe('AuthService', () => {
     });
 
     it('should return error for weak password', async () => {
-      mockFirebaseAuth.createUser.mockRejectedValue({ code: 'auth/weak-password' });
+      mockFirebaseAuth.createUser.mockRejectedValue({
+        code: 'auth/weak-password',
+      });
 
       const result = await service.signUp(signUpPayload);
 
@@ -198,7 +204,9 @@ describe('AuthService', () => {
 
       await service.signUp(signUpPayload);
 
-      expect(mockFirebaseAuth.deleteUser).toHaveBeenCalledWith(firebaseUser.uid);
+      expect(mockFirebaseAuth.deleteUser).toHaveBeenCalledWith(
+        firebaseUser.uid,
+      );
     });
   });
 
@@ -208,7 +216,9 @@ describe('AuthService', () => {
       const updatedUser = { ...mockUser, username: 'newusername' };
       mockPrisma.user.update.mockResolvedValue(updatedUser);
 
-      const result = await service.setUserName('firebase-uid-123', { username: 'newusername' });
+      const result = await service.setUserName('firebase-uid-123', {
+        username: 'newusername',
+      });
 
       expect(result.isError).toBe(false);
       expect(result.data?.username).toBe('newusername');
@@ -217,7 +227,9 @@ describe('AuthService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.setUserName('nonexistent-firebase-id', { username: 'newusername' });
+      const result = await service.setUserName('nonexistent-firebase-id', {
+        username: 'newusername',
+      });
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -242,7 +254,9 @@ describe('AuthService', () => {
         }),
       });
 
-      mockFirebaseAuth.verifyIdToken.mockResolvedValue({ uid: 'firebase-uid-123' });
+      mockFirebaseAuth.verifyIdToken.mockResolvedValue({
+        uid: 'firebase-uid-123',
+      });
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.user.update.mockResolvedValue(mockUser);
 
@@ -292,7 +306,9 @@ describe('AuthService', () => {
         }),
       });
 
-      mockFirebaseAuth.verifyIdToken.mockResolvedValue({ uid: 'firebase-uid-123' });
+      mockFirebaseAuth.verifyIdToken.mockResolvedValue({
+        uid: 'firebase-uid-123',
+      });
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
       const result = await service.login(loginPayload);
@@ -310,7 +326,9 @@ describe('AuthService', () => {
         }),
       });
 
-      mockFirebaseAuth.verifyIdToken.mockRejectedValue(new Error('Token verification failed'));
+      mockFirebaseAuth.verifyIdToken.mockRejectedValue(
+        new Error('Token verification failed'),
+      );
 
       const result = await service.login(loginPayload);
 
@@ -332,7 +350,9 @@ describe('AuthService', () => {
         }),
       });
 
-      mockFirebaseAuth.verifyIdToken.mockResolvedValue({ uid: 'firebase-uid-123' });
+      mockFirebaseAuth.verifyIdToken.mockResolvedValue({
+        uid: 'firebase-uid-123',
+      });
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
 
       const result = await service.refreshToken(refreshPayload);
@@ -383,7 +403,9 @@ describe('AuthService', () => {
         }),
       });
 
-      mockFirebaseAuth.verifyIdToken.mockResolvedValue({ uid: 'firebase-uid-123' });
+      mockFirebaseAuth.verifyIdToken.mockResolvedValue({
+        uid: 'firebase-uid-123',
+      });
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
       const result = await service.refreshToken(refreshPayload);
@@ -403,7 +425,9 @@ describe('AuthService', () => {
 
       expect(result.isError).toBe(false);
       expect(result.data).toBeNull();
-      expect(mockFirebaseAuth.revokeRefreshTokens).toHaveBeenCalledWith('firebase-uid-123');
+      expect(mockFirebaseAuth.revokeRefreshTokens).toHaveBeenCalledWith(
+        'firebase-uid-123',
+      );
     });
 
     it('should return error when user not found', async () => {
@@ -421,11 +445,16 @@ describe('AuthService', () => {
 
     it('should successfully send password reset OTP', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockFirebaseAuth.getUserByEmail.mockResolvedValue({ uid: 'firebase-uid-123' });
+      mockFirebaseAuth.getUserByEmail.mockResolvedValue({
+        uid: 'firebase-uid-123',
+      });
       mockPrisma.passwordResetOtp.findFirst.mockResolvedValue(null);
       mockPrisma.$transaction.mockResolvedValue([{}, {}]);
       mockNotificationService.notifyExternalUser.mockResolvedValue([
-        { channel: { type: NotificationChannelTypeEnum.EMAIL }, status: NotificationStatusEnum.QUEUED },
+        {
+          channel: { type: NotificationChannelTypeEnum.EMAIL },
+          status: NotificationStatusEnum.QUEUED,
+        },
       ]);
 
       jest.spyOn(otpUtil, 'generateOtp').mockReturnValue('1234');
@@ -443,12 +472,16 @@ describe('AuthService', () => {
       const result = await service.forgotPassword(forgotPasswordPayload);
 
       expect(result.isError).toBe(false);
-      expect(result.data?.message).toContain('If an account with that email exists');
+      expect(result.data?.message).toContain(
+        'If an account with that email exists',
+      );
     });
 
     it('should return error for rate limiting', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockFirebaseAuth.getUserByEmail.mockResolvedValue({ uid: 'firebase-uid-123' });
+      mockFirebaseAuth.getUserByEmail.mockResolvedValue({
+        uid: 'firebase-uid-123',
+      });
       mockPrisma.passwordResetOtp.findFirst.mockResolvedValue({
         id: 'otp-id',
         email: 'test@example.com',
@@ -463,11 +496,17 @@ describe('AuthService', () => {
 
     it('should handle email sending failure', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockFirebaseAuth.getUserByEmail.mockResolvedValue({ uid: 'firebase-uid-123' });
+      mockFirebaseAuth.getUserByEmail.mockResolvedValue({
+        uid: 'firebase-uid-123',
+      });
       mockPrisma.passwordResetOtp.findFirst.mockResolvedValue(null);
       mockPrisma.$transaction.mockResolvedValue([{}, {}]);
       mockNotificationService.notifyExternalUser.mockResolvedValue([
-        { channel: { type: NotificationChannelTypeEnum.EMAIL }, status: NotificationStatusEnum.FAILED, error: 'SMTP error' },
+        {
+          channel: { type: NotificationChannelTypeEnum.EMAIL },
+          status: NotificationStatusEnum.FAILED,
+          error: 'SMTP error',
+        },
       ]);
       mockPrisma.passwordResetOtp.updateMany.mockResolvedValue({ count: 1 });
 
@@ -497,12 +536,18 @@ describe('AuthService', () => {
       mockFirebaseAuth.updateUser.mockResolvedValue({});
       mockFirebaseAuth.revokeRefreshTokens.mockResolvedValue(undefined);
 
-      const result = await service.changePassword('firebase-uid-123', changePasswordPayload);
+      const result = await service.changePassword(
+        'firebase-uid-123',
+        changePasswordPayload,
+      );
 
       expect(result.isError).toBe(false);
-      expect(mockFirebaseAuth.updateUser).toHaveBeenCalledWith('firebase-uid-123', {
-        password: changePasswordPayload.newPassword,
-      });
+      expect(mockFirebaseAuth.updateUser).toHaveBeenCalledWith(
+        'firebase-uid-123',
+        {
+          password: changePasswordPayload.newPassword,
+        },
+      );
     });
 
     it('should return error when old password is incorrect', async () => {
@@ -513,7 +558,10 @@ describe('AuthService', () => {
         json: async () => ({ error: { message: 'INVALID_PASSWORD' } }),
       });
 
-      const result = await service.changePassword('firebase-uid-123', changePasswordPayload);
+      const result = await service.changePassword(
+        'firebase-uid-123',
+        changePasswordPayload,
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(UnauthorizedException);
@@ -542,7 +590,10 @@ describe('AuthService', () => {
     it('should return error when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.changePassword('nonexistent-firebase-id', changePasswordPayload);
+      const result = await service.changePassword(
+        'nonexistent-firebase-id',
+        changePasswordPayload,
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -620,19 +671,23 @@ describe('AuthService', () => {
 
       mockPrisma.passwordResetOtp.findFirst.mockResolvedValue(mockOtpRecord);
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockFirebaseAuth.getUserByEmail.mockResolvedValue({ uid: 'firebase-uid-123' });
+      mockFirebaseAuth.getUserByEmail.mockResolvedValue({
+        uid: 'firebase-uid-123',
+      });
       mockFirebaseAuth.updateUser.mockResolvedValue({});
       mockPrisma.passwordResetOtp.update.mockResolvedValue({});
       mockFirebaseAuth.revokeRefreshTokens.mockResolvedValue(undefined);
-      mockEmailService.sendPasswordResetConfirmation.mockResolvedValue(undefined);
 
       const result = await service.resetPassword(resetPasswordPayload);
 
       expect(result.isError).toBe(false);
       expect(result.data?.message).toBe('Password reset successfully');
-      expect(mockFirebaseAuth.updateUser).toHaveBeenCalledWith('firebase-uid-123', {
-        password: resetPasswordPayload.newPassword,
-      });
+      expect(mockFirebaseAuth.updateUser).toHaveBeenCalledWith(
+        'firebase-uid-123',
+        {
+          password: resetPasswordPayload.newPassword,
+        },
+      );
     });
 
     it('should return error when OTP not verified', async () => {
@@ -685,7 +740,9 @@ describe('AuthService', () => {
 
       mockPrisma.passwordResetOtp.findFirst.mockResolvedValue(mockOtpRecord);
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockFirebaseAuth.getUserByEmail.mockRejectedValue({ code: 'auth/user-not-found' });
+      mockFirebaseAuth.getUserByEmail.mockRejectedValue({
+        code: 'auth/user-not-found',
+      });
 
       const result = await service.resetPassword(resetPasswordPayload);
 
@@ -751,8 +808,13 @@ describe('AuthService', () => {
         });
 
       mockPrisma.user.findUnique.mockResolvedValue(null);
-      mockFirebaseAuth.createUser.mockResolvedValue({ uid: 'new-firebase-uid' });
-      mockPrisma.user.create.mockResolvedValue({ ...mockUser, email: 'newuser@example.com' });
+      mockFirebaseAuth.createUser.mockResolvedValue({
+        uid: 'new-firebase-uid',
+      });
+      mockPrisma.user.create.mockResolvedValue({
+        ...mockUser,
+        email: 'newuser@example.com',
+      });
       mockFirebaseAuth.createCustomToken.mockResolvedValue('custom-token');
 
       const result = await service.signInWithGoogle(googleSignInPayload);
@@ -809,15 +871,24 @@ describe('AuthService', () => {
         });
 
       mockPrisma.user.findUnique.mockResolvedValue(null);
-      mockFirebaseAuth.createUser.mockRejectedValue({ code: 'auth/email-already-exists' });
-      mockFirebaseAuth.getUserByEmail.mockResolvedValue({ uid: 'existing-firebase-uid' });
-      mockPrisma.user.create.mockResolvedValue({ ...mockUser, email: 'existing@example.com' });
+      mockFirebaseAuth.createUser.mockRejectedValue({
+        code: 'auth/email-already-exists',
+      });
+      mockFirebaseAuth.getUserByEmail.mockResolvedValue({
+        uid: 'existing-firebase-uid',
+      });
+      mockPrisma.user.create.mockResolvedValue({
+        ...mockUser,
+        email: 'existing@example.com',
+      });
       mockFirebaseAuth.createCustomToken.mockResolvedValue('custom-token');
 
       const result = await service.signInWithGoogle(googleSignInPayload);
 
       expect(result.isError).toBe(false);
-      expect(mockFirebaseAuth.getUserByEmail).toHaveBeenCalledWith('existing@example.com');
+      expect(mockFirebaseAuth.getUserByEmail).toHaveBeenCalledWith(
+        'existing@example.com',
+      );
     });
   });
 
@@ -876,8 +947,13 @@ describe('AuthService', () => {
         });
 
       mockPrisma.user.findUnique.mockResolvedValue(null);
-      mockFirebaseAuth.createUser.mockResolvedValue({ uid: 'new-firebase-uid' });
-      mockPrisma.user.create.mockResolvedValue({ ...mockUser, email: 'newuser@example.com' });
+      mockFirebaseAuth.createUser.mockResolvedValue({
+        uid: 'new-firebase-uid',
+      });
+      mockPrisma.user.create.mockResolvedValue({
+        ...mockUser,
+        email: 'newuser@example.com',
+      });
       mockFirebaseAuth.createCustomToken.mockResolvedValue('custom-token');
 
       const result = await service.signInWithFacebook(facebookSignInPayload);
@@ -934,15 +1010,24 @@ describe('AuthService', () => {
         });
 
       mockPrisma.user.findUnique.mockResolvedValue(null);
-      mockFirebaseAuth.createUser.mockRejectedValue({ code: 'auth/email-already-exists' });
-      mockFirebaseAuth.getUserByEmail.mockResolvedValue({ uid: 'existing-firebase-uid' });
-      mockPrisma.user.create.mockResolvedValue({ ...mockUser, email: 'existing@example.com' });
+      mockFirebaseAuth.createUser.mockRejectedValue({
+        code: 'auth/email-already-exists',
+      });
+      mockFirebaseAuth.getUserByEmail.mockResolvedValue({
+        uid: 'existing-firebase-uid',
+      });
+      mockPrisma.user.create.mockResolvedValue({
+        ...mockUser,
+        email: 'existing@example.com',
+      });
       mockFirebaseAuth.createCustomToken.mockResolvedValue('custom-token');
 
       const result = await service.signInWithFacebook(facebookSignInPayload);
 
       expect(result.isError).toBe(false);
-      expect(mockFirebaseAuth.getUserByEmail).toHaveBeenCalledWith('existing@example.com');
+      expect(mockFirebaseAuth.getUserByEmail).toHaveBeenCalledWith(
+        'existing@example.com',
+      );
     });
   });
 

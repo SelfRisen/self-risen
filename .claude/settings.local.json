@@ -6,11 +6,14 @@
       "Bash(pnpm jest:*)",
       "Bash(ls -la \"c:\\\\Users\\\\Isaac\\\\Documents\\\\Work\\\\self-risen\\\\src\\\\vision-board\"\" 2>/dev/null || dir \"c:UsersIsaacDocumentsWorkself-risensrcvision-board \")",
       "Bash(mkdir:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(tasklist //FI \"IMAGENAME eq Docker Desktop.exe\")",
+      "Bash(xxd \"prisma/migrations/20260719180000_raise_token_limit_to_300k/migration.sql\")",
+      "Bash(xxd \"prisma/migrations/20260719170801_raise_token_limit_to_300k/migration.sql\")"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "aibtc"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }

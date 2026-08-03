@@ -152,4 +152,4 @@ import { IEmailChannelAdapter } from './interfaces/adapter.interface';
   ],
   exports: [BullModule, INotificationService, NotificationsService],
 })
-export class NotificationsModule { }
+export class NotificationsModule {}

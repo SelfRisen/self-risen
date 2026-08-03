@@ -2,33 +2,81 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { DatabaseProvider } from 'src/database/database.provider';
 import { INotificationService } from 'src/notifications/interfaces/notification.interface';
-import { NotificationTypeEnum, NotificationChannelTypeEnum } from 'src/notifications/enums/notification.enum';
+import {
+  NotificationTypeEnum,
+  NotificationChannelTypeEnum,
+} from 'src/notifications/enums/notification.enum';
 import { randomUUID } from 'crypto';
 
 export type ReminderKind = 'morning' | 'afternoon' | 'evening';
 
-const MORNING_MESSAGES: Array<(streak: number) => { title: string; body: string }> = [
-  (n) => ({ title: `${n}-day streak 🔥`, body: "Start today right — one reflection or vision and you're golden." }),
-  (n) => ({ title: `${n} days strong`, body: "Keep the momentum. Your morning check-in is waiting." }),
-  (n) => ({ title: `Good morning, streak keeper`, body: `You're at ${n} days. Don't break the chain today.` }),
-  (n) => ({ title: `${n} in a row`, body: "Quick reflection or vision board moment — you've got this." }),
+const MORNING_MESSAGES: Array<
+  (streak: number) => { title: string; body: string }
+> = [
+  (n) => ({
+    title: `${n}-day streak 🔥`,
+    body: "Start today right — one reflection or vision and you're golden.",
+  }),
+  (n) => ({
+    title: `${n} days strong`,
+    body: 'Keep the momentum. Your morning check-in is waiting.',
+  }),
+  (n) => ({
+    title: `Good morning, streak keeper`,
+    body: `You're at ${n} days. Don't break the chain today.`,
+  }),
+  (n) => ({
+    title: `${n} in a row`,
+    body: "Quick reflection or vision board moment — you've got this.",
+  }),
 ];
 
-const AFTERNOON_MESSAGES: Array<(streak: number) => { title: string; body: string }> = [
-  (n) => ({ title: `${n}-day streak 🔥`, body: "Midday check-in: one reflection or vision and you're still on track." }),
-  (n) => ({ title: `${n} days strong`, body: "Afternoon reminder: keep the streak alive with a quick reflection or vision." }),
-  (n) => ({ title: `Streak check`, body: `You're at ${n} days. Sneak in a reflection or vision before the day gets away.` }),
-  (n) => ({ title: `${n} in a row`, body: "A little reflection or vision board time now = streak intact. You've got this." }),
+const AFTERNOON_MESSAGES: Array<
+  (streak: number) => { title: string; body: string }
+> = [
+  (n) => ({
+    title: `${n}-day streak 🔥`,
+    body: "Midday check-in: one reflection or vision and you're still on track.",
+  }),
+  (n) => ({
+    title: `${n} days strong`,
+    body: 'Afternoon reminder: keep the streak alive with a quick reflection or vision.',
+  }),
+  (n) => ({
+    title: `Streak check`,
+    body: `You're at ${n} days. Sneak in a reflection or vision before the day gets away.`,
+  }),
+  (n) => ({
+    title: `${n} in a row`,
+    body: "A little reflection or vision board time now = streak intact. You've got this.",
+  }),
 ];
 
-const EVENING_MESSAGES: Array<(streak: number) => { title: string; body: string }> = [
-  (n) => ({ title: `${n}-day streak 🔥`, body: "One reflection or vision before bed and today counts." }),
-  (n) => ({ title: `Don't let it slip`, body: `You're at ${n} days. Evening check-in? You've got this.` }),
-  (n) => ({ title: `${n} days strong`, body: "Close the day with a quick reflection or vision. Keep the streak alive." }),
-  (n) => ({ title: `Streak reminder`, body: `${n} days in a row. Add a reflection or vision and call it a win.` }),
+const EVENING_MESSAGES: Array<
+  (streak: number) => { title: string; body: string }
+> = [
+  (n) => ({
+    title: `${n}-day streak 🔥`,
+    body: 'One reflection or vision before bed and today counts.',
+  }),
+  (n) => ({
+    title: `Don't let it slip`,
+    body: `You're at ${n} days. Evening check-in? You've got this.`,
+  }),
+  (n) => ({
+    title: `${n} days strong`,
+    body: 'Close the day with a quick reflection or vision. Keep the streak alive.',
+  }),
+  (n) => ({
+    title: `Streak reminder`,
+    body: `${n} days in a row. Add a reflection or vision and call it a win.`,
+  }),
 ];
 
-const MESSAGE_MAP: Record<ReminderKind, Array<(streak: number) => { title: string; body: string }>> = {
+const MESSAGE_MAP: Record<
+  ReminderKind,
+  Array<(streak: number) => { title: string; body: string }>
+> = {
   morning: MORNING_MESSAGES,
   afternoon: AFTERNOON_MESSAGES,
   evening: EVENING_MESSAGES,
@@ -55,9 +103,19 @@ function getKindFromHour(hour: number): ReminderKind {
 }
 
 /** Current time in timezone as "HH:mm" (hour and minute). Pass optional now for a consistent snapshot. */
-function getCurrentTimeInZone(timezone: string, now?: Date): { hour: number; minute: number; timeStr: string } {
+function getCurrentTimeInZone(
+  timezone: string,
+  now?: Date,
+): { hour: number; minute: number; timeStr: string } {
   const instant = now ?? new Date();
-  const parts = instant.toLocaleString('en-CA', { timeZone: timezone, hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
+  const parts = instant
+    .toLocaleString('en-CA', {
+      timeZone: timezone,
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    .split(':');
   const hour = parseInt(parts[0], 10);
   const minute = parseInt(parts[1], 10);
   const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
@@ -112,7 +170,10 @@ export class StreakReminderService {
       return;
     }
 
-    type UserWithKind = (typeof users)[number] & { kind: ReminderKind; timeStr: string };
+    type UserWithKind = (typeof users)[number] & {
+      kind: ReminderKind;
+      timeStr: string;
+    };
     const toNotify: UserWithKind[] = [];
     for (const user of users) {
       const times = user.streakReminderTimes ?? [];
@@ -151,12 +212,16 @@ export class StreakReminderService {
       );
       results.forEach((result, i) => {
         if (result.status === 'rejected') {
-          this.logger.warn(`Streak reminder failed for user ${batch[i].id}: ${result.reason?.message ?? result.reason}`);
+          this.logger.warn(
+            `Streak reminder failed for user ${batch[i].id}: ${result.reason?.message ?? result.reason}`,
+          );
         }
       });
     }
 
-    this.logger.debug(`Custom streak reminders: processed ${users.length} users, sent to ${toNotify.length} with matching time`);
+    this.logger.debug(
+      `Custom streak reminders: processed ${users.length} users, sent to ${toNotify.length} with matching time`,
+    );
   }
 
   /** Send to users who use defaults: no custom times, reminders enabled, at fixed UTC 8 (morning) or 18 (evening). */
@@ -174,7 +239,9 @@ export class StreakReminderService {
     });
 
     if (users.length === 0) {
-      this.logger.debug(`Streak reminders (${kind}, default): no eligible users`);
+      this.logger.debug(
+        `Streak reminders (${kind}, default): no eligible users`,
+      );
       return;
     }
 
@@ -206,11 +273,15 @@ export class StreakReminderService {
       );
       results.forEach((result, i) => {
         if (result.status === 'rejected') {
-          this.logger.warn(`Streak reminder failed for user ${batch[i].id}: ${result.reason?.message ?? result.reason}`);
+          this.logger.warn(
+            `Streak reminder failed for user ${batch[i].id}: ${result.reason?.message ?? result.reason}`,
+          );
         }
       });
     }
 
-    this.logger.log(`Streak reminders (${kind}, default): sent to ${users.length} users`);
+    this.logger.log(
+      `Streak reminders (${kind}, default): sent to ${users.length} users`,
+    );
   }
 }

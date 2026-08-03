@@ -13,23 +13,22 @@ import { UserModule } from 'src/user/user.module';
 import { StaterVideosModule } from 'src/stater-videos/stater-videos.module';
 
 @Module({
-    imports: [
-        CommonModule,
-        DatabaseModule,
-        StorageModule,
-        UserModule, // Import to access TokenUsageService
-        StaterVideosModule,
-        ScheduleModule.forRoot()
-    ],
-    controllers: [ReflectionController],
-    providers: [
-        ReflectionService,
-        TranscriptionService,
-        NlpTransformationService,
-        TextToSpeechService,
-        SessionExpirationService,
-    ],
-    exports: [ReflectionService, TextToSpeechService],
+  imports: [
+    CommonModule,
+    DatabaseModule,
+    StorageModule,
+    UserModule, // Import to access TokenUsageService
+    StaterVideosModule,
+    ScheduleModule.forRoot(),
+  ],
+  controllers: [ReflectionController],
+  providers: [
+    ReflectionService,
+    TranscriptionService,
+    NlpTransformationService,
+    TextToSpeechService,
+    SessionExpirationService,
+  ],
+  exports: [ReflectionService, TextToSpeechService],
 })
-export class ReflectionModule { }
-
+export class ReflectionModule {}
