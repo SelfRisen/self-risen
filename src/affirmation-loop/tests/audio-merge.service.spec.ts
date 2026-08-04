@@ -68,11 +68,20 @@ describe('AudioMergeService', () => {
     expect(mockCommand.complexFilter).toHaveBeenCalledWith(
       expect.not.stringContaining('loudnorm'),
     );
+    // Background must outlast the affirmations track so the closing fade
+    // covers music only -- the mix runs 4s past the 60s of speech, with the
+    // 3s fade starting inside that music-only tail.
+    expect(mockCommand.complexFilter).toHaveBeenCalledWith(
+      expect.stringContaining('duration=longest'),
+    );
+    expect(mockCommand.complexFilter).toHaveBeenCalledWith(
+      expect.stringContaining('afade=t=out:st=61:d=3'),
+    );
     expect(mockCommand.outputOptions).not.toHaveBeenCalledWith(
       expect.arrayContaining(['-af']),
     );
     expect(mockCommand.outputOptions).toHaveBeenCalledWith(
-      expect.arrayContaining(['-t', '60']),
+      expect.arrayContaining(['-t', '64']),
     );
     expect(mockCommand.outputOptions).toHaveBeenCalledWith(
       expect.arrayContaining(['-ac', '2']),

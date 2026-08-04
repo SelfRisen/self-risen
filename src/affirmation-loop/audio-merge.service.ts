@@ -8,6 +8,9 @@ import { config } from 'src/common/config';
 
 export const MAX_LOOP_DURATION_SECONDS = 900;
 const FADE_SECONDS = 3;
+// Background keeps playing this long after the last affirmation ends, so the
+// fade-out lands on music alone instead of clipping the final spoken words.
+const OUTRO_TAIL_SECONDS = 4;
 const BACKGROUND_VOLUME = 0.25;
 const MAX_INTRO_SKIP_SECONDS = 20;
 const INTRO_SILENCE_NOISE_DB = '-30dB';
@@ -43,7 +46,10 @@ export class AudioMergeService {
     await this.concatAffirmations(affirmationPaths, affirmationsPath, tmpDir);
 
     const rawDuration = await this.probeDurationSeconds(affirmationsPath);
-    const mixDuration = Math.min(rawDuration, cappedMaxDuration);
+    const mixDuration = Math.min(
+      rawDuration + OUTRO_TAIL_SECONDS,
+      cappedMaxDuration,
+    );
     const fadeStart = Math.max(0, mixDuration - FADE_SECONDS);
 
     await this.mixWithBackground(
@@ -89,9 +95,12 @@ export class AudioMergeService {
     durationSeconds: number,
     fadeStartSeconds: number,
   ): Promise<void> {
+    // duration=longest lets the looped background run past the end of the
+    // affirmations track (the -t output option truncates it to the intended
+    // length), so the closing fade covers music only, not spoken words.
     const filterComplex =
       `[0:a]volume=${BACKGROUND_VOLUME}[bg];` +
-      `[1:a][bg]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mixed];` +
+      `[1:a][bg]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0[mixed];` +
       `[mixed]afade=t=out:st=${fadeStartSeconds}:d=${FADE_SECONDS}[out]`;
 
     await this.runFfmpeg((command) =>
