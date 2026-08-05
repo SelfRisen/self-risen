@@ -207,30 +207,32 @@ export class WheelOfLifeService extends BaseService {
     // Calculate breakdown
     const breakdown = this.calculateBreakdown(categories, payload.scores);
 
-    // Create or update latest assessment
+    // Each re-grade is a point on the user's progress over time, so a new
+    // assessment is recorded rather than overwriting the previous one.
+    // Re-submitting on the same day is treated as correcting that day's
+    // grading, so it updates in place instead of adding a duplicate point.
     const latestAssessment = await this.prisma.wheelAssessment.findFirst({
       where: { wheelId: wheel.id },
       orderBy: { createdAt: 'desc' },
     });
 
-    const assessment = latestAssessment
+    const assessmentData = {
+      scores: payload.scores,
+      strongestArea: breakdown.strongestArea.categoryId,
+      weakestArea: breakdown.weakestArea.categoryId,
+      imbalanceScore: breakdown.imbalanceScore,
+    };
+
+    const gradedToday =
+      !!latestAssessment && this.isSameDay(latestAssessment.createdAt, new Date());
+
+    const assessment = gradedToday
       ? await this.prisma.wheelAssessment.update({
           where: { id: latestAssessment.id },
-          data: {
-            scores: payload.scores,
-            strongestArea: breakdown.strongestArea.categoryId,
-            weakestArea: breakdown.weakestArea.categoryId,
-            imbalanceScore: breakdown.imbalanceScore,
-          },
+          data: assessmentData,
         })
       : await this.prisma.wheelAssessment.create({
-          data: {
-            wheelId: wheel.id,
-            scores: payload.scores,
-            strongestArea: breakdown.strongestArea.categoryId,
-            weakestArea: breakdown.weakestArea.categoryId,
-            imbalanceScore: breakdown.imbalanceScore,
-          },
+          data: { wheelId: wheel.id, ...assessmentData },
         });
 
     return this.Results({
@@ -433,6 +435,14 @@ export class WheelOfLifeService extends BaseService {
       where: { userId },
       include: { categories: true },
     });
+  }
+
+  private isSameDay(a: Date, b: Date): boolean {
+    return (
+      a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate()
+    );
   }
 
   private calculateBreakdown(

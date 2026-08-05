@@ -293,10 +293,11 @@ describe('WheelOfLifeService', () => {
       expect(result.data?.breakdown).toBeDefined();
     });
 
-    it('should update existing assessment if one exists', async () => {
+    it('should correct the same day\'s assessment in place rather than adding a point', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.wheelOfLife.findUnique.mockResolvedValue(mockWheel);
       mockPrisma.wheelCategory.findMany.mockResolvedValue(mockWheel.categories);
+      // mockAssessment.createdAt is today
       mockPrisma.wheelAssessment.findFirst.mockResolvedValue(mockAssessment);
       mockPrisma.wheelAssessment.update.mockResolvedValue(mockAssessment);
 
@@ -306,6 +307,30 @@ describe('WheelOfLifeService', () => {
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.wheelAssessment.update).toHaveBeenCalled();
+      expect(mockPrisma.wheelAssessment.create).not.toHaveBeenCalled();
+    });
+
+    it('should record a new assessment when the last grading was on an earlier day', async () => {
+      const lastWeek = new Date();
+      lastWeek.setDate(lastWeek.getDate() - 7);
+
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.wheelOfLife.findUnique.mockResolvedValue(mockWheel);
+      mockPrisma.wheelCategory.findMany.mockResolvedValue(mockWheel.categories);
+      mockPrisma.wheelAssessment.findFirst.mockResolvedValue({
+        ...mockAssessment,
+        createdAt: lastWeek,
+      });
+      mockPrisma.wheelAssessment.create.mockResolvedValue(mockAssessment);
+
+      const result = await service.updateScores('firebase-uid-123', {
+        scores: { 'cat-1': 9, 'cat-2': 7, 'cat-3': 8 },
+      });
+
+      expect(result.isError).toBe(false);
+      // The earlier grading must survive as a point on the user's progress.
+      expect(mockPrisma.wheelAssessment.create).toHaveBeenCalled();
+      expect(mockPrisma.wheelAssessment.update).not.toHaveBeenCalled();
     });
 
     it('should return error for invalid category ID', async () => {
