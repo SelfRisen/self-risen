@@ -330,12 +330,19 @@ export class UserService extends BaseService {
     }
   }
 
+  /** A re-grade comes due once this long has passed since the last one. The
+   * floor is what stops it being asked for after every wave, however many
+   * waves the user is running. */
+  private readonly REGRADE_INTERVAL_DAYS = 21;
+
   async getStats(firebaseId: string) {
     const user = await this.prisma.user.findUnique({
       where: { firebaseId },
       select: {
+        id: true,
         streak: true,
         sessions: true,
+        wheelOfLife: { select: { id: true } },
       },
     });
 
@@ -343,7 +350,41 @@ export class UserService extends BaseService {
       return this.HandleError(new NotFoundException('User not found'));
     }
 
-    return this.Results(user);
+    const [wavesCompleted, wavesActive, lastAssessment] = await Promise.all([
+      this.prisma.wave.count({
+        where: { session: { userId: user.id }, isActive: false },
+      }),
+      this.prisma.wave.count({
+        where: { session: { userId: user.id }, isActive: true },
+      }),
+      user.wheelOfLife
+        ? this.prisma.wheelAssessment.findFirst({
+            where: { wheelId: user.wheelOfLife.id },
+            orderBy: { createdAt: 'desc' },
+            select: { createdAt: true },
+          })
+        : null,
+    ]);
+
+    const daysSinceGrading = lastAssessment
+      ? Math.floor(
+          (Date.now() - lastAssessment.createdAt.getTime()) / 86_400_000,
+        )
+      : null;
+
+    return this.Results({
+      streak: user.streak,
+      sessions: user.sessions,
+      wavesCompleted,
+      wavesActive,
+      lastGradedAt: lastAssessment?.createdAt ?? null,
+      daysSinceGrading,
+      // Never true before a first grading -- onboarding already collects that,
+      // and prompting a brand-new user to "re-grade" makes no sense.
+      regradeDue:
+        daysSinceGrading !== null &&
+        daysSinceGrading >= this.REGRADE_INTERVAL_DAYS,
+    });
   }
 
   async changeTtsVoicePreference(

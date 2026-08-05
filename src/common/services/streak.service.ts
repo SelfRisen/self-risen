@@ -32,21 +32,40 @@ export class StreakService {
     private notificationService: INotificationService,
   ) {}
 
+  /**
+   * The user's local calendar day for an instant, at UTC midnight so days
+   * compare cleanly wherever they were recorded.
+   */
+  private localCalendarDay(instant: Date, timeZone?: string | null): Date {
+    let ymd: string;
+    try {
+      ymd = new Intl.DateTimeFormat('en-CA', {
+        timeZone: timeZone || 'UTC',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(instant);
+    } catch {
+      ymd = instant.toISOString().slice(0, 10);
+    }
+    return new Date(`${ymd}T00:00:00.000Z`);
+  }
+
+  /**
+   * Extends the user's streak for today.
+   *
+   * Called when the user actually practises -- a streak is meant to say they
+   * showed up for the work, not that they opened the app. Days are the user's
+   * local days, so practising late at night counts for the day they think it
+   * does rather than the server's.
+   */
   async updateStreak(user: User) {
-    // TODO: Add timezone support using user.timezone so "today" and "yesterday" are computed
-    // in the user's timezone rather than server-local (see User.timezone, IANA e.g. America/New_York).
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const today = this.localCalendarDay(new Date(), user.timezone);
     const lastStreakDate = user.lastStreakDate
-      ? new Date(
-          user.lastStreakDate.getFullYear(),
-          user.lastStreakDate.getMonth(),
-          user.lastStreakDate.getDate(),
-        )
+      ? this.localCalendarDay(user.lastStreakDate, user.timezone)
       : null;
 
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterday = new Date(today.getTime() - 86_400_000);
 
     let streak = user.streak;
     let shouldRecordHistory = false;
