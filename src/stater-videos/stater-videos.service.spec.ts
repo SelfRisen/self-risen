@@ -41,7 +41,10 @@ describe('StaterVideosService', () => {
   describe('getResourceBankMedia', () => {
     it('lists meditations from the Meditations folder, stripping extensions', async () => {
       mockStorage.listPublicFiles.mockResolvedValue([
-        { name: 'Deep Focus.mp3', url: 'https://storage.test/Meditations/Deep%20Focus.mp3' },
+        {
+          name: 'Deep Focus.mp3',
+          url: 'https://storage.test/Meditations/Deep%20Focus.mp3',
+        },
       ]);
 
       const result = await service.getResourceBankMedia('meditations');
@@ -49,7 +52,10 @@ describe('StaterVideosService', () => {
       expect(mockStorage.listPublicFiles).toHaveBeenCalledWith('Meditations');
       expect(result.isError).toBe(false);
       expect(result.data).toEqual([
-        { name: 'Deep Focus', url: 'https://storage.test/Meditations/Deep%20Focus.mp3' },
+        {
+          name: 'Deep Focus',
+          url: 'https://storage.test/Meditations/Deep%20Focus.mp3',
+        },
       ]);
     });
 

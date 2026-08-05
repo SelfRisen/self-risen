@@ -27,5 +27,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run CI checks
-        run: pnpm run ci
+      # Split into separate steps so the run summary names what broke.
+      # A failing lint must never stop the build and tests from running --
+      # a non-compiling main slipped through twice while lint gated them.
+      - name: Generate Prisma client
+        run: pnpm prisma generate
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+      - name: Lint
+        if: always()
+        run: pnpm lint:check

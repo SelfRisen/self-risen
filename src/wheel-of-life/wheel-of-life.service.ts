@@ -224,7 +224,8 @@ export class WheelOfLifeService extends BaseService {
     };
 
     const gradedToday =
-      !!latestAssessment && this.isSameDay(latestAssessment.createdAt, new Date());
+      !!latestAssessment &&
+      this.isSameDay(latestAssessment.createdAt, new Date());
 
     const assessment = gradedToday
       ? await this.prisma.wheelAssessment.update({

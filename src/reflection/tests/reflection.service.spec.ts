@@ -1094,7 +1094,10 @@ describe('ReflectionService', () => {
         { plays: 1, completedAt: new Date(), date: todayUtcMidnight() },
       ]);
 
-      const result = await service.recordWaveCheckIn('firebase-uid-123', 'wave-1');
+      const result = await service.recordWaveCheckIn(
+        'firebase-uid-123',
+        'wave-1',
+      );
 
       expect(result.isError).toBe(false);
       expect(result.data?.daysPractised).toBe(1);
@@ -1105,7 +1108,10 @@ describe('ReflectionService', () => {
 
     it('leaves the day open after one play when the cadence is twice daily', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockPrisma.wave.findFirst.mockResolvedValue({ ...activeWave, cadence: 2 });
+      mockPrisma.wave.findFirst.mockResolvedValue({
+        ...activeWave,
+        cadence: 2,
+      });
       mockPrisma.waveCheckIn.upsert.mockResolvedValue({
         id: 'ci-1',
         plays: 1,
@@ -1116,7 +1122,10 @@ describe('ReflectionService', () => {
         { plays: 1, completedAt: null, date: todayUtcMidnight() },
       ]);
 
-      const result = await service.recordWaveCheckIn('firebase-uid-123', 'wave-1');
+      const result = await service.recordWaveCheckIn(
+        'firebase-uid-123',
+        'wave-1',
+      );
 
       expect(result.isError).toBe(false);
       expect(result.data?.checkedInToday).toBe(false);
@@ -1129,7 +1138,10 @@ describe('ReflectionService', () => {
 
     it('closes the day on the second play of a twice-daily cadence', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockPrisma.wave.findFirst.mockResolvedValue({ ...activeWave, cadence: 2 });
+      mockPrisma.wave.findFirst.mockResolvedValue({
+        ...activeWave,
+        cadence: 2,
+      });
       mockPrisma.waveCheckIn.upsert.mockResolvedValue({
         id: 'ci-1',
         plays: 2,
@@ -1146,7 +1158,10 @@ describe('ReflectionService', () => {
         { plays: 2, completedAt: new Date(), date: todayUtcMidnight() },
       ]);
 
-      const result = await service.recordWaveCheckIn('firebase-uid-123', 'wave-1');
+      const result = await service.recordWaveCheckIn(
+        'firebase-uid-123',
+        'wave-1',
+      );
 
       expect(result.isError).toBe(false);
       expect(mockPrisma.waveCheckIn.update).toHaveBeenCalledWith(
@@ -1157,9 +1172,15 @@ describe('ReflectionService', () => {
 
     it('rejects a play against a wave that has already ended', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockPrisma.wave.findFirst.mockResolvedValue({ ...activeWave, isActive: false });
+      mockPrisma.wave.findFirst.mockResolvedValue({
+        ...activeWave,
+        isActive: false,
+      });
 
-      const result = await service.recordWaveCheckIn('firebase-uid-123', 'wave-1');
+      const result = await service.recordWaveCheckIn(
+        'firebase-uid-123',
+        'wave-1',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
@@ -1173,7 +1194,10 @@ describe('ReflectionService', () => {
         session: { userId: 'someone-else' },
       });
 
-      const result = await service.recordWaveCheckIn('firebase-uid-123', 'wave-1');
+      const result = await service.recordWaveCheckIn(
+        'firebase-uid-123',
+        'wave-1',
+      );
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(NotFoundException);
@@ -1197,8 +1221,16 @@ describe('ReflectionService', () => {
         endedEarlyAt: new Date(),
       });
       mockPrisma.waveCheckIn.findMany.mockResolvedValue([
-        { plays: 1, completedAt: new Date(), date: new Date('2026-01-01T00:00:00.000Z') },
-        { plays: 1, completedAt: new Date(), date: new Date('2026-01-02T00:00:00.000Z') },
+        {
+          plays: 1,
+          completedAt: new Date(),
+          date: new Date('2026-01-01T00:00:00.000Z'),
+        },
+        {
+          plays: 1,
+          completedAt: new Date(),
+          date: new Date('2026-01-02T00:00:00.000Z'),
+        },
       ]);
 
       const result = await service.endWaveEarly('firebase-uid-123', 'wave-1');

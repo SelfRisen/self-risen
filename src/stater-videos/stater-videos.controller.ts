@@ -49,9 +49,8 @@ export class StaterVideosController extends BaseController {
   })
   @ApiResponse({ status: 200, description: 'Meditation tracks retrieved' })
   async getMeditations() {
-    const result = await this.staterVideosService.getResourceBankMedia(
-      'meditations',
-    );
+    const result =
+      await this.staterVideosService.getResourceBankMedia('meditations');
     if (result.isError) throw result.error;
 
     return this.response({
@@ -68,9 +67,8 @@ export class StaterVideosController extends BaseController {
   })
   @ApiResponse({ status: 200, description: 'Breath work tracks retrieved' })
   async getBreathWork() {
-    const result = await this.staterVideosService.getResourceBankMedia(
-      'breath-work',
-    );
+    const result =
+      await this.staterVideosService.getResourceBankMedia('breath-work');
     if (result.isError) throw result.error;
 
     return this.response({

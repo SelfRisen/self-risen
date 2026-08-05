@@ -293,7 +293,7 @@ describe('WheelOfLifeService', () => {
       expect(result.data?.breakdown).toBeDefined();
     });
 
-    it('should correct the same day\'s assessment in place rather than adding a point', async () => {
+    it("should correct the same day's assessment in place rather than adding a point", async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.wheelOfLife.findUnique.mockResolvedValue(mockWheel);
       mockPrisma.wheelCategory.findMany.mockResolvedValue(mockWheel.categories);
