@@ -406,36 +406,27 @@ export class ReflectionService extends BaseService {
       return this.HandleError(new NotFoundException('User not found'));
     }
 
-    // Validate session ownership and status
-    const session = await this.prisma.reflectionSession.findFirst({
-      where: {
-        id: sessionId,
-        userId: user.id,
-      },
-      include: {
-        affirmations: {
-          orderBy: { createdAt: 'desc' },
-        },
-        category: true,
-      },
-    });
+    // Holds a per-session advisory lock for the whole read-generate-write flow below,
+    // so two overlapping generate-affirmation calls for the same session (e.g. a client
+    // retry after a timeout while the first request is still running) can't both read
+    // the same "previous affirmations" snapshot and produce near-duplicate output.
+    return this.prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${sessionId}))`;
 
-    if (!session) {
-      return this.HandleError(
-        new NotFoundException('Reflection session not found'),
-      );
-    }
-
-    if (
-      session.status !== 'BELIEF_CAPTURED' &&
-      session.status !== 'AFFIRMATION_GENERATED'
-    ) {
-      return this.HandleError(
-        new BadRequestException(
-          `Cannot generate affirmation. Session must be in BELIEF_CAPTURED or AFFIRMATION_GENERATED status. Current status: ${session.status}`,
-        ),
-      );
-    }
+        // Validate session ownership and status
+        const session = await tx.reflectionSession.findFirst({
+          where: {
+            id: sessionId,
+            userId: user.id,
+          },
+          include: {
+            affirmations: {
+              orderBy: { createdAt: 'desc' },
+            },
+            category: true,
+          },
+        });
 
         if (!session) {
           return this.HandleError(
@@ -443,29 +434,16 @@ export class ReflectionService extends BaseService {
           );
         }
 
-    let transformation;
-    try {
-      transformation = await this.nlpTransformationService.transformBelief(
-        session.rawBeliefText,
-        user.id, // Pass userId for token tracking
-        session.affirmations.map((affirmation) => affirmation.affirmationText),
-        session.category?.name,
-      );
-    } catch (error) {
-      if (error instanceof ForbiddenException) {
-        this.logger.warn(`Token limit exceeded for user ${user.id}`);
-        return this.HandleError(error);
-      }
-      this.logger.error(
-        `Error generating affirmation: ${error.message}`,
-        error.stack,
-      );
-      return this.HandleError(
-        new BadRequestException(
-          `Failed to generate affirmation: ${error.message}`,
-        ),
-      );
-    }
+        if (
+          session.status !== 'BELIEF_CAPTURED' &&
+          session.status !== 'AFFIRMATION_GENERATED'
+        ) {
+          return this.HandleError(
+            new BadRequestException(
+              `Cannot generate affirmation. Session must be in BELIEF_CAPTURED or AFFIRMATION_GENERATED status. Current status: ${session.status}`,
+            ),
+          );
+        }
 
         if (
           !session.rawBeliefText ||
