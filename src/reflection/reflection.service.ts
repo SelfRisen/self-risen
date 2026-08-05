@@ -1059,14 +1059,25 @@ export class ReflectionService extends BaseService {
               category: { select: { id: true, name: true } },
             },
           },
+          // Without these the client has no way to know how a wave is going
+          // until the user records a play, so progress reads as empty on load.
+          checkIns: {
+            select: { plays: true, completedAt: true, date: true },
+          },
         },
       }),
     ]);
 
+    const today = this.localCalendarDay(new Date(), user.timezone);
+    const wavesWithProgress = waves.map(({ checkIns, ...wave }) => ({
+      ...wave,
+      ...this.summariseCheckIns(checkIns, wave.cadence, today),
+    }));
+
     const totalPages = Math.ceil(totalCount / pageSize);
 
     return this.Results({
-      data: waves,
+      data: wavesWithProgress,
       pagination: {
         page: pageNumber,
         limit: pageSize,
@@ -1303,6 +1314,9 @@ export class ReflectionService extends BaseService {
             userId: true,
           },
         },
+        checkIns: {
+          select: { plays: true, completedAt: true, date: true },
+        },
       },
     });
 
@@ -1310,7 +1324,13 @@ export class ReflectionService extends BaseService {
       return this.HandleError(new NotFoundException('Wave not found'));
     }
 
-    return this.Results(wave);
+    const { checkIns, ...waveFields } = wave;
+    const today = this.localCalendarDay(new Date(), user.timezone);
+
+    return this.Results({
+      ...waveFields,
+      ...this.summariseCheckIns(checkIns, wave.cadence, today),
+    });
   }
 
   /**

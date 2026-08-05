@@ -104,6 +104,8 @@ describe('ReflectionService', () => {
         findFirst: jest.fn(),
       },
       wave: {
+        count: jest.fn(),
+        findMany: jest.fn(),
         create: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
@@ -1261,6 +1263,56 @@ describe('ReflectionService', () => {
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
       expect(mockPrisma.wave.update).not.toHaveBeenCalled();
+    });
+  });
+  describe('wave progress on read', () => {
+    it('reports days practised when fetching a wave, without needing a play first', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.wave.findFirst.mockResolvedValue({
+        id: 'wave-1',
+        durationDays: 30,
+        cadence: 1,
+        isActive: true,
+        session: { id: 'session-123', userId: 'user-123' },
+        checkIns: [
+          { plays: 1, completedAt: new Date(), date: new Date('2026-01-01T00:00:00.000Z') },
+          { plays: 1, completedAt: new Date(), date: new Date('2026-01-02T00:00:00.000Z') },
+          { plays: 1, completedAt: null, date: new Date('2026-01-03T00:00:00.000Z') },
+        ],
+      });
+
+      const result = await service.getWave('firebase-uid-123', 'wave-1');
+
+      expect(result.isError).toBe(false);
+      // This is what the day strip renders from on load.
+      expect(result.data?.daysPractised).toBe(2);
+      expect(result.data?.partialDays).toBe(1);
+      expect(result.data?.cadence).toBe(1);
+    });
+
+    it('reports progress for every wave in the list', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.wave.count.mockResolvedValue(1);
+      mockPrisma.wave.findMany.mockResolvedValue([
+        {
+          id: 'wave-1',
+          durationDays: 21,
+          cadence: 2,
+          isActive: true,
+          session: { id: 's1', selectedAffirmationText: 'x', selectedAffirmationAudioUrl: null, category: null },
+          checkIns: [
+            { plays: 2, completedAt: new Date(), date: new Date('2026-01-01T00:00:00.000Z') },
+          ],
+        },
+      ]);
+
+      const result = await service.getAllWaves('firebase-uid-123', 1, 10);
+
+      expect(result.isError).toBe(false);
+      expect(result.data?.data[0].daysPractised).toBe(1);
+      expect(result.data?.data[0].cadence).toBe(2);
+      // checkIns themselves shouldn't be shipped to the client wholesale.
+      expect(result.data?.data[0]).not.toHaveProperty('checkIns');
     });
   });
 });
