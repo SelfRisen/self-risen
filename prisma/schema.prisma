@@ -259,18 +259,45 @@ model ReflectionSession {
 }
 
 model Wave {
-  id           String            @id @default(uuid())
-  sessionId    String
-  session      ReflectionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  startDate    DateTime
-  endDate      DateTime
-  durationDays Int
-  isActive     Boolean           @default(true)
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  id            String            @id @default(uuid())
+  sessionId     String
+  session       ReflectionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  startDate     DateTime
+  endDate       DateTime
+  durationDays  Int
+  isActive      Boolean           @default(true)
+  /// Plays required to close a day: 1 = once daily, 2 = morning and evening.
+  /// Chosen when the wave starts and fixed for its lifetime.
+  cadence       Int               @default(1)
+  /// Local times to remind at while the day is still open, as "HH:MM" strings.
+  reminderTimes String[]          @default([])
+  /// Set when the user ends the wave before its end date.
+  endedEarlyAt  DateTime?
+  checkIns      WaveCheckIn[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   @@index([sessionId, isActive])
   @@index([endDate, isActive])
+}
+
+/// One row per calendar day on which the user played a wave's loop.
+/// The day is closed once `plays` reaches the wave's cadence; a day with
+/// plays below cadence is a partial day.
+model WaveCheckIn {
+  id          String    @id @default(uuid())
+  waveId      String
+  wave        Wave      @relation(fields: [waveId], references: [id], onDelete: Cascade)
+  /// The user's local calendar day, stored at UTC midnight.
+  date        DateTime  @db.Date
+  plays       Int       @default(1)
+  /// Set the moment `plays` first reaches the wave's cadence.
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([waveId, date])
+  @@index([waveId, date])
 }
 
 model Affirmation {

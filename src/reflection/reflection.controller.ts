@@ -913,6 +913,67 @@ export class ReflectionController extends BaseController {
     });
   }
 
+  @Post('waves/:waveId/check-in')
+  @ApiOperation({
+    summary: "Record a play of the wave's loop",
+    description:
+      "Records one play towards today's practice. Pressing play is enough -- there is no completion threshold. The day closes once plays reach the cadence chosen when the wave started. Repeated plays on a closed day are counted but change nothing.",
+  })
+  @ApiParam({
+    name: 'waveId',
+    description: 'The unique identifier of the wave',
+  })
+  @ApiResponse({
+    status: 201,
+    description: "Play recorded; returns today's state and wave progress",
+  })
+  @ApiResponse({ status: 400, description: 'Wave has already ended' })
+  @ApiResponse({ status: 404, description: 'Wave not found' })
+  async recordWaveCheckIn(
+    @FirebaseUser() user: auth.DecodedIdToken,
+    @Param('waveId') waveId: string,
+  ) {
+    const result = await this.reflectionService.recordWaveCheckIn(
+      user.uid,
+      waveId,
+    );
+    if (result.isError) throw result.error;
+
+    return this.response({
+      message: 'Practice recorded',
+      data: result.data,
+    });
+  }
+
+  @Post('waves/:waveId/end')
+  @ApiOperation({
+    summary: 'End a wave early',
+    description:
+      'Ends an active wave before its end date. Days already practised still count.',
+  })
+  @ApiParam({
+    name: 'waveId',
+    description: 'The unique identifier of the wave',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Wave ended; returns the wave with its practice summary',
+  })
+  @ApiResponse({ status: 400, description: 'Wave has already ended' })
+  @ApiResponse({ status: 404, description: 'Wave not found' })
+  async endWaveEarly(
+    @FirebaseUser() user: auth.DecodedIdToken,
+    @Param('waveId') waveId: string,
+  ) {
+    const result = await this.reflectionService.endWaveEarly(user.uid, waveId);
+    if (result.isError) throw result.error;
+
+    return this.response({
+      message: 'Wave ended',
+      data: result.data,
+    });
+  }
+
   @Get('waves/:waveId')
   @ApiOperation({
     summary: 'Get a wave',

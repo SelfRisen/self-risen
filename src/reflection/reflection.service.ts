@@ -1163,6 +1163,8 @@ export class ReflectionService extends BaseService {
         endDate,
         durationDays,
         isActive: true,
+        cadence: dto.cadence ?? 1,
+        reminderTimes: dto.reminderTimes ?? [],
       },
       // include: {
       //     session: {
@@ -1329,6 +1331,155 @@ export class ReflectionService extends BaseService {
     }
 
     return this.Results(wave);
+  }
+
+  /**
+   * The user's local calendar day for an instant, stored at UTC midnight so
+   * days compare cleanly regardless of where they were recorded.
+   */
+  private localCalendarDay(instant: Date, timeZone?: string | null): Date {
+    let ymd: string;
+    try {
+      // en-CA renders as YYYY-MM-DD.
+      ymd = new Intl.DateTimeFormat('en-CA', {
+        timeZone: timeZone || 'UTC',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(instant);
+    } catch {
+      // An unrecognised timezone on the user record shouldn't block a check-in.
+      ymd = instant.toISOString().slice(0, 10);
+    }
+    return new Date(`${ymd}T00:00:00.000Z`);
+  }
+
+  /**
+   * Summarise a wave's practice: full days, partial days, and where today stands.
+   */
+  private summariseCheckIns(
+    checkIns: { plays: number; completedAt: Date | null; date: Date }[],
+    cadence: number,
+    today: Date,
+  ) {
+    const daysPractised = checkIns.filter((c) => c.completedAt).length;
+    const partialDays = checkIns.filter((c) => !c.completedAt).length;
+    const todayEntry = checkIns.find(
+      (c) => c.date.getTime() === today.getTime(),
+    );
+
+    return {
+      daysPractised,
+      partialDays,
+      cadence,
+      playsToday: todayEntry?.plays ?? 0,
+      playsRemainingToday: Math.max(0, cadence - (todayEntry?.plays ?? 0)),
+      checkedInToday: !!todayEntry?.completedAt,
+    };
+  }
+
+  /**
+   * Record one play of a wave's loop. Pressing play is the whole bar -- there
+   * is no completion threshold. The day closes once plays reach the cadence
+   * the user committed to when starting the wave.
+   */
+  async recordWaveCheckIn(firebaseId: string, waveId: string) {
+    const user = await this.getUserByFirebaseId(firebaseId);
+    if (!user) {
+      return this.HandleError(new NotFoundException('User not found'));
+    }
+
+    const wave = await this.prisma.wave.findFirst({
+      where: { id: waveId },
+      include: { session: { select: { userId: true } } },
+    });
+
+    if (!wave || wave.session.userId !== user.id) {
+      return this.HandleError(new NotFoundException('Wave not found'));
+    }
+
+    if (!wave.isActive) {
+      return this.HandleError(
+        new BadRequestException('This wave has already ended.'),
+      );
+    }
+
+    const today = this.localCalendarDay(new Date(), user.timezone);
+
+    // Upserting keeps two rapid plays from racing to create the same day.
+    const checkIn = await this.prisma.waveCheckIn.upsert({
+      where: { waveId_date: { waveId, date: today } },
+      create: {
+        waveId,
+        date: today,
+        plays: 1,
+        completedAt: wave.cadence <= 1 ? new Date() : null,
+      },
+      update: { plays: { increment: 1 } },
+    });
+
+    const closedNow = !checkIn.completedAt && checkIn.plays >= wave.cadence;
+    const finalCheckIn = closedNow
+      ? await this.prisma.waveCheckIn.update({
+          where: { id: checkIn.id },
+          data: { completedAt: new Date() },
+        })
+      : checkIn;
+
+    const checkIns = await this.prisma.waveCheckIn.findMany({
+      where: { waveId },
+      select: { plays: true, completedAt: true, date: true },
+    });
+
+    return this.Results({
+      waveId,
+      date: finalCheckIn.date,
+      ...this.summariseCheckIns(checkIns, wave.cadence, today),
+      durationDays: wave.durationDays,
+    });
+  }
+
+  /**
+   * End a wave before its end date. Whatever was practised still counts --
+   * stopping early is a choice, not a failure.
+   */
+  async endWaveEarly(firebaseId: string, waveId: string) {
+    const user = await this.getUserByFirebaseId(firebaseId);
+    if (!user) {
+      return this.HandleError(new NotFoundException('User not found'));
+    }
+
+    const wave = await this.prisma.wave.findFirst({
+      where: { id: waveId },
+      include: { session: { select: { userId: true } } },
+    });
+
+    if (!wave || wave.session.userId !== user.id) {
+      return this.HandleError(new NotFoundException('Wave not found'));
+    }
+
+    if (!wave.isActive) {
+      return this.HandleError(
+        new BadRequestException('This wave has already ended.'),
+      );
+    }
+
+    const endedWave = await this.prisma.wave.update({
+      where: { id: waveId },
+      data: { isActive: false, endedEarlyAt: new Date() },
+    });
+
+    const checkIns = await this.prisma.waveCheckIn.findMany({
+      where: { waveId },
+      select: { plays: true, completedAt: true, date: true },
+    });
+
+    const today = this.localCalendarDay(new Date(), user.timezone);
+
+    return this.Results({
+      ...endedWave,
+      ...this.summariseCheckIns(checkIns, wave.cadence, today),
+    });
   }
 
   /**

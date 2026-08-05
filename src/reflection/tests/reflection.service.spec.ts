@@ -107,6 +107,11 @@ describe('ReflectionService', () => {
         update: jest.fn(),
         delete: jest.fn(),
       },
+      waveCheckIn: {
+        upsert: jest.fn(),
+        update: jest.fn(),
+        findMany: jest.fn(),
+      },
     };
 
     mockStorageService = {
@@ -1053,6 +1058,170 @@ describe('ReflectionService', () => {
 
       expect(result.isError).toBe(true);
       expect(result.error).toBeInstanceOf(BadRequestException);
+    });
+  });
+  // Built the way the service does, so these tests don't break when the UTC
+  // date rolls over or the machine's timezone differs.
+  const todayUtcMidnight = () => {
+    const ymd = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'UTC',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    return new Date(`${ymd}T00:00:00.000Z`);
+  };
+
+  describe('recordWaveCheckIn', () => {
+    const activeWave = {
+      id: 'wave-1',
+      isActive: true,
+      cadence: 1,
+      durationDays: 30,
+      session: { userId: 'user-123' },
+    };
+
+    it('closes the day on a single play when the cadence is once daily', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.wave.findFirst.mockResolvedValue(activeWave);
+      mockPrisma.waveCheckIn.upsert.mockResolvedValue({
+        id: 'ci-1',
+        plays: 1,
+        completedAt: new Date(),
+        date: todayUtcMidnight(),
+      });
+      mockPrisma.waveCheckIn.findMany.mockResolvedValue([
+        { plays: 1, completedAt: new Date(), date: todayUtcMidnight() },
+      ]);
+
+      const result = await service.recordWaveCheckIn('firebase-uid-123', 'wave-1');
+
+      expect(result.isError).toBe(false);
+      expect(result.data?.daysPractised).toBe(1);
+      expect(result.data?.playsRemainingToday).toBe(0);
+      // Already closed on create -- no follow-up write needed.
+      expect(mockPrisma.waveCheckIn.update).not.toHaveBeenCalled();
+    });
+
+    it('leaves the day open after one play when the cadence is twice daily', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.wave.findFirst.mockResolvedValue({ ...activeWave, cadence: 2 });
+      mockPrisma.waveCheckIn.upsert.mockResolvedValue({
+        id: 'ci-1',
+        plays: 1,
+        completedAt: null,
+        date: todayUtcMidnight(),
+      });
+      mockPrisma.waveCheckIn.findMany.mockResolvedValue([
+        { plays: 1, completedAt: null, date: todayUtcMidnight() },
+      ]);
+
+      const result = await service.recordWaveCheckIn('firebase-uid-123', 'wave-1');
+
+      expect(result.isError).toBe(false);
+      expect(result.data?.checkedInToday).toBe(false);
+      expect(result.data?.playsRemainingToday).toBe(1);
+      // A partial day counts as practised-in-part, not as a full day.
+      expect(result.data?.daysPractised).toBe(0);
+      expect(result.data?.partialDays).toBe(1);
+      expect(mockPrisma.waveCheckIn.update).not.toHaveBeenCalled();
+    });
+
+    it('closes the day on the second play of a twice-daily cadence', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.wave.findFirst.mockResolvedValue({ ...activeWave, cadence: 2 });
+      mockPrisma.waveCheckIn.upsert.mockResolvedValue({
+        id: 'ci-1',
+        plays: 2,
+        completedAt: null,
+        date: todayUtcMidnight(),
+      });
+      mockPrisma.waveCheckIn.update.mockResolvedValue({
+        id: 'ci-1',
+        plays: 2,
+        completedAt: new Date(),
+        date: todayUtcMidnight(),
+      });
+      mockPrisma.waveCheckIn.findMany.mockResolvedValue([
+        { plays: 2, completedAt: new Date(), date: todayUtcMidnight() },
+      ]);
+
+      const result = await service.recordWaveCheckIn('firebase-uid-123', 'wave-1');
+
+      expect(result.isError).toBe(false);
+      expect(mockPrisma.waveCheckIn.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { completedAt: expect.any(Date) } }),
+      );
+      expect(result.data?.daysPractised).toBe(1);
+    });
+
+    it('rejects a play against a wave that has already ended', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.wave.findFirst.mockResolvedValue({ ...activeWave, isActive: false });
+
+      const result = await service.recordWaveCheckIn('firebase-uid-123', 'wave-1');
+
+      expect(result.isError).toBe(true);
+      expect(result.error).toBeInstanceOf(BadRequestException);
+      expect(mockPrisma.waveCheckIn.upsert).not.toHaveBeenCalled();
+    });
+
+    it("rejects a play against another user's wave", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.wave.findFirst.mockResolvedValue({
+        ...activeWave,
+        session: { userId: 'someone-else' },
+      });
+
+      const result = await service.recordWaveCheckIn('firebase-uid-123', 'wave-1');
+
+      expect(result.isError).toBe(true);
+      expect(result.error).toBeInstanceOf(NotFoundException);
+      expect(mockPrisma.waveCheckIn.upsert).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('endWaveEarly', () => {
+    it('deactivates the wave and keeps the days already practised', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.wave.findFirst.mockResolvedValue({
+        id: 'wave-1',
+        isActive: true,
+        cadence: 1,
+        durationDays: 30,
+        session: { userId: 'user-123' },
+      });
+      mockPrisma.wave.update.mockResolvedValue({
+        id: 'wave-1',
+        isActive: false,
+        endedEarlyAt: new Date(),
+      });
+      mockPrisma.waveCheckIn.findMany.mockResolvedValue([
+        { plays: 1, completedAt: new Date(), date: new Date('2026-01-01T00:00:00.000Z') },
+        { plays: 1, completedAt: new Date(), date: new Date('2026-01-02T00:00:00.000Z') },
+      ]);
+
+      const result = await service.endWaveEarly('firebase-uid-123', 'wave-1');
+
+      expect(result.isError).toBe(false);
+      expect(result.data?.isActive).toBe(false);
+      expect(result.data?.daysPractised).toBe(2);
+    });
+
+    it('rejects ending a wave that has already ended', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.wave.findFirst.mockResolvedValue({
+        id: 'wave-1',
+        isActive: false,
+        cadence: 1,
+        session: { userId: 'user-123' },
+      });
+
+      const result = await service.endWaveEarly('firebase-uid-123', 'wave-1');
+
+      expect(result.isError).toBe(true);
+      expect(result.error).toBeInstanceOf(BadRequestException);
+      expect(mockPrisma.wave.update).not.toHaveBeenCalled();
     });
   });
 });
