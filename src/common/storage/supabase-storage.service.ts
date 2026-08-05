@@ -489,9 +489,12 @@ export class SupabaseStorageService {
     folderPath: string,
   ): Promise<Array<{ name: string; url: string }>> {
     this.ensureInitialized();
-    const { data, error } = await this.supabase!.storage
-      .from(this.bucketName!)
-      .list(folderPath, { limit: 200, sortBy: { column: 'name', order: 'asc' } });
+    const { data, error } = await this.supabase!.storage.from(
+      this.bucketName!,
+    ).list(folderPath, {
+      limit: 200,
+      sortBy: { column: 'name', order: 'asc' },
+    });
 
     if (error) {
       throw new BadRequestException(`Failed to list files: ${error.message}`);
@@ -502,9 +505,9 @@ export class SupabaseStorageService {
 
     return files.map((item) => {
       const filePath = `${folderPath}/${item.name}`;
-      const { data: publicUrlData } = this.supabase!.storage
-        .from(this.bucketName!)
-        .getPublicUrl(filePath);
+      const { data: publicUrlData } = this.supabase!.storage.from(
+        this.bucketName!,
+      ).getPublicUrl(filePath);
 
       return { name: item.name, url: publicUrlData.publicUrl };
     });
