@@ -23,6 +23,7 @@ import {
 } from './dto';
 import { INotificationService } from 'src/notifications/interfaces/notification.interface';
 import { StaterVideosService } from 'src/stater-videos/stater-videos.service';
+import { StreakService } from 'src/common/services/streak.service';
 import type { OmniCbtResponse } from './services/nlp-transformation.service';
 
 @Injectable()
@@ -58,6 +59,7 @@ export class ReflectionService extends BaseService {
     private textToSpeechService: TextToSpeechService,
     private notificationService: INotificationService,
     private staterVideosService: StaterVideosService,
+    private streakService: StreakService,
   ) {
     super();
   }
@@ -1403,6 +1405,18 @@ export class ReflectionService extends BaseService {
           data: { completedAt: new Date() },
         })
       : checkIn;
+
+    // Practising is what earns a streak, so extend it here rather than on any
+    // authenticated request. A streak failure must never fail the check-in.
+    try {
+      await this.streakService.updateStreak(user);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to update streak after check-in: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
 
     const checkIns = await this.prisma.waveCheckIn.findMany({
       where: { waveId },

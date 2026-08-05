@@ -23,7 +23,7 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FirebaseGuard } from '@alpha018/nestjs-firebase-auth';
-import { FirebaseUser, StreakInterceptor } from 'src/common';
+import { FirebaseUser } from 'src/common';
 import { auth } from 'firebase-admin';
 import { BaseController } from 'src/common';
 import { VisionBoardService } from './vision-board.service';
@@ -37,7 +37,6 @@ import {
 } from './dto';
 
 @UseGuards(FirebaseGuard)
-@UseInterceptors(StreakInterceptor)
 @ApiBearerAuth('firebase')
 @ApiTags('Vision Board')
 @Controller('vision-board')

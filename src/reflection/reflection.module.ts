@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ReflectionController } from './reflection.controller';
 import { ReflectionService } from './reflection.service';
+import { WaveReminderService } from './services/wave-reminder.service';
 import { DatabaseModule } from 'src/database/database.module';
 import { StorageModule } from 'src/common/storage/storage.module';
 import { TranscriptionService } from './services/transcription.service';
@@ -23,6 +24,7 @@ import { StaterVideosModule } from 'src/stater-videos/stater-videos.module';
   ],
   controllers: [ReflectionController],
   providers: [
+    WaveReminderService,
     ReflectionService,
     TranscriptionService,
     NlpTransformationService,

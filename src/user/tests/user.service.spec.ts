@@ -43,6 +43,8 @@ describe('UserService', () => {
     jest.clearAllMocks();
 
     mockPrisma = {
+      wave: { count: jest.fn().mockResolvedValue(0) },
+      wheelAssessment: { findFirst: jest.fn().mockResolvedValue(null) },
       user: {
         count: jest.fn(),
         findMany: jest.fn(),
@@ -358,13 +360,76 @@ describe('UserService', () => {
       expect(result.error).toBeInstanceOf(NotFoundException);
     });
 
-    it('returns streak and sessions', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ streak: 5, sessions: 12 });
+    it('returns streak, sessions and wave counts', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        streak: 5,
+        sessions: 12,
+        wheelOfLife: { id: 'wheel-1' },
+      });
+      mockPrisma.wave.count
+        .mockResolvedValueOnce(3) // completed
+        .mockResolvedValueOnce(1); // active
 
       const result = await service.getStats('fb-123');
 
       expect(result.isError).toBe(false);
-      expect(result.data).toEqual({ streak: 5, sessions: 12 });
+      expect(result.data).toEqual(
+        expect.objectContaining({
+          streak: 5,
+          sessions: 12,
+          wavesCompleted: 3,
+          wavesActive: 1,
+        }),
+      );
+    });
+
+    it('marks a re-grade due once the interval has passed', async () => {
+      const longAgo = new Date(Date.now() - 30 * 86_400_000);
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        streak: 5,
+        sessions: 12,
+        wheelOfLife: { id: 'wheel-1' },
+      });
+      mockPrisma.wheelAssessment.findFirst.mockResolvedValue({
+        createdAt: longAgo,
+      });
+
+      const result = await service.getStats('fb-123');
+
+      expect(result.data?.regradeDue).toBe(true);
+      expect(result.data?.daysSinceGrading).toBe(30);
+    });
+
+    it('does not ask for a re-grade so soon after the last one', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        streak: 5,
+        sessions: 12,
+        wheelOfLife: { id: 'wheel-1' },
+      });
+      mockPrisma.wheelAssessment.findFirst.mockResolvedValue({
+        createdAt: new Date(Date.now() - 4 * 86_400_000),
+      });
+
+      const result = await service.getStats('fb-123');
+
+      expect(result.data?.regradeDue).toBe(false);
+    });
+
+    it('never asks a user who has not graded once to re-grade', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        streak: 0,
+        sessions: 0,
+        wheelOfLife: null,
+      });
+
+      const result = await service.getStats('fb-123');
+
+      expect(result.data?.regradeDue).toBe(false);
+      expect(result.data?.lastGradedAt).toBeNull();
     });
   });
 

@@ -10,7 +10,6 @@ import {
   Post,
   Query,
   UseGuards,
-  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -23,7 +22,7 @@ import {
 } from '@nestjs/swagger';
 import { FirebaseGuard } from '@alpha018/nestjs-firebase-auth';
 import { auth } from 'firebase-admin';
-import { BaseController, FirebaseUser, StreakInterceptor } from 'src/common';
+import { BaseController, FirebaseUser } from 'src/common';
 import { AffirmationLoopService } from './affirmation-loop.service';
 import {
   AffirmationLoopListResponseDto,
@@ -37,7 +36,6 @@ import {
 } from './dto';
 
 @UseGuards(FirebaseGuard)
-@UseInterceptors(StreakInterceptor)
 @ApiBearerAuth('firebase')
 @ApiTags('Reflection')
 @Controller('reflection/loops')

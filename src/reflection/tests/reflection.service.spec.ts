@@ -9,6 +9,7 @@ import { TextToSpeechService } from '../services/text-to-speech.service';
 import { INotificationService } from '../../notifications/interfaces/notification.interface';
 import { TtsVoicePreference } from '@prisma/client';
 import { StaterVideosService } from '../../stater-videos/stater-videos.service';
+import { StreakService } from '../../common/services/streak.service';
 
 jest.mock('../../common', () => {
   const originalModule = jest.requireActual('../../common');
@@ -31,6 +32,7 @@ describe('ReflectionService', () => {
   let mockTextToSpeechService: any;
   let mockNotificationService: any;
   let mockStaterVideosService: any;
+  let mockStreakService: any;
 
   const mockUser = {
     id: 'user-123',
@@ -149,6 +151,10 @@ describe('ReflectionService', () => {
       getSoundByName: jest.fn(),
     };
 
+    mockStreakService = {
+      updateStreak: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReflectionService,
@@ -162,6 +168,7 @@ describe('ReflectionService', () => {
         { provide: TextToSpeechService, useValue: mockTextToSpeechService },
         { provide: INotificationService, useValue: mockNotificationService },
         { provide: StaterVideosService, useValue: mockStaterVideosService },
+        { provide: StreakService, useValue: mockStreakService },
       ],
     }).compile();
 
