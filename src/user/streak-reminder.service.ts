@@ -102,6 +102,37 @@ function getKindFromHour(hour: number): ReminderKind {
   return 'evening';
 }
 
+/**
+ * Times used when a user hasn't chosen their own -- read in *their* timezone,
+ * not the server's.
+ */
+const DEFAULT_REMINDER_TIMES = ['08:00', '18:00'];
+
+/**
+ * Whether a stored calendar day is today in `timezone`.
+ *
+ * `lastStreakDate` is written as UTC midnight of the user's local day, so its
+ * ISO date is already the local one and can be compared as a string.
+ */
+function isTodayInZone(
+  day: Date | null,
+  timezone: string,
+  now: Date,
+): boolean {
+  if (!day) return false;
+  try {
+    const todayYmd = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(now);
+    return day.toISOString().slice(0, 10) === todayYmd;
+  } catch {
+    return day.toISOString().slice(0, 10) === now.toISOString().slice(0, 10);
+  }
+}
+
 /** Current time in timezone as "HH:mm" (hour and minute). Pass optional now for a consistent snapshot. */
 function getCurrentTimeInZone(
   timezone: string,
@@ -131,21 +162,16 @@ export class StreakReminderService {
     private readonly notificationService: INotificationService,
   ) {}
 
-  /** Default: 8:00 UTC – morning reminders for users with no custom times */
-  @Cron('0 8 * * *')
-  async sendDefaultMorningReminders() {
-    await this.sendRemindersToDefaultUsers('morning');
-  }
-
-  /** Default: 18:00 UTC – evening reminders for users with no custom times */
-  @Cron('0 18 * * *')
-  async sendDefaultEveningReminders() {
-    await this.sendRemindersToDefaultUsers('evening');
-  }
-
-  /** Every hour: custom-time users – if their local time matches a reminder time, send the right message (morning/afternoon/evening) */
+  /**
+   * Hourly, for everyone.
+   *
+   * Users with no times of their own used to be served by two crons pinned to
+   * fixed UTC hours, which sent "Good morning" at 04:00 to anyone in New York.
+   * Running hourly and reading each user's own clock is the same schedule for
+   * someone in UTC and the correct one for everyone else.
+   */
   @Cron('0 * * * *')
-  async sendCustomTimeReminders() {
+  async sendStreakReminders() {
     const now = new Date();
     const dateKey = now.toISOString().slice(0, 10);
 
@@ -154,13 +180,13 @@ export class StreakReminderService {
         streak: { gt: 0 },
         pushTokens: { isEmpty: false },
         streakReminderEnabled: true,
-        streakReminderTimes: { isEmpty: false },
       },
       select: {
         id: true,
         streak: true,
         streakReminderTimes: true,
         timezone: true,
+        lastStreakDate: true,
       },
       orderBy: { id: 'asc' },
       take: MAX_USERS_PER_RUN,
@@ -174,17 +200,26 @@ export class StreakReminderService {
       kind: ReminderKind;
       timeStr: string;
     };
-    const toNotify: UserWithKind[] = [];
+    const candidates: UserWithKind[] = [];
     for (const user of users) {
-      const times = user.streakReminderTimes ?? [];
       const tz = (user.timezone || 'UTC').trim() || 'UTC';
       const { hour, timeStr } = getCurrentTimeInZone(tz, now);
+
+      const times = user.streakReminderTimes?.length
+        ? user.streakReminderTimes
+        : DEFAULT_REMINDER_TIMES;
 
       // Match when current time in user's TZ is exactly HH:00 (cron runs at minute 0). User times are "HH:mm".
       const currentHourLabel = `${String(hour).padStart(2, '0')}:00`;
       if (!times.includes(currentHourLabel)) continue;
-      toNotify.push({ ...user, kind: getKindFromHour(hour), timeStr });
+
+      // Nothing to keep alive if they've already been active today.
+      if (isTodayInZone(user.lastStreakDate, tz, now)) continue;
+
+      candidates.push({ ...user, kind: getKindFromHour(hour), timeStr });
     }
+
+    const toNotify = await this.withoutActiveWave(candidates);
 
     for (const batch of chunk(toNotify, NOTIFY_BATCH_SIZE)) {
       const results = await Promise.allSettled(
@@ -220,68 +255,31 @@ export class StreakReminderService {
     }
 
     this.logger.debug(
-      `Custom streak reminders: processed ${users.length} users, sent to ${toNotify.length} with matching time`,
+      `Streak reminders: ${users.length} eligible, ${candidates.length} at a matching time, ${toNotify.length} sent after waves took theirs`,
     );
   }
 
-  /** Send to users who use defaults: no custom times, reminders enabled, at fixed UTC 8 (morning) or 18 (evening). */
-  private async sendRemindersToDefaultUsers(kind: ReminderKind) {
-    const users = await this.prisma.user.findMany({
+  /**
+   * Drop users whose wave is already reminding them.
+   *
+   * A running wave sends its own nudge and is the only scheduler that knows
+   * whether the day's practice is done, so it owns the daily ask while it
+   * lasts. Streak reminders are the fallback for people with no wave running.
+   */
+  private async withoutActiveWave<T extends { id: string }>(
+    users: T[],
+  ): Promise<T[]> {
+    if (users.length === 0) return users;
+
+    const waves = await this.prisma.wave.findMany({
       where: {
-        streak: { gt: 0 },
-        pushTokens: { isEmpty: false },
-        streakReminderEnabled: true,
-        streakReminderTimes: { isEmpty: true },
+        isActive: true,
+        session: { userId: { in: users.map((u) => u.id) } },
       },
-      select: { id: true, streak: true },
-      orderBy: { id: 'asc' },
-      take: MAX_USERS_PER_RUN,
+      select: { session: { select: { userId: true } } },
     });
 
-    if (users.length === 0) {
-      this.logger.debug(
-        `Streak reminders (${kind}, default): no eligible users`,
-      );
-      return;
-    }
-
-    const messages = MESSAGE_MAP[kind];
-    const dateKey = new Date().toISOString().slice(0, 10);
-
-    for (const batch of chunk(users, NOTIFY_BATCH_SIZE)) {
-      const results = await Promise.allSettled(
-        batch.map((user) => {
-          const pick = messages[Math.floor(Math.random() * messages.length)];
-          const { title, body } = pick(user.streak);
-          const requestId = `streak-reminder-${user.id}-${dateKey}-${kind}-${randomUUID()}`;
-          return this.notificationService.notifyUser({
-            userId: user.id,
-            type: NotificationTypeEnum.STREAK_REMINDER,
-            requestId,
-            channels: [
-              { type: NotificationChannelTypeEnum.PUSH },
-              { type: NotificationChannelTypeEnum.IN_APP },
-            ],
-            metadata: {
-              title,
-              body,
-              streak: user.streak,
-              reminderKind: kind,
-            },
-          });
-        }),
-      );
-      results.forEach((result, i) => {
-        if (result.status === 'rejected') {
-          this.logger.warn(
-            `Streak reminder failed for user ${batch[i].id}: ${result.reason?.message ?? result.reason}`,
-          );
-        }
-      });
-    }
-
-    this.logger.log(
-      `Streak reminders (${kind}, default): sent to ${users.length} users`,
-    );
+    const reminded = new Set(waves.map((w) => w.session.userId));
+    return users.filter((u) => !reminded.has(u.id));
   }
 }
