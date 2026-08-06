@@ -124,14 +124,12 @@ export class SessionExpirationService extends BaseService {
   }
 
   private async updateUserSessions(userId: string) {
-    const updatedUser = await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        sessions: { increment: 1 },
-      },
-      select: {
-        sessions: true,
-      },
+    // `User.sessions` counts practice sessions -- days of a wave the user
+    // closed -- so a reflection session running its course must not touch it.
+    // Count the reflection sessions themselves for the message instead, or the
+    // notification reports one number while naming another.
+    const completedSessions = await this.prisma.reflectionSession.count({
+      where: { userId, status: 'COMPLETED' },
     });
 
     // Send push notification for session completion
@@ -147,8 +145,8 @@ export class SessionExpirationService extends BaseService {
         ],
         metadata: {
           title: 'Session Completed!',
-          body: `Great work! You've completed ${updatedUser.sessions} reflection session${updatedUser.sessions === 1 ? '' : 's'}!`,
-          totalSessions: updatedUser.sessions,
+          body: `Great work! You've completed ${completedSessions} reflection session${completedSessions === 1 ? '' : 's'}!`,
+          totalSessions: completedSessions,
         },
       });
     } catch (notificationError) {
