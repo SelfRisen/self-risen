@@ -102,6 +102,47 @@ describe('TemplateService', () => {
     expect(result.content).toContain('Body text');
   });
 
+  // A push notification with no template on disk used to arrive as literal
+  // `<html><body><h1>` markup on the lock screen, because the single fallback
+  // was HTML whatever the channel.
+  it('never falls back to markup on a push notification', async () => {
+    existsSyncMock.mockReturnValue(false);
+
+    const result = await service.resolveTemplate(
+      NotificationTypeEnum.AFFIRMATION_LOOP_READY,
+      NotificationChannelTypeEnum.PUSH,
+      { title: '"Morning Abundance" is ready', body: 'Your loop is ready to play.' },
+    );
+
+    expect(result.content).toBe('Your loop is ready to play.');
+    expect(result.content).not.toMatch(/<[a-z]/i);
+  });
+
+  it('never falls back to markup in-app', async () => {
+    existsSyncMock.mockReturnValue(false);
+
+    const result = await service.resolveTemplate(
+      NotificationTypeEnum.AFFIRMATION_LOOP_READY,
+      NotificationChannelTypeEnum.IN_APP,
+      { title: 'Ready', body: 'Your loop is ready to play.' },
+    );
+
+    expect(result.content).not.toMatch(/<[a-z]/i);
+  });
+
+  it('still falls back to html for email, which can render it', async () => {
+    existsSyncMock.mockReturnValue(false);
+
+    const result = await service.resolveTemplate(
+      NotificationTypeEnum.USER_ONBOARDING_WELCOME,
+      NotificationChannelTypeEnum.EMAIL,
+      { title: 'Hi', body: 'Body text' },
+    );
+
+    expect(result.content).toContain('<html>');
+    expect(result.htmlBody).toContain('<html>');
+  });
+
   it('uses a default template id for unmapped type/channel pairs', async () => {
     existsSyncMock.mockReturnValue(false);
 
