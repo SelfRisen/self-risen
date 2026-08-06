@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import * as fs from 'fs';
@@ -19,8 +19,18 @@ export interface ResolvedTemplateData {
 
 @Injectable()
 export class TemplateService {
+  private readonly logger = new Logger(TemplateService.name);
   private readonly TEMPLATE_DIR = path.join(__dirname, '../templates');
-  private readonly FALLBACK_TEMPLATE = `
+
+  /**
+   * Fallbacks per channel.
+   *
+   * There used to be one, and it was HTML. A push notification with no
+   * template on disk therefore arrived as literal `<html><body><h1>` markup
+   * on the user's lock screen. Only email can render tags, so only email may
+   * fall back to them.
+   */
+  private readonly FALLBACK_HTML = `
     <html>
       <body>
         <h1>\${title}</h1>
@@ -28,6 +38,13 @@ export class TemplateService {
       </body>
     </html>
   `;
+  private readonly FALLBACK_TEXT = '${body}';
+
+  private fallbackFor(channel: NotificationChannelTypeEnum): string {
+    return channel === NotificationChannelTypeEnum.EMAIL
+      ? this.FALLBACK_HTML
+      : this.FALLBACK_TEXT;
+  }
 
   constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {
     // Ensure template directory exists
@@ -107,13 +124,13 @@ export class TemplateService {
         content = await fs.promises.readFile(templatePath, 'utf-8');
         await this.cacheManager.set(cacheKey, content, 3600000); // 1 hour cache
         return content;
-      } else {
-        // Return fallback template
-        return this.FALLBACK_TEMPLATE;
       }
+      this.logger.warn(
+        `Notification template ${filename} missing at ${templatePath}; using the ${channel} fallback.`,
+      );
+      return this.fallbackFor(channel);
     } catch {
-      // Return fallback template
-      return this.FALLBACK_TEMPLATE;
+      return this.fallbackFor(channel);
     }
   }
 

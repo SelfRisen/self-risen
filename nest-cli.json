@@ -6,6 +6,13 @@
   "compilerOptions": {
     "deleteOutDir": true,
     "webpack": false,
-    "tsConfigPath": "tsconfig.build.json"
+    "tsConfigPath": "tsconfig.build.json",
+    "assets": [
+      {
+        "include": "notifications/templates/**/*",
+        "outDir": "dist/src"
+      }
+    ],
+    "watchAssets": true
   }
 }
