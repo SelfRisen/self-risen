@@ -83,6 +83,7 @@ describe('ReflectionService', () => {
       $executeRaw: jest.fn().mockResolvedValue(undefined),
       user: {
         findUnique: jest.fn(),
+        update: jest.fn(),
       },
       wheelCategory: {
         findFirst: jest.fn(),
@@ -1093,7 +1094,14 @@ describe('ReflectionService', () => {
     it('closes the day on a single play when the cadence is once daily', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.wave.findFirst.mockResolvedValue(activeWave);
+      // The upsert never closes the day, whatever the cadence.
       mockPrisma.waveCheckIn.upsert.mockResolvedValue({
+        id: 'ci-1',
+        plays: 1,
+        completedAt: null,
+        date: todayUtcMidnight(),
+      });
+      mockPrisma.waveCheckIn.update.mockResolvedValue({
         id: 'ci-1',
         plays: 1,
         completedAt: new Date(),
@@ -1111,8 +1119,77 @@ describe('ReflectionService', () => {
       expect(result.isError).toBe(false);
       expect(result.data?.daysPractised).toBe(1);
       expect(result.data?.playsRemainingToday).toBe(0);
-      // Already closed on create -- no follow-up write needed.
+      expect(mockPrisma.waveCheckIn.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'ci-1' } }),
+      );
+    });
+
+    it('counts one practice session when the day closes', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.wave.findFirst.mockResolvedValue(activeWave);
+      mockPrisma.waveCheckIn.upsert.mockResolvedValue({
+        id: 'ci-1',
+        plays: 1,
+        completedAt: null,
+        date: todayUtcMidnight(),
+      });
+      mockPrisma.waveCheckIn.update.mockResolvedValue({
+        id: 'ci-1',
+        plays: 1,
+        completedAt: new Date(),
+        date: todayUtcMidnight(),
+      });
+      mockPrisma.waveCheckIn.findMany.mockResolvedValue([
+        { plays: 1, completedAt: new Date(), date: todayUtcMidnight() },
+      ]);
+
+      await service.recordWaveCheckIn('firebase-uid-123', 'wave-1');
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-123' },
+        data: { sessions: { increment: 1 } },
+      });
+    });
+
+    it('does not count a second session for a day already closed', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.wave.findFirst.mockResolvedValue(activeWave);
+      // Playing again after the day is closed: plays climbs, nothing else does.
+      mockPrisma.waveCheckIn.upsert.mockResolvedValue({
+        id: 'ci-1',
+        plays: 2,
+        completedAt: new Date(),
+        date: todayUtcMidnight(),
+      });
+      mockPrisma.waveCheckIn.findMany.mockResolvedValue([
+        { plays: 2, completedAt: new Date(), date: todayUtcMidnight() },
+      ]);
+
+      await service.recordWaveCheckIn('firebase-uid-123', 'wave-1');
+
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
       expect(mockPrisma.waveCheckIn.update).not.toHaveBeenCalled();
+    });
+
+    it('does not count a session while the day is still open', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.wave.findFirst.mockResolvedValue({
+        ...activeWave,
+        cadence: 2,
+      });
+      mockPrisma.waveCheckIn.upsert.mockResolvedValue({
+        id: 'ci-1',
+        plays: 1,
+        completedAt: null,
+        date: todayUtcMidnight(),
+      });
+      mockPrisma.waveCheckIn.findMany.mockResolvedValue([
+        { plays: 1, completedAt: null, date: todayUtcMidnight() },
+      ]);
+
+      await service.recordWaveCheckIn('firebase-uid-123', 'wave-1');
+
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
     });
 
     it('leaves the day open after one play when the cadence is twice daily', async () => {

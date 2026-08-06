@@ -1407,14 +1407,12 @@ export class ReflectionService extends BaseService {
     const today = this.localCalendarDay(new Date(), user.timezone);
 
     // Upserting keeps two rapid plays from racing to create the same day.
+    // The day is never closed here, even at cadence 1: closing in one place
+    // only makes `closedNow` mean what it says, so anything that should happen
+    // once per completed day can hang off it.
     const checkIn = await this.prisma.waveCheckIn.upsert({
       where: { waveId_date: { waveId, date: today } },
-      create: {
-        waveId,
-        date: today,
-        plays: 1,
-        completedAt: wave.cadence <= 1 ? new Date() : null,
-      },
+      create: { waveId, date: today, plays: 1 },
       update: { plays: { increment: 1 } },
     });
 
@@ -1425,6 +1423,25 @@ export class ReflectionService extends BaseService {
           data: { completedAt: new Date() },
         })
       : checkIn;
+
+    // A closed day is one practice session. Counting it here is what makes the
+    // home counter a lifetime total of effort, which is the thing a streak
+    // can't say: a streak resets, this doesn't. Only on the call that closed
+    // the day, so a second play at cadence 1 doesn't count twice.
+    if (closedNow) {
+      try {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { sessions: { increment: 1 } },
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Failed to count practice session after check-in: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
 
     // Practising is what earns a streak, so extend it here rather than on any
     // authenticated request. A streak failure must never fail the check-in.
