@@ -29,7 +29,12 @@ export class AudioMergeService {
 
   /**
    * Concatenate affirmation tracks, mix with background music, apply fade and cap.
-   * Returns output path and duration in seconds.
+   * Returns the duration in seconds and where each affirmation begins.
+   *
+   * The offsets are the running total of the inputs' own durations. MP3
+   * concatenation can add a few milliseconds of frame padding per join, so a
+   * long loop may drift slightly from the true position -- close enough to
+   * skip to an affirmation, not close enough to cut audio on.
    *
    * @param backgroundCacheKey - Stable identifier for the background track (e.g. its
    * source URL), used to cache its detected intro length across merges instead of
@@ -41,13 +46,18 @@ export class AudioMergeService {
     outputPath: string,
     maxDurationSeconds = MAX_LOOP_DURATION_SECONDS,
     backgroundCacheKey?: string,
-  ): Promise<number> {
+  ): Promise<{ durationSeconds: number; affirmationOffsets: number[] }> {
     const cappedMaxDuration = Math.min(
       Math.max(1, maxDurationSeconds),
       MAX_LOOP_DURATION_SECONDS,
     );
     const tmpDir = path.dirname(outputPath);
     const affirmationsPath = path.join(tmpDir, 'affirmations.mp3');
+
+    // Probed before the concat, while each affirmation is still its own file.
+    // Afterwards there is nothing in the output marking where one ends.
+    const affirmationOffsets =
+      await this.measureAffirmationOffsets(affirmationPaths);
 
     await this.concatAffirmations(affirmationPaths, affirmationsPath, tmpDir);
 
@@ -72,7 +82,40 @@ export class AudioMergeService {
     );
 
     const finalDuration = await this.probeDurationSeconds(outputPath);
-    return Math.min(Math.ceil(finalDuration), cappedMaxDuration);
+    const durationSeconds = Math.min(
+      Math.ceil(finalDuration),
+      cappedMaxDuration,
+    );
+
+    // An offset past the end would send the player somewhere that doesn't
+    // exist, which is worse than not offering the skip at all.
+    return {
+      durationSeconds,
+      affirmationOffsets: affirmationOffsets.filter((o) => o < durationSeconds),
+    };
+  }
+
+  /**
+   * Start time of each affirmation, in seconds, first always at 0.
+   */
+  private async measureAffirmationOffsets(
+    inputPaths: string[],
+  ): Promise<number[]> {
+    const offsets: number[] = [];
+    let running = 0;
+
+    for (const inputPath of inputPaths) {
+      offsets.push(Number(running.toFixed(3)));
+      try {
+        running += await this.probeDurationSeconds(inputPath);
+      } catch {
+        // One unreadable file shouldn't cost the whole loop its skip points;
+        // the offsets after it are wrong, so stop rather than mislead.
+        return offsets;
+      }
+    }
+
+    return offsets;
   }
 
   private async concatAffirmations(

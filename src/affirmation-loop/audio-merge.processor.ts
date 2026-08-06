@@ -130,7 +130,8 @@ export class AudioMergeProcessor {
       await this.storageService.downloadToFile(sound.url, bgDest);
 
       const outputPath = path.join(tmpDir, 'output.mp3');
-      const durationSeconds = await this.audioMergeService.mergeLoopAudio(
+      const { durationSeconds, affirmationOffsets } =
+        await this.audioMergeService.mergeLoopAudio(
         affirmationLocalPaths,
         bgDest,
         outputPath,
@@ -153,6 +154,7 @@ export class AudioMergeProcessor {
           status: AffirmationLoopStatus.READY,
           audioPath: uploadResult.path,
           durationSeconds,
+          affirmationOffsets,
           errorMessage: null,
         },
       });

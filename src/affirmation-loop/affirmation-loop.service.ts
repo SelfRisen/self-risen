@@ -503,6 +503,7 @@ export class AffirmationLoopService extends BaseService {
       status: AffirmationLoopStatus;
       audioPath: string | null;
       durationSeconds: number | null;
+      affirmationOffsets: number[];
       backgroundMusicKey: string;
       voicePreference: TtsVoicePreference | null;
       errorMessage: string | null;
@@ -535,6 +536,7 @@ export class AffirmationLoopService extends BaseService {
       name: loop.name,
       description: loop.description,
       durationSeconds: loop.durationSeconds,
+      affirmationOffsets: loop.affirmationOffsets ?? [],
       backgroundMusicKey: loop.backgroundMusicKey,
       voicePreference: loop.voicePreference,
       affirmationIds: loop.items

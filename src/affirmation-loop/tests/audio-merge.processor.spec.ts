@@ -51,7 +51,10 @@ describe('AudioMergeProcessor', () => {
 
     mockMerge = {
       createTempDir: jest.fn().mockReturnValue('/tmp/audio-merge-loop-1'),
-      mergeLoopAudio: jest.fn().mockResolvedValue(90),
+      mergeLoopAudio: jest.fn().mockResolvedValue({
+        durationSeconds: 90,
+        affirmationOffsets: [0, 4.5, 9.25],
+      }),
       cleanupTempDir: jest.fn(),
     };
 
@@ -133,6 +136,9 @@ describe('AudioMergeProcessor', () => {
         data: expect.objectContaining({
           status: AffirmationLoopStatus.READY,
           durationSeconds: 90,
+          // Without these persisted, skipping between affirmations has
+          // nothing to skip to.
+          affirmationOffsets: [0, 4.5, 9.25],
         }),
       }),
     );
