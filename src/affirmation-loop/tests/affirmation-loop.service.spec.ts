@@ -85,7 +85,9 @@ describe('AffirmationLoopService', () => {
       }),
       affirmationLoop: {
         findFirst: jest.fn(),
+        findUnique: jest.fn(),
         findMany: jest.fn(),
+        update: jest.fn(),
         count: jest.fn(),
         delete: jest.fn(),
       },
@@ -178,5 +180,91 @@ describe('AffirmationLoopService', () => {
     const result = await service.getLoopById('fb-1', 'loop-1');
     expect(result.isError).toBe(true);
     expect(result.error).toBeInstanceOf(NotFoundException);
+  });
+
+  // waveSessionId is derived from the items' affirmations rather than stored,
+  // so a query that forgets the relation returns null instead of failing. That
+  // null is what ties a loop to its wave, so losing it silently stops practice
+  // being counted. These pin the relation to every read.
+  describe('waveSessionId', () => {
+    const loopRow = (sessionId: string | null) => ({
+      id: 'loop-1',
+      status: AffirmationLoopStatus.READY,
+      audioPath: 'loops/loop-1.mp3',
+      name: 'Morning Abundance',
+      description: null,
+      durationSeconds: 180,
+      backgroundMusicKey: 'meditation',
+      voicePreference: null,
+      errorMessage: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      items: [
+        {
+          affirmationId: 'aff-1',
+          sortOrder: 0,
+          ...(sessionId ? { affirmation: { sessionId } } : {}),
+        },
+      ],
+    });
+
+    it('is returned by listLoops, not just by getLoopById', async () => {
+      mockPrisma.affirmationLoop.count.mockResolvedValue(1);
+      mockPrisma.affirmationLoop.findMany.mockResolvedValue([
+        loopRow('session-9'),
+      ]);
+
+      const result = await service.listLoops('fb-1', 1, 10);
+
+      expect(result.isError).toBe(false);
+      expect(result.data?.data[0].waveSessionId).toBe('session-9');
+    });
+
+    it('loads the affirmation relation when listing', async () => {
+      mockPrisma.affirmationLoop.count.mockResolvedValue(0);
+      mockPrisma.affirmationLoop.findMany.mockResolvedValue([]);
+
+      await service.listLoops('fb-1', 1, 10);
+
+      expect(mockPrisma.affirmationLoop.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: expect.objectContaining({
+            items: expect.objectContaining({
+              include: { affirmation: { select: { sessionId: true } } },
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('is returned by updateLoop, which used to hand back the raw row', async () => {
+      mockPrisma.affirmationLoop.findUnique.mockResolvedValue(loopRow(null));
+      mockPrisma.affirmationLoop.update.mockResolvedValue(loopRow('session-9'));
+
+      const result = await service.updateLoop('fb-1', 'loop-1', {
+        name: 'Renamed',
+        backgroundMusicKey: 'meditation',
+        durationSeconds: 180,
+      });
+
+      expect(result.isError).toBe(false);
+      expect(result.data?.waveSessionId).toBe('session-9');
+      expect(result.data?.affirmationIds).toEqual(['aff-1']);
+    });
+
+    it('is null when a loop spans more than one session', async () => {
+      const row = loopRow('session-9');
+      row.items.push({
+        affirmationId: 'aff-2',
+        sortOrder: 1,
+        affirmation: { sessionId: 'session-other' },
+      });
+      mockPrisma.affirmationLoop.count.mockResolvedValue(1);
+      mockPrisma.affirmationLoop.findMany.mockResolvedValue([row]);
+
+      const result = await service.listLoops('fb-1', 1, 10);
+
+      expect(result.data?.data[0].waveSessionId).toBeNull();
+    });
   });
 });

@@ -25,6 +25,22 @@ export interface AudioMergeJobData {
   loopId: string;
 }
 
+/**
+ * Every read of a loop must load this much.
+ *
+ * `waveSessionId` is derived from the items' affirmations rather than stored,
+ * so a query that omits the affirmation relation doesn't return a partial
+ * loop -- it returns one whose `waveSessionId` is silently null. That field is
+ * what ties a loop to its wave, so dropping it means practice is never counted
+ * against the wave. Share the include so a new query can't miss it.
+ */
+const LOOP_INCLUDE = {
+  items: {
+    orderBy: { sortOrder: 'asc' },
+    include: { affirmation: { select: { sessionId: true } } },
+  },
+} as const;
+
 @Injectable()
 export class AffirmationLoopService extends BaseService {
   private readonly logger = new Logger(AffirmationLoopService.name);
@@ -131,9 +147,7 @@ export class AffirmationLoopService extends BaseService {
             })),
           },
         },
-        include: {
-          items: { orderBy: { sortOrder: 'asc' } },
-        },
+        include: LOOP_INCLUDE,
       });
 
       return created;
@@ -189,9 +203,17 @@ export class AffirmationLoopService extends BaseService {
         backgroundMusicKey: dto.backgroundMusicKey,
         durationSeconds: dto.durationSeconds,
       },
+      include: LOOP_INCLUDE,
     });
 
-    return this.Results(updated);
+    // Return the same shape as the other loop endpoints. Handing back the raw
+    // row meant a client that re-seeded from an update response lost the
+    // audio URL and the wave link that the row doesn't carry.
+    const audioUrl = await this.resolveAudioUrl(
+      updated.audioPath,
+      updated.status,
+    );
+    return this.Results(this.toResponse(updated, audioUrl));
   }
 
   async getLoopById(firebaseId: string, loopId: string) {
@@ -202,12 +224,7 @@ export class AffirmationLoopService extends BaseService {
 
     const loop = await this.prisma.affirmationLoop.findFirst({
       where: { id: loopId, userId: user.id },
-      include: {
-        items: {
-          orderBy: { sortOrder: 'asc' },
-          include: { affirmation: { select: { sessionId: true } } },
-        },
-      },
+      include: LOOP_INCLUDE,
     });
 
     if (!loop) {
@@ -239,9 +256,7 @@ export class AffirmationLoopService extends BaseService {
         orderBy: { createdAt: 'desc' },
         skip,
         take: pageSize,
-        include: {
-          items: { orderBy: { sortOrder: 'asc' } },
-        },
+        include: LOOP_INCLUDE,
       }),
     ]);
 
