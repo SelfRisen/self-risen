@@ -325,6 +325,9 @@ model AffirmationLoop {
   status             AffirmationLoopStatus @default(PROCESSING)
   audioPath          String?
   durationSeconds    Int?
+  /// Seconds into the loop where each affirmation begins, first at 0. Empty
+  /// for loops merged before this was recorded.
+  affirmationOffsets Float[]           @default([])
   backgroundMusicKey String
   voicePreference    TtsVoicePreference?
   errorMessage       String?
