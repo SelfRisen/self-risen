@@ -53,10 +53,23 @@ export class LoopReminderService {
       where: { isActive: true },
       include: {
         user: { select: { id: true, pushTokens: true } },
+        loop: {
+          select: {
+            items: { select: { affirmation: { select: { sessionId: true } } } },
+          },
+        },
       },
       orderBy: { id: 'asc' },
       take: MAX_REMINDERS_PER_RUN,
     });
+
+    // A loop that a wave is running owns its own reminder, and that one goes
+    // quiet once the day's practice is done. Sending this as well would be a
+    // second nudge for the same play, from the scheduler that can't tell
+    // whether it's already been made.
+    const waveSessionIds = await this.activeWaveSessionIds(
+      reminders.map((r) => r.userId),
+    );
 
     type ToNotify = {
       userId: string;
@@ -67,6 +80,16 @@ export class LoopReminderService {
 
     for (const reminder of reminders) {
       if (!reminder.user || reminder.user.pushTokens.length === 0) {
+        continue;
+      }
+
+      const sessionIds = new Set(
+        (reminder.loop?.items ?? [])
+          .map((item) => item.affirmation?.sessionId)
+          .filter((id): id is string => !!id),
+      );
+      const loopSessionId = sessionIds.size === 1 ? [...sessionIds][0] : null;
+      if (loopSessionId && waveSessionIds.has(loopSessionId)) {
         continue;
       }
 
@@ -126,5 +149,17 @@ export class LoopReminderService {
     if (toNotify.length > 0) {
       this.logger.debug(`Loop reminders sent for ${toNotify.length} loops`);
     }
+  }
+
+  /** Session ids of the waves currently running for these users. */
+  private async activeWaveSessionIds(userIds: string[]): Promise<Set<string>> {
+    if (userIds.length === 0) return new Set();
+
+    const waves = await this.prisma.wave.findMany({
+      where: { isActive: true, session: { userId: { in: userIds } } },
+      select: { sessionId: true },
+    });
+
+    return new Set(waves.map((w) => w.sessionId));
   }
 }
