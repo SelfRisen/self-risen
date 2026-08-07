@@ -26,3 +26,17 @@ export enum NotificationTypeEnum {
   SESSION_COMPLETED = 'SESSION_COMPLETED',
   MANUAL = 'MANUAL',
 }
+
+/**
+ * Canonical `screen` values for notification payloads.
+ *
+ * Four producers wrote three different strings for the same destination,
+ * and the app matched one of them. The client now routes on payload
+ * contents rather than this field, but new notifications should still
+ * agree with each other.
+ */
+export enum NotificationScreenEnum {
+  LOOP = 'loop',
+  WAVE = 'wave',
+  AFFIRMATIONS = 'affirmations',
+}

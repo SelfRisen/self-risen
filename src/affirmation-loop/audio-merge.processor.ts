@@ -12,6 +12,7 @@ import { TextToSpeechService } from 'src/reflection/services/text-to-speech.serv
 import { INotificationService } from 'src/notifications/interfaces/notification.interface';
 import {
   NotificationChannelTypeEnum,
+  NotificationScreenEnum,
   NotificationTypeEnum,
 } from 'src/notifications/enums/notification.enum';
 import { AudioMergeService } from './audio-merge.service';
@@ -173,7 +174,7 @@ export class AudioMergeProcessor {
           title: `"${loopName}" is ready`,
           body: `Your loop "${loopName}" is ready to play.`,
           loopId,
-          screen: 'LoopDetail',
+          screen: NotificationScreenEnum.LOOP,
         },
       });
 
@@ -239,7 +240,7 @@ export class AudioMergeProcessor {
             title: 'Loop generation failed',
             body: 'Your loop token has been refunded. Please try again.',
             loopId,
-            screen: 'affirmation-loop',
+            screen: NotificationScreenEnum.LOOP,
           },
         });
       } catch (notifyError) {
