@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { DatabaseProvider } from 'src/database/database.provider';
 import { INotificationService } from 'src/notifications/interfaces/notification.interface';
 import {
+  NotificationScreenEnum,
   NotificationTypeEnum,
   NotificationChannelTypeEnum,
 } from 'src/notifications/enums/notification.enum';
@@ -139,7 +140,7 @@ export class WaveReminderService {
               body: many
                 ? `You have ${entry.waveIds.length} waves still open today.`
                 : 'Play your loop to close out today.',
-              screen: 'AffirmationLoop',
+              screen: NotificationScreenEnum.WAVE,
               waveIds: entry.waveIds,
             },
           });

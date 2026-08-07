@@ -5,6 +5,7 @@ import { DatabaseProvider } from 'src/database/database.provider';
 import { INotificationService } from 'src/notifications/interfaces/notification.interface';
 import {
   NotificationChannelTypeEnum,
+  NotificationScreenEnum,
   NotificationTypeEnum,
 } from 'src/notifications/enums/notification.enum';
 
@@ -127,7 +128,7 @@ export class LoopReminderService {
               title: 'Time for your affirmation loop',
               body: 'Tap to start your session',
               loopId: item.loopId,
-              screen: 'affirmation-loop',
+              screen: NotificationScreenEnum.LOOP,
             },
           }),
         ),
