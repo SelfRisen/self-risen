@@ -828,7 +828,7 @@ export class ReflectionController extends BaseController {
   @ApiOperation({
     summary: 'Select an affirmation as active',
     description:
-      'Marks the specified affirmation as the active/selected one for this session. Unselects any previously selected affirmation.',
+      "Adds the affirmation to the user's library. Additive -- several affirmations from one belief can be kept, and unchecking is a separate call.",
   })
   @ApiParam({
     name: 'sessionId',
@@ -867,6 +867,37 @@ export class ReflectionController extends BaseController {
 
     return this.response({
       message: 'Affirmation selected successfully',
+      data: result.data,
+    });
+  }
+
+  @Patch('sessions/:sessionId/affirmations/:affirmationId/deselect')
+  @ApiOperation({
+    summary: 'Uncheck an affirmation',
+    description:
+      "Removes the affirmation from the user's library. The counterpart to select, which is additive -- several affirmations from one belief can be kept.",
+  })
+  @ApiParam({
+    name: 'sessionId',
+    description: 'The unique identifier of the reflection session',
+  })
+  @ApiParam({
+    name: 'affirmationId',
+    description: 'The unique identifier of the affirmation to uncheck',
+  })
+  async deselectAffirmation(
+    @FirebaseUser() user: auth.DecodedIdToken,
+    @Param('sessionId') sessionId: string,
+    @Param('affirmationId') affirmationId: string,
+  ) {
+    const result = await this.reflectionService.deselectAffirmation(
+      user.uid,
+      sessionId,
+      affirmationId,
+    );
+    if (result.isError) throw result.error;
+    return this.response({
+      message: 'Affirmation unchecked',
       data: result.data,
     });
   }

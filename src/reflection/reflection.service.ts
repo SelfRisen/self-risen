@@ -31,23 +31,38 @@ export class ReflectionService extends BaseService {
   private readonly logger = new Logger(ReflectionService.name);
 
   // Category name to prompt mapping
+  /**
+   * The opening line for each life area, written out rather than assembled.
+   *
+   * There is no rule that turns a category name into a grammatical prompt:
+   * "Finances is..." is wrong, "Finances are..." is right, and "Personal
+   * Growth" wants neither. Users can rename their categories too, so the
+   * name is arbitrary text. Authored copy for the areas we ship, and a
+   * fallback that reads correctly whatever the noun.
+   *
+   * Keys are the exact DEFAULT_CATEGORIES values from the wheel service.
+   * Older aliases are kept so sessions created before a rename still match.
+   */
   private readonly PROMPT_MAPPING: Record<string, string> = {
+    'Health & Well-being': 'My health is...',
+    'Relationships & Intimacy': 'Love is...',
+    'Career & Work': 'My work is...',
     Finances: 'Money is...',
+    Spirituality: 'Spirituality is...',
+    'Personal Growth': 'I am...',
+    'Leisure & Fun': 'Fun is...',
+    'Community Service': 'Giving back is...',
+
+    // Earlier names, kept so existing sessions keep their prompt.
     Finance: 'Money is...',
     Relationships: 'Love is...',
     Relationship: 'Love is...',
-    // 'Health & Well-being': 'My body is...',
-    Health: 'My health...',
-    // 'Career / Work': 'My work is...',
+    Health: 'My health is...',
     Career: 'My work is...',
     Work: 'My work is...',
-    'Personal Growth': 'I am...',
     'Personal Development': 'I am...',
-    'Leisure & Fun': 'Fun is...',
     Leisure: 'Fun is...',
     Environment: 'My environment is...',
-    // 'Spirituality / Mindfulness': 'Spirituality is...',
-    Spirituality: 'Spirituality is...',
     Mindfulness: 'Mindfulness is...',
   };
 
@@ -1715,6 +1730,11 @@ export class ReflectionService extends BaseService {
                 session: {
                   select: {
                     isVision: true,
+                    // Which life area this came from. The library spans every
+                    // session a user has, so without it there is no way to
+                    // tell an affirmation about money from one about health,
+                    // let alone group them.
+                    category: { select: { id: true, name: true } },
                     reflectionSound: {
                       select: {
                         id: true,
@@ -1809,16 +1829,10 @@ export class ReflectionService extends BaseService {
     // Use a transaction to ensure atomicity
     try {
       await this.prisma.$transaction(async (tx) => {
-        // Unmark all other affirmations for this session
-        await tx.affirmation.updateMany({
-          where: {
-            sessionId: sessionId,
-            id: { not: affirmationId },
-          },
-          data: {
-            isSelected: false,
-          },
-        });
+        // Selecting is additive. A belief can produce several affirmations
+        // worth keeping, and the user carries whichever ones they want into
+        // a loop -- so this no longer unmarks its siblings. Unchecking is
+        // its own operation.
 
         // Mark the selected affirmation, update audio URL, and persist voice if we just generated (so affirmation remembers)
         await tx.affirmation.update({
@@ -1833,7 +1847,11 @@ export class ReflectionService extends BaseService {
           },
         });
 
-        // Update session's selected affirmation snapshot
+        // The session keeps a snapshot of one affirmation, which the wave
+        // banner and the vision board read. With several selected it means
+        // "the most recently chosen" -- those surfaces want one line, not a
+        // list, and the newest choice is the best answer to "what does this
+        // session sound like now".
         await tx.reflectionSession.update({
           where: { id: sessionId },
           data: {
@@ -1892,6 +1910,76 @@ export class ReflectionService extends BaseService {
    * Delete an affirmation from a session
    * Cannot delete if it's the only affirmation or if it's currently selected
    */
+  /**
+   * Uncheck an affirmation, removing it from the user's library.
+   *
+   * The counterpart to select, which is additive. The session keeps a
+   * snapshot of one affirmation for the wave banner and vision board, so if
+   * the one being unchecked is that snapshot it is replaced with another
+   * still-selected affirmation, or cleared when none remain -- otherwise
+   * those surfaces would go on quoting something the user just discarded.
+   */
+  async deselectAffirmation(
+    firebaseId: string,
+    sessionId: string,
+    affirmationId: string,
+  ) {
+    const user = await this.getUserByFirebaseId(firebaseId);
+    if (!user) {
+      return this.HandleError(new NotFoundException('User not found'));
+    }
+
+    const session = await this.prisma.reflectionSession.findFirst({
+      where: { id: sessionId, userId: user.id },
+    });
+    if (!session) {
+      return this.HandleError(
+        new NotFoundException('Reflection session not found'),
+      );
+    }
+
+    const affirmation = await this.prisma.affirmation.findFirst({
+      where: { id: affirmationId, sessionId },
+    });
+    if (!affirmation) {
+      return this.HandleError(new NotFoundException('Affirmation not found'));
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.affirmation.update({
+        where: { id: affirmationId },
+        data: { isSelected: false },
+      });
+
+      const wasSnapshot =
+        session.selectedAffirmationText === affirmation.affirmationText;
+      if (!wasSnapshot) return;
+
+      const remaining = await tx.affirmation.findFirst({
+        where: { sessionId, isSelected: true },
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      await tx.reflectionSession.update({
+        where: { id: sessionId },
+        data: {
+          selectedAffirmationText: remaining?.affirmationText ?? null,
+          selectedAffirmationAudioUrl: remaining?.audioUrl ?? null,
+        },
+      });
+    });
+
+    const updated = await this.prisma.reflectionSession.findFirst({
+      where: { id: sessionId },
+      include: {
+        category: { select: { id: true, name: true } },
+        affirmations: { orderBy: { createdAt: 'desc' } },
+      },
+    });
+
+    return this.Results(updated);
+  }
+
   async deleteAffirmation(firebaseId: string, affirmationId: string) {
     const user = await this.getUserByFirebaseId(firebaseId);
     if (!user) {
@@ -1982,8 +2070,9 @@ export class ReflectionService extends BaseService {
       }
     }
 
-    // Default prompt if no match found
-    return `${categoryName} is...`;
+    // A renamed category is arbitrary text, so the fallback cannot pick a
+    // verb. This phrasing works for a singular, a plural or a gerund.
+    return `When I think about ${categoryName}...`;
   }
 
   /**

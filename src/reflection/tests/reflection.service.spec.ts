@@ -98,6 +98,8 @@ describe('ReflectionService', () => {
       affirmation: {
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
+        findFirst: jest.fn(),
       },
       reflectionSound: {
         create: jest.fn(),
@@ -1390,6 +1392,110 @@ describe('ReflectionService', () => {
       expect(result.data?.data[0].cadence).toBe(2);
       // checkIns themselves shouldn't be shipped to the client wholesale.
       expect(result.data?.data[0]).not.toHaveProperty('checkIns');
+    });
+  });
+
+  describe('affirmation selection', () => {
+    const affirmation = {
+      id: 'aff-1',
+      sessionId: 'session-123',
+      affirmationText: 'I am steady',
+      audioUrl: 'https://audio/1.mp3',
+      ttsVoicePreference: null,
+    };
+
+    beforeEach(() => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.reflectionSession.findFirst.mockResolvedValue({
+        ...mockSession,
+        selectedAffirmationText: 'I am steady',
+      });
+      mockPrisma.affirmation.findFirst.mockResolvedValue(affirmation);
+      mockPrisma.affirmation.update.mockResolvedValue(affirmation);
+      mockPrisma.reflectionSession.update.mockResolvedValue(mockSession);
+    });
+
+    // A belief can produce several affirmations worth keeping, and the user
+    // carries whichever ones they want into a loop. Selecting one used to
+    // unmark its siblings, which made "keep both" impossible.
+    it('does not unmark the other affirmations when one is selected', async () => {
+      await service.selectAffirmation(
+        'firebase-uid-123',
+        'session-123',
+        'aff-1',
+      );
+
+      expect(mockPrisma.affirmation.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.affirmation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'aff-1' },
+          data: expect.objectContaining({ isSelected: true }),
+        }),
+      );
+    });
+
+    it('unchecks an affirmation', async () => {
+      mockPrisma.affirmation.findFirst
+        .mockResolvedValueOnce(affirmation)
+        .mockResolvedValueOnce(null);
+
+      await service.deselectAffirmation(
+        'firebase-uid-123',
+        'session-123',
+        'aff-1',
+      );
+
+      expect(mockPrisma.affirmation.update).toHaveBeenCalledWith({
+        where: { id: 'aff-1' },
+        data: { isSelected: false },
+      });
+    });
+
+    // The session snapshot feeds the wave banner and the vision board. If
+    // the unchecked one is what they are quoting, they must stop quoting it.
+    it('moves the session snapshot off an unchecked affirmation', async () => {
+      mockPrisma.affirmation.findFirst
+        .mockResolvedValueOnce(affirmation)
+        .mockResolvedValueOnce({
+          ...affirmation,
+          id: 'aff-2',
+          affirmationText: 'I am open',
+          audioUrl: 'https://audio/2.mp3',
+        });
+
+      await service.deselectAffirmation(
+        'firebase-uid-123',
+        'session-123',
+        'aff-1',
+      );
+
+      expect(mockPrisma.reflectionSession.update).toHaveBeenCalledWith({
+        where: { id: 'session-123' },
+        data: {
+          selectedAffirmationText: 'I am open',
+          selectedAffirmationAudioUrl: 'https://audio/2.mp3',
+        },
+      });
+    });
+
+    it('clears the snapshot when nothing is left checked', async () => {
+      mockPrisma.affirmation.findFirst
+        .mockResolvedValueOnce(affirmation)
+        .mockResolvedValueOnce(null);
+
+      await service.deselectAffirmation(
+        'firebase-uid-123',
+        'session-123',
+        'aff-1',
+      );
+
+      expect(mockPrisma.reflectionSession.update).toHaveBeenCalledWith({
+        where: { id: 'session-123' },
+        data: {
+          selectedAffirmationText: null,
+          selectedAffirmationAudioUrl: null,
+        },
+      });
     });
   });
 });
