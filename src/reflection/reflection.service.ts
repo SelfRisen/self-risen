@@ -31,23 +31,38 @@ export class ReflectionService extends BaseService {
   private readonly logger = new Logger(ReflectionService.name);
 
   // Category name to prompt mapping
+  /**
+   * The opening line for each life area, written out rather than assembled.
+   *
+   * There is no rule that turns a category name into a grammatical prompt:
+   * "Finances is..." is wrong, "Finances are..." is right, and "Personal
+   * Growth" wants neither. Users can rename their categories too, so the
+   * name is arbitrary text. Authored copy for the areas we ship, and a
+   * fallback that reads correctly whatever the noun.
+   *
+   * Keys are the exact DEFAULT_CATEGORIES values from the wheel service.
+   * Older aliases are kept so sessions created before a rename still match.
+   */
   private readonly PROMPT_MAPPING: Record<string, string> = {
+    'Health & Well-being': 'My health is...',
+    'Relationships & Intimacy': 'Love is...',
+    'Career & Work': 'My work is...',
     Finances: 'Money is...',
+    Spirituality: 'Spirituality is...',
+    'Personal Growth': 'I am...',
+    'Leisure & Fun': 'Fun is...',
+    'Community Service': 'Giving back is...',
+
+    // Earlier names, kept so existing sessions keep their prompt.
     Finance: 'Money is...',
     Relationships: 'Love is...',
     Relationship: 'Love is...',
-    // 'Health & Well-being': 'My body is...',
-    Health: 'My health...',
-    // 'Career / Work': 'My work is...',
+    Health: 'My health is...',
     Career: 'My work is...',
     Work: 'My work is...',
-    'Personal Growth': 'I am...',
     'Personal Development': 'I am...',
-    'Leisure & Fun': 'Fun is...',
     Leisure: 'Fun is...',
     Environment: 'My environment is...',
-    // 'Spirituality / Mindfulness': 'Spirituality is...',
-    Spirituality: 'Spirituality is...',
     Mindfulness: 'Mindfulness is...',
   };
 
@@ -1715,6 +1730,11 @@ export class ReflectionService extends BaseService {
                 session: {
                   select: {
                     isVision: true,
+                    // Which life area this came from. The library spans every
+                    // session a user has, so without it there is no way to
+                    // tell an affirmation about money from one about health,
+                    // let alone group them.
+                    category: { select: { id: true, name: true } },
                     reflectionSound: {
                       select: {
                         id: true,
@@ -1982,8 +2002,9 @@ export class ReflectionService extends BaseService {
       }
     }
 
-    // Default prompt if no match found
-    return `${categoryName} is...`;
+    // A renamed category is arbitrary text, so the fallback cannot pick a
+    // verb. This phrasing works for a singular, a plural or a gerund.
+    return `When I think about ${categoryName}...`;
   }
 
   /**
