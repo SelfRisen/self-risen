@@ -1829,16 +1829,10 @@ export class ReflectionService extends BaseService {
     // Use a transaction to ensure atomicity
     try {
       await this.prisma.$transaction(async (tx) => {
-        // Unmark all other affirmations for this session
-        await tx.affirmation.updateMany({
-          where: {
-            sessionId: sessionId,
-            id: { not: affirmationId },
-          },
-          data: {
-            isSelected: false,
-          },
-        });
+        // Selecting is additive. A belief can produce several affirmations
+        // worth keeping, and the user carries whichever ones they want into
+        // a loop -- so this no longer unmarks its siblings. Unchecking is
+        // its own operation.
 
         // Mark the selected affirmation, update audio URL, and persist voice if we just generated (so affirmation remembers)
         await tx.affirmation.update({
@@ -1853,7 +1847,11 @@ export class ReflectionService extends BaseService {
           },
         });
 
-        // Update session's selected affirmation snapshot
+        // The session keeps a snapshot of one affirmation, which the wave
+        // banner and the vision board read. With several selected it means
+        // "the most recently chosen" -- those surfaces want one line, not a
+        // list, and the newest choice is the best answer to "what does this
+        // session sound like now".
         await tx.reflectionSession.update({
           where: { id: sessionId },
           data: {
@@ -1912,6 +1910,76 @@ export class ReflectionService extends BaseService {
    * Delete an affirmation from a session
    * Cannot delete if it's the only affirmation or if it's currently selected
    */
+  /**
+   * Uncheck an affirmation, removing it from the user's library.
+   *
+   * The counterpart to select, which is additive. The session keeps a
+   * snapshot of one affirmation for the wave banner and vision board, so if
+   * the one being unchecked is that snapshot it is replaced with another
+   * still-selected affirmation, or cleared when none remain -- otherwise
+   * those surfaces would go on quoting something the user just discarded.
+   */
+  async deselectAffirmation(
+    firebaseId: string,
+    sessionId: string,
+    affirmationId: string,
+  ) {
+    const user = await this.getUserByFirebaseId(firebaseId);
+    if (!user) {
+      return this.HandleError(new NotFoundException('User not found'));
+    }
+
+    const session = await this.prisma.reflectionSession.findFirst({
+      where: { id: sessionId, userId: user.id },
+    });
+    if (!session) {
+      return this.HandleError(
+        new NotFoundException('Reflection session not found'),
+      );
+    }
+
+    const affirmation = await this.prisma.affirmation.findFirst({
+      where: { id: affirmationId, sessionId },
+    });
+    if (!affirmation) {
+      return this.HandleError(new NotFoundException('Affirmation not found'));
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.affirmation.update({
+        where: { id: affirmationId },
+        data: { isSelected: false },
+      });
+
+      const wasSnapshot =
+        session.selectedAffirmationText === affirmation.affirmationText;
+      if (!wasSnapshot) return;
+
+      const remaining = await tx.affirmation.findFirst({
+        where: { sessionId, isSelected: true },
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      await tx.reflectionSession.update({
+        where: { id: sessionId },
+        data: {
+          selectedAffirmationText: remaining?.affirmationText ?? null,
+          selectedAffirmationAudioUrl: remaining?.audioUrl ?? null,
+        },
+      });
+    });
+
+    const updated = await this.prisma.reflectionSession.findFirst({
+      where: { id: sessionId },
+      include: {
+        category: { select: { id: true, name: true } },
+        affirmations: { orderBy: { createdAt: 'desc' } },
+      },
+    });
+
+    return this.Results(updated);
+  }
+
   async deleteAffirmation(firebaseId: string, affirmationId: string) {
     const user = await this.getUserByFirebaseId(firebaseId);
     if (!user) {
