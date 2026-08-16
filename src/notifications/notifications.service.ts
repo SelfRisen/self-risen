@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { Expo } from 'expo-server-sdk';
 import { BaseService } from 'src/common';
 import { DatabaseProvider } from 'src/database/database.provider';
 import {
@@ -788,8 +789,16 @@ export class NotificationsService
       // case NotificationChannelTypeEnum.SMS:
       //   return user.phone;
       case NotificationChannelTypeEnum.PUSH:
-        // Return first push token, or null if none
-        return user.pushTokens.length > 0 ? user.pushTokens[0] : null;
+        // The push channel is served exclusively by the Expo adapter, which
+        // rejects anything that is not an ExponentPushToken. Tokens are
+        // appended on registration, so a stale raw APNs/FCM token can sit at
+        // index 0 and shadow a valid Expo token registered later. Pick the
+        // most recently registered Expo token instead of blindly taking [0].
+        return (
+          [...user.pushTokens]
+            .reverse()
+            .find((token) => Expo.isExpoPushToken(token)) ?? null
+        );
       default:
         return null;
     }

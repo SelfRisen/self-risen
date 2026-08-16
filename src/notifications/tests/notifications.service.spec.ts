@@ -520,4 +520,38 @@ describe('NotificationsService', () => {
       });
     });
   });
+
+  describe('getRecipientContact (push)', () => {
+    const EXPO = 'ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]';
+    // A raw FCM/APNs registration token — the Expo adapter rejects these.
+    const FCM = 'fMEP0Zc9S0aBcDeFgHiJkL:APA91bH-longopaqueregistrationtoken';
+
+    const resolvePush = (pushTokens: string[]) => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        email: 'user@test.dev',
+        pushTokens,
+      });
+      return (service as any).getRecipientContact(
+        'user-1',
+        NotificationChannelTypeEnum.PUSH,
+      );
+    };
+
+    it('skips a stale raw FCM token shadowing a valid Expo token at index 0', async () => {
+      await expect(resolvePush([FCM, EXPO])).resolves.toBe(EXPO);
+    });
+
+    it('returns null when only non-Expo tokens are registered', async () => {
+      await expect(resolvePush([FCM])).resolves.toBeNull();
+    });
+
+    it('prefers the most recently registered Expo token', async () => {
+      const older = 'ExponentPushToken[aaaaaaaaaaaaaaaaaaaaaa]';
+      await expect(resolvePush([older, FCM, EXPO])).resolves.toBe(EXPO);
+    });
+
+    it('returns null when no tokens are registered', async () => {
+      await expect(resolvePush([])).resolves.toBeNull();
+    });
+  });
 });
