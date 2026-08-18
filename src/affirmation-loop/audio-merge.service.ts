@@ -12,6 +12,9 @@ const FADE_SECONDS = 3;
 // fade-out lands on music alone instead of clipping the final spoken words.
 const OUTRO_TAIL_SECONDS = 4;
 const BACKGROUND_VOLUME = 0.25;
+// Silence held between affirmations. Back-to-back lines read too fast to
+// follow; a pause gives each one room to land before the next begins.
+const AFFIRMATION_GAP_SECONDS = 2;
 const MAX_INTRO_SKIP_SECONDS = 20;
 const INTRO_SILENCE_NOISE_DB = '-30dB';
 const INTRO_SILENCE_MIN_DURATION = 0.5;
@@ -104,7 +107,7 @@ export class AudioMergeService {
     const offsets: number[] = [];
     let running = 0;
 
-    for (const inputPath of inputPaths) {
+    for (const [index, inputPath] of inputPaths.entries()) {
       offsets.push(Number(running.toFixed(3)));
       try {
         running += await this.probeDurationSeconds(inputPath);
@@ -113,9 +116,39 @@ export class AudioMergeService {
         // the offsets after it are wrong, so stop rather than mislead.
         return offsets;
       }
+      // The gap sits between affirmations, so every one but the last pushes
+      // the next start time out. Missing this would drift every skip point.
+      if (index < inputPaths.length - 1) {
+        running += AFFIRMATION_GAP_SECONDS;
+      }
     }
 
     return offsets;
+  }
+
+  /**
+   * A silent MP3 used to space affirmations apart. Encoded to match them so
+   * the concat demuxer joins it without re-encoding surprises.
+   */
+  private async createSilenceTrack(
+    tmpDir: string,
+    seconds: number,
+  ): Promise<string> {
+    const silencePath = path.join(tmpDir, 'affirmation-gap.mp3');
+
+    await this.runFfmpeg((command) =>
+      command
+        .input('anullsrc=r=44100:cl=stereo')
+        .inputOptions(['-f', 'lavfi', '-t', String(seconds)])
+        .audioCodec('libmp3lame')
+        .audioBitrate('192k')
+        .audioFrequency(44100)
+        .audioChannels(2)
+        .format('mp3')
+        .output(silencePath),
+    );
+
+    return silencePath;
   }
 
   private async concatAffirmations(
@@ -124,10 +157,24 @@ export class AudioMergeService {
     tmpDir: string,
   ): Promise<void> {
     const listPath = path.join(tmpDir, 'concat-list.txt');
-    const listContent = inputPaths
-      .map((p) => `file '${p.replace(/'/g, "'\\''")}'`)
-      .join('\n');
-    await fs.writeFile(listPath, listContent, 'utf8');
+    const quote = (p: string) => `file '${p.replace(/'/g, "'\\''")}'`;
+
+    // Interleave silence so the spoken lines are paced apart rather than
+    // running straight into one another.
+    const silencePath =
+      inputPaths.length > 1
+        ? await this.createSilenceTrack(tmpDir, AFFIRMATION_GAP_SECONDS)
+        : null;
+
+    const entries: string[] = [];
+    inputPaths.forEach((inputPath, index) => {
+      entries.push(quote(inputPath));
+      if (silencePath && index < inputPaths.length - 1) {
+        entries.push(quote(silencePath));
+      }
+    });
+
+    await fs.writeFile(listPath, entries.join('\n'), 'utf8');
 
     await this.runFfmpeg((command) =>
       command
