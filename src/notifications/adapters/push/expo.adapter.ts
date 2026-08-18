@@ -32,11 +32,17 @@ export class ExpoAdapter extends IPushChannelAdapter {
       };
     }
 
+    // The device's own notification sound. Without this Expo sends the
+    // notification silently on iOS, which is why push arrived unannounced.
+    const badge = typeof metadata?.badge === 'number' ? metadata.badge : undefined;
+
     const message = {
       to: recipient,
       title: title ?? '',
       body: body ?? '',
       data: metadata ?? {},
+      sound: 'default' as const,
+      ...(badge === undefined ? {} : { badge }),
     };
 
     try {
