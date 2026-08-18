@@ -52,7 +52,7 @@ describe('AudioMergeService', () => {
   // Skipping between affirmations has nothing to aim at without these, and
   // the merged file carries no marks saying where one ends.
   describe('affirmation offsets', () => {
-    it('are the running total of each input, first at zero', async () => {
+    it('are the running total of each input plus the gap between them', async () => {
       jest
         .spyOn(service, 'probeDurationSeconds')
         .mockResolvedValueOnce(4) // a.mp3
@@ -67,7 +67,8 @@ describe('AudioMergeService', () => {
         120,
       );
 
-      expect(result.affirmationOffsets).toEqual([0, 4, 10]);
+      // 4s of speech, a 2s gap, 6s of speech, another 2s gap.
+      expect(result.affirmationOffsets).toEqual([0, 6, 14]);
       expect(result.durationSeconds).toBe(60);
     });
 
@@ -101,7 +102,7 @@ describe('AudioMergeService', () => {
         8,
       );
 
-      expect(result.affirmationOffsets).toEqual([0, 4]);
+      expect(result.affirmationOffsets).toEqual([0, 6]);
     });
 
     it('stops at an unreadable file instead of reporting wrong positions', async () => {
@@ -120,7 +121,7 @@ describe('AudioMergeService', () => {
 
       // Everything after the bad file would be misplaced, so it is not
       // offered -- a wrong skip point is worse than a missing one.
-      expect(result.affirmationOffsets).toEqual([0, 4]);
+      expect(result.affirmationOffsets).toEqual([0, 6]);
     });
   });
 
