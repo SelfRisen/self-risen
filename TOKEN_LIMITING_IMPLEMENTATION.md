@@ -14,7 +14,7 @@ Added three new fields to the `User` model:
 **Migration:** `20260203111403_add_token_tracking`
 
 ### 2. Token Usage Service (`src/user/token-usage.service.ts`)
-Created a new service to manage token tracking:
+Created a new service to manage token tracking: tests
 
 **Key Methods:**
 - `checkTokenLimit(userId, estimatedTokens)` - Validates user has sufficient tokens before API calls
