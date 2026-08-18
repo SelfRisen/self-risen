@@ -111,7 +111,10 @@ describe('TemplateService', () => {
     const result = await service.resolveTemplate(
       NotificationTypeEnum.AFFIRMATION_LOOP_READY,
       NotificationChannelTypeEnum.PUSH,
-      { title: '"Morning Abundance" is ready', body: 'Your loop is ready to play.' },
+      {
+        title: '"Morning Abundance" is ready',
+        body: 'Your loop is ready to play.',
+      },
     );
 
     expect(result.content).toBe('Your loop is ready to play.');

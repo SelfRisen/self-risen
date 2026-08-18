@@ -1354,9 +1354,21 @@ describe('ReflectionService', () => {
         isActive: true,
         session: { id: 'session-123', userId: 'user-123' },
         checkIns: [
-          { plays: 1, completedAt: new Date(), date: new Date('2026-01-01T00:00:00.000Z') },
-          { plays: 1, completedAt: new Date(), date: new Date('2026-01-02T00:00:00.000Z') },
-          { plays: 1, completedAt: null, date: new Date('2026-01-03T00:00:00.000Z') },
+          {
+            plays: 1,
+            completedAt: new Date(),
+            date: new Date('2026-01-01T00:00:00.000Z'),
+          },
+          {
+            plays: 1,
+            completedAt: new Date(),
+            date: new Date('2026-01-02T00:00:00.000Z'),
+          },
+          {
+            plays: 1,
+            completedAt: null,
+            date: new Date('2026-01-03T00:00:00.000Z'),
+          },
         ],
       });
 
@@ -1378,9 +1390,18 @@ describe('ReflectionService', () => {
           durationDays: 21,
           cadence: 2,
           isActive: true,
-          session: { id: 's1', selectedAffirmationText: 'x', selectedAffirmationAudioUrl: null, category: null },
+          session: {
+            id: 's1',
+            selectedAffirmationText: 'x',
+            selectedAffirmationAudioUrl: null,
+            category: null,
+          },
           checkIns: [
-            { plays: 2, completedAt: new Date(), date: new Date('2026-01-01T00:00:00.000Z') },
+            {
+              plays: 2,
+              completedAt: new Date(),
+              date: new Date('2026-01-01T00:00:00.000Z'),
+            },
           ],
         },
       ]);

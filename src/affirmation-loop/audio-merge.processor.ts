@@ -133,12 +133,12 @@ export class AudioMergeProcessor {
       const outputPath = path.join(tmpDir, 'output.mp3');
       const { durationSeconds, affirmationOffsets } =
         await this.audioMergeService.mergeLoopAudio(
-        affirmationLocalPaths,
-        bgDest,
-        outputPath,
-        loop.durationSeconds ?? undefined,
-        sound.url,
-      );
+          affirmationLocalPaths,
+          bgDest,
+          outputPath,
+          loop.durationSeconds ?? undefined,
+          sound.url,
+        );
 
       const outputBuffer = await fs.readFile(outputPath);
       const storagePath = `loops/${loop.userId}/${loopId}.mp3`;

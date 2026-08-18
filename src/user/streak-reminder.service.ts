@@ -114,11 +114,7 @@ const DEFAULT_REMINDER_TIMES = ['08:00', '18:00'];
  * `lastStreakDate` is written as UTC midnight of the user's local day, so its
  * ISO date is already the local one and can be compared as a string.
  */
-function isTodayInZone(
-  day: Date | null,
-  timezone: string,
-  now: Date,
-): boolean {
+function isTodayInZone(day: Date | null, timezone: string, now: Date): boolean {
   if (!day) return false;
   try {
     const todayYmd = new Intl.DateTimeFormat('en-CA', {
