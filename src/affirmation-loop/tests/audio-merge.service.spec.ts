@@ -144,6 +144,17 @@ describe('AudioMergeService', () => {
     expect(mockCommand.complexFilter).toHaveBeenCalledWith(
       expect.not.stringContaining('loudnorm'),
     );
+
+    // The music is keyed off the speech, so it steps back while an
+    // affirmation is speaking and comes back up in the gaps between them.
+    expect(mockCommand.complexFilter).toHaveBeenCalledWith(
+      expect.stringContaining('sidechaincompress'),
+    );
+    // The key outlasts the speech, or the compressor would stop releasing
+    // and the outro fade would land on ducked music.
+    expect(mockCommand.complexFilter).toHaveBeenCalledWith(
+      expect.stringMatching(/\[sc\]apad\[sckey\]/),
+    );
     // Background must outlast the affirmations track so the closing fade
     // covers music only -- the mix runs 4s past the 60s of speech, with the
     // 3s fade starting inside that music-only tail.

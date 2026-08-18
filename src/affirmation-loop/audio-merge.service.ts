@@ -12,6 +12,14 @@ const FADE_SECONDS = 3;
 // fade-out lands on music alone instead of clipping the final spoken words.
 const OUTRO_TAIL_SECONDS = 4;
 const BACKGROUND_VOLUME = 0.25;
+// The background is pulled down further while an affirmation is speaking and
+// allowed back up in the gaps between them. Lowering BACKGROUND_VOLUME alone
+// would have made the music inaudible throughout instead of only ducking it
+// where it competes with the words.
+const DUCK_THRESHOLD = 0.02;
+const DUCK_RATIO = 8;
+const DUCK_ATTACK_MS = 20;
+const DUCK_RELEASE_MS = 400;
 // Silence held between affirmations. Back-to-back lines read too fast to
 // follow; a pause gives each one room to land before the next begins.
 const AFFIRMATION_GAP_SECONDS = 2;
@@ -200,9 +208,18 @@ export class AudioMergeService {
     // duration=longest lets the looped background run past the end of the
     // affirmations track (the -t output option truncates it to the intended
     // length), so the closing fade covers music only, not spoken words.
+    // The affirmation track is split: one copy is heard, the other keys a
+    // sidechain compressor on the music. `apad` keeps the key running past the
+    // last affirmation so the compressor releases cleanly and the outro fade
+    // lands on music at full level.
     const filterComplex =
       `[0:a]volume=${BACKGROUND_VOLUME}[bg];` +
-      `[1:a][bg]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0[mixed];` +
+      `[1:a]asplit=2[voice][sc];` +
+      `[sc]apad[sckey];` +
+      `[bg][sckey]sidechaincompress=` +
+      `threshold=${DUCK_THRESHOLD}:ratio=${DUCK_RATIO}:` +
+      `attack=${DUCK_ATTACK_MS}:release=${DUCK_RELEASE_MS}[ducked];` +
+      `[voice][ducked]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0[mixed];` +
       `[mixed]afade=t=out:st=${fadeStartSeconds}:d=${FADE_SECONDS}[out]`;
 
     const backgroundInputOptions = ['-stream_loop', '-1'];
