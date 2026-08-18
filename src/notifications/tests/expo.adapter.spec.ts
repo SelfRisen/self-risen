@@ -54,6 +54,37 @@ describe('ExpoAdapter', () => {
     expect(result.messageId).toBe('ticket-1');
   });
 
+  it('asks for the device notification sound', async () => {
+    ExpoMock.__send.mockResolvedValueOnce([{ status: 'ok', id: 't' }]);
+
+    await adapter.send(request as any);
+
+    // Without an explicit sound Expo delivers silently on iOS.
+    expect(ExpoMock.__chunk).toHaveBeenCalledWith([
+      expect.objectContaining({ sound: 'default' }),
+    ]);
+  });
+
+  it('passes a badge count through when the service supplies one', async () => {
+    ExpoMock.__send.mockResolvedValueOnce([{ status: 'ok', id: 't' }]);
+
+    await adapter.send({ ...request, metadata: { badge: 3 } } as any);
+
+    expect(ExpoMock.__chunk).toHaveBeenCalledWith([
+      expect.objectContaining({ badge: 3 }),
+    ]);
+  });
+
+  it('omits the badge when there is no count to show', async () => {
+    ExpoMock.__send.mockResolvedValueOnce([{ status: 'ok', id: 't' }]);
+
+    await adapter.send(request as any);
+
+    expect(ExpoMock.__chunk).toHaveBeenCalledWith([
+      expect.not.objectContaining({ badge: expect.anything() }),
+    ]);
+  });
+
   it('returns FAILED when Expo reports an error ticket', async () => {
     ExpoMock.__send.mockResolvedValueOnce([
       { status: 'error', message: 'DeviceNotRegistered' },

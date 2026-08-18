@@ -225,6 +225,23 @@ export class NotificationsService
   //   }
   // }
 
+  /**
+   * Unread count for the app icon badge.
+   *
+   * Counted after the in-app record is written, so the number the phone shows
+   * includes the notification being sent. Best effort: a failure here must not
+   * cost the user the notification itself.
+   */
+  private async unreadBadgeCount(userId: string): Promise<number | undefined> {
+    try {
+      return await this.prisma.notificationRecipient.count({
+        where: { recipientId: userId, isRead: false },
+      });
+    } catch {
+      return undefined;
+    }
+  }
+
   async getUserTokens(firebaseId: string) {
     const user = await this.prisma.user.findUnique({
       where: { firebaseId },
@@ -386,6 +403,12 @@ export class NotificationsService
         continue;
       }
 
+      // Only push carries a badge; the other channels have nothing to show it on.
+      const metadata =
+        channel.type === NotificationChannelTypeEnum.PUSH
+          ? { ...req.metadata, badge: await this.unreadBadgeCount(req.userId) }
+          : req.metadata;
+
       // Dispatch to queue
       const result = await this.dispatcher.dispatch({
         notificationId: notification.id,
@@ -395,7 +418,7 @@ export class NotificationsService
         title: template.subject,
         body: template.content,
         htmlBody: template.htmlBody,
-        metadata: req.metadata,
+        metadata,
         requestId: req.requestId,
         provider: channel.provider,
         notificationType: req.type,
