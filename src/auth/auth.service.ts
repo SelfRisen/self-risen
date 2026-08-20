@@ -36,6 +36,12 @@ import {
   MAX_OTP_ATTEMPTS,
 } from './utils/otp.util';
 import { randomUUID } from 'crypto';
+import {
+  AuthProvider,
+  ExistingAccount,
+  signInFailureMessage,
+  signUpConflictMessage,
+} from './account-lookup';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
 
 @Injectable()
@@ -45,6 +51,41 @@ export class AuthService extends BaseService {
     private notificationService: INotificationService,
   ) {
     super();
+  }
+
+  /**
+   * What this email is already registered with, or null when it is not.
+   *
+   * Firebase is asked whether a password exists; the provider comes from our
+   * own user, since social sign-in here mints a custom token and never
+   * registers a Firebase provider.
+   */
+  private async findExistingAccount(
+    email: string,
+  ): Promise<ExistingAccount | null> {
+    let hasPassword = false;
+    try {
+      const firebaseUser = await auth().getUserByEmail(email);
+      hasPassword = firebaseUser.providerData.some(
+        (p) => p.providerId === 'password',
+      );
+    } catch (error) {
+      if (error?.code === 'auth/user-not-found') return null;
+      // A lookup failure must not turn a wrong password into a crash; fall
+      // back to the generic message by reporting an account we know nothing
+      // more about.
+      logger.error(`Failed to look up account for ${email}: ${error}`);
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { authProvider: true },
+    });
+
+    return {
+      provider: (user?.authProvider as AuthProvider | null) ?? null,
+      hasPassword,
+    };
   }
 
   async signUp(payload: SignUp) {
@@ -60,8 +101,13 @@ export class AuthService extends BaseService {
     } catch (error) {
       if (error.code === 'auth/email-already-exists') {
         logger.error(`User with email ${email} already exists`);
+        const existing = await this.findExistingAccount(email);
         return this.HandleError(
-          new ConflictException('User with this email already exists'),
+          new ConflictException(
+            existing
+              ? signUpConflictMessage(existing)
+              : 'This email is already registered. Please log in to continue.',
+          ),
         );
       }
       if (error.code === 'auth/invalid-email') {
@@ -102,6 +148,7 @@ export class AuthService extends BaseService {
       const user = await this.prisma.user.create({
         data: {
           firebaseId: firebaseUser.uid,
+          authProvider: 'EMAIL',
           email,
           name,
           lastLoggedInAt: new Date(),
@@ -164,12 +211,17 @@ export class AuthService extends BaseService {
       if (!response.ok) {
         logger.error(`Firebase authentication failed: ${JSON.stringify(data)}`);
 
+        // These three all mean "that did not sign you in", and collapsing them
+        // into one message left someone who signed up with Google being told
+        // their password was wrong for an account that has no password.
         if (
           data.error?.message === 'INVALID_PASSWORD' ||
-          data.error?.message === 'EMAIL_NOT_FOUND'
+          data.error?.message === 'EMAIL_NOT_FOUND' ||
+          data.error?.message === 'INVALID_LOGIN_CREDENTIALS'
         ) {
+          const existing = await this.findExistingAccount(email);
           return this.HandleError(
-            new UnauthorizedException('Invalid email or password'),
+            new UnauthorizedException(signInFailureMessage(existing)),
           );
         }
 
@@ -271,6 +323,7 @@ export class AuthService extends BaseService {
           existingUser: user,
           avatar: picture,
           emailVerified: tokenInfo.email_verified === 'true',
+          provider: 'GOOGLE',
         });
         user = result.user;
         firebaseUid = result.firebaseUid;
@@ -374,6 +427,7 @@ export class AuthService extends BaseService {
           name,
           existingUser: user,
           avatar: picture,
+          provider: 'FACEBOOK',
         });
         user = result.user;
         firebaseUid = result.firebaseUid;
@@ -503,6 +557,7 @@ export class AuthService extends BaseService {
           name: name || email.split('@')[0],
           existingUser: user,
           emailVerified,
+          provider: 'APPLE',
         });
         user = result.user;
         firebaseUid = result.firebaseUid;
@@ -1158,8 +1213,10 @@ export class AuthService extends BaseService {
     existingUser: User | null;
     avatar?: string | null;
     emailVerified?: boolean;
+    provider: AuthProvider;
   }): Promise<{ user: User; firebaseUid: string }> {
-    const { email, name, existingUser, avatar, emailVerified } = params;
+    const { email, name, existingUser, avatar, emailVerified, provider } =
+      params;
 
     if (existingUser) {
       const firebaseUid = existingUser.firebaseId;
@@ -1167,6 +1224,9 @@ export class AuthService extends BaseService {
         where: { id: existingUser.id },
         data: {
           lastLoggedInAt: new Date(),
+          // Fill in the provider for accounts made before it was recorded,
+          // without overwriting one we already know.
+          ...(existingUser.authProvider ? {} : { authProvider: provider }),
         },
       });
       return { user, firebaseUid };
@@ -1199,6 +1259,7 @@ export class AuthService extends BaseService {
           firebaseId: firebaseUid,
           email,
           name,
+          authProvider: provider,
           ...(avatar !== undefined && { avatar }),
           lastLoggedInAt: new Date(),
         },
