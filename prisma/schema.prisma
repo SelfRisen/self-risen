@@ -305,7 +305,11 @@ model Affirmation {
   sessionId          String
   session            ReflectionSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   affirmationText    String
+  /// Generated speech for this affirmation.
   audioUrl           String?
+  /// The user's own recording of this affirmation, when they made one. Played
+  /// and merged in preference to the generated audio.
+  userAudioUrl       String?
   isSelected         Boolean               @default(false)
   order              Int                   @default(0)
   ttsVoicePreference TtsVoicePreference?
@@ -327,7 +331,7 @@ model AffirmationLoop {
   durationSeconds    Int?
   /// Seconds into the loop where each affirmation begins, first at 0. Empty
   /// for loops merged before this was recorded.
-  affirmationOffsets Float[]           @default([])
+  affirmationOffsets Float[]               @default([])
   backgroundMusicKey String
   voicePreference    TtsVoicePreference?
   errorMessage       String?
