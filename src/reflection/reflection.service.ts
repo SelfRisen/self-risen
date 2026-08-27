@@ -973,12 +973,17 @@ export class ReflectionService extends BaseService {
         'affirmations/user-recorded',
       );
 
-      // Update session with user's audio recording
+      // Update session with user's audio recording.
+      //
+      // This has to land on userAffirmationAudioUrl: that is the field the
+      // playback URL prefers over the generated audio, and with it commented
+      // out a recording never took effect no matter how many times it was
+      // made. Writing audioUrl instead also overwrote the belief recording
+      // the session was built from, which is a different thing entirely.
       const updatedSession = await this.prisma.reflectionSession.update({
         where: { id: sessionId },
         data: {
-          // userAffirmationAudioUrl: uploadResult.url,
-          audioUrl: uploadResult.url,
+          userAffirmationAudioUrl: uploadResult.url,
         },
         include: {
           category: {
