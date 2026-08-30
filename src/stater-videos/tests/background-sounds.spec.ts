@@ -8,8 +8,8 @@ describe('background sounds', () => {
     {} as never,
   );
 
-  const offered = () => (service.getMusicUrls() as any).data as
-    { name: string }[];
+  const offered = () =>
+    (service.getMusicUrls() as any).data as { name: string }[];
 
   it('offers only the tracks with a name and description from the PO', () => {
     expect(offered().map((s) => s.name)).toEqual([
