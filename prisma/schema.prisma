@@ -309,7 +309,11 @@ model Affirmation {
   sessionId          String
   session            ReflectionSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   affirmationText    String
+  /// Generated speech for this affirmation.
   audioUrl           String?
+  /// The user's own recording of this affirmation, when they made one. Played
+  /// and merged in preference to the generated audio.
+  userAudioUrl       String?
   isSelected         Boolean               @default(false)
   order              Int                   @default(0)
   ttsVoicePreference TtsVoicePreference?

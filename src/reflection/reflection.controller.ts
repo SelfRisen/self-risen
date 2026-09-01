@@ -471,6 +471,61 @@ export class ReflectionController extends BaseController {
     });
   }
 
+  @Post('sessions/:sessionId/affirmations/:affirmationId/record')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Record user voice for one affirmation',
+    description:
+      "Uploads the user's recording of a single affirmation. It is played, and merged into a loop, in preference to the generated audio for that affirmation.",
+  })
+  @ApiParam({ name: 'sessionId', description: 'The reflection session' })
+  @ApiParam({
+    name: 'affirmationId',
+    description: 'The affirmation the recording is of',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Audio file of the user reading this affirmation.',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Affirmation recorded successfully',
+    type: ReflectionSessionResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Session or affirmation not found' })
+  async recordAffirmationVoice(
+    @FirebaseUser() user: auth.DecodedIdToken,
+    @Param('sessionId') sessionId: string,
+    @Param('affirmationId') affirmationId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Audio file is required');
+    }
+
+    const result = await this.reflectionService.recordUserAffirmation(
+      user.uid,
+      sessionId,
+      file,
+      affirmationId,
+    );
+    if (result.isError) throw result.error;
+
+    return this.response({
+      message: 'Affirmation recorded successfully',
+      data: result.data,
+    });
+  }
+
   @Post('sessions/:sessionId/record-affirmation')
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')

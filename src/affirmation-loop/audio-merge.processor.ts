@@ -17,6 +17,7 @@ import {
 } from 'src/notifications/enums/notification.enum';
 import { AudioMergeService } from './audio-merge.service';
 import { AudioMergeJobData } from './affirmation-loop.service';
+import { audioUrlFor } from './affirmation-audio';
 
 @Processor('audio_merge')
 @Injectable()
@@ -62,6 +63,12 @@ export class AudioMergeProcessor {
 
       for (const item of loop.items) {
         const affirmation = item.affirmation;
+
+        // A recording of the user reading this affirmation is the whole point
+        // of having made one: it is used as it is, and no voice is generated
+        // over it however the loop's voice is set.
+        if (affirmation.userAudioUrl) continue;
+
         const needsTts =
           !affirmation.audioUrl ||
           (targetVoice != null &&
@@ -99,7 +106,7 @@ export class AudioMergeProcessor {
       }
 
       for (const item of loop.items) {
-        if (!item.affirmation.audioUrl) {
+        if (!audioUrlFor(item.affirmation)) {
           throw new Error(
             `Affirmation ${item.affirmation.id} has no audio after TTS`,
           );
@@ -121,7 +128,7 @@ export class AudioMergeProcessor {
       for (let i = 0; i < loop.items.length; i++) {
         const dest = path.join(tmpDir, `affirmation-${i}.mp3`);
         await this.storageService.downloadToFile(
-          loop.items[i].affirmation.audioUrl!,
+          audioUrlFor(loop.items[i].affirmation)!,
           dest,
         );
         affirmationLocalPaths.push(dest);

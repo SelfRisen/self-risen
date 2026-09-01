@@ -932,10 +932,19 @@ export class ReflectionService extends BaseService {
   /**
    * Record user's voice for affirmation
    */
+  /**
+   * Store a recording of the user reading one of their affirmations.
+   *
+   * With an affirmationId the recording belongs to that affirmation, which is
+   * what lets several affirmations from one belief each have their own.
+   * Without one it falls back to the session, which is where recordings used
+   * to live and is kept so older clients keep working.
+   */
   async recordUserAffirmation(
     firebaseId: string,
     sessionId: string,
     audioFile: Express.Multer.File,
+    affirmationId?: string,
   ) {
     const user = await this.getUserByFirebaseId(firebaseId);
     if (!user) {
@@ -973,18 +982,39 @@ export class ReflectionService extends BaseService {
         'affirmations/user-recorded',
       );
 
-      // Update session with user's audio recording.
+      // The recording lands on the affirmation it was made for, so a belief
+      // that produced several can have a recording of each.
       //
-      // This has to land on userAffirmationAudioUrl: that is the field the
-      // playback URL prefers over the generated audio, and with it commented
-      // out a recording never took effect no matter how many times it was
-      // made. Writing audioUrl instead also overwrote the belief recording
-      // the session was built from, which is a different thing entirely.
+      // Without one it goes on the session, as it always did. That field is
+      // the one the playback URL prefers over generated audio; it had been
+      // commented out, so a recording never took effect however many times it
+      // was made, and audioUrl was written instead -- overwriting the belief
+      // recording the session was built from, which is a different thing.
+      if (affirmationId) {
+        const affirmation = await this.prisma.affirmation.findFirst({
+          where: { id: affirmationId, sessionId },
+          select: { id: true },
+        });
+
+        if (!affirmation) {
+          return this.HandleError(
+            new NotFoundException(
+              'That affirmation is not part of this reflection.',
+            ),
+          );
+        }
+
+        await this.prisma.affirmation.update({
+          where: { id: affirmationId },
+          data: { userAudioUrl: uploadResult.url },
+        });
+      }
+
       const updatedSession = await this.prisma.reflectionSession.update({
         where: { id: sessionId },
-        data: {
-          userAffirmationAudioUrl: uploadResult.url,
-        },
+        data: affirmationId
+          ? {}
+          : { userAffirmationAudioUrl: uploadResult.url },
         include: {
           category: {
             select: {
@@ -992,6 +1022,7 @@ export class ReflectionService extends BaseService {
               name: true,
             },
           },
+          affirmations: { orderBy: { createdAt: 'desc' } },
         },
       });
 
