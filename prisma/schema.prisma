@@ -34,6 +34,10 @@ model User {
   streakReminderEnabled Boolean             @default(true)
   streakReminderTimes   String[]            @default([])
   timezone              String              @default("UTC")
+  /// How this account signs in: EMAIL, GOOGLE, APPLE or FACEBOOK. Null for
+  /// accounts created before this was recorded; the sign-in methods Firebase
+  /// knows about are used as a fallback for those.
+  authProvider          String?
   countryCode           String?
   region                String?
   locationUpdatedAt     DateTime?
@@ -327,7 +331,7 @@ model AffirmationLoop {
   durationSeconds    Int?
   /// Seconds into the loop where each affirmation begins, first at 0. Empty
   /// for loops merged before this was recorded.
-  affirmationOffsets Float[]           @default([])
+  affirmationOffsets Float[]               @default([])
   backgroundMusicKey String
   voicePreference    TtsVoicePreference?
   errorMessage       String?
