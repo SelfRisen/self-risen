@@ -45,22 +45,22 @@ export class ReflectionService extends BaseService {
    */
   private readonly PROMPT_MAPPING: Record<string, string> = {
     'Health & Well-being': 'My health is...',
-    'Relationships & Intimacy': 'Love is...',
+    'Relationships & Intimacy': 'My relationships are...',
     'Career & Work': 'My work is...',
     Finances: 'Money is...',
     Spirituality: 'Spirituality is...',
-    'Personal Growth': 'I am...',
+    'Personal Growth': 'My growth is...',
     'Leisure & Fun': 'Fun is...',
     'Community Service': 'Giving back is...',
 
     // Earlier names, kept so existing sessions keep their prompt.
     Finance: 'Money is...',
-    Relationships: 'Love is...',
-    Relationship: 'Love is...',
+    Relationships: 'My relationships are...',
+    Relationship: 'My relationships are...',
     Health: 'My health is...',
     Career: 'My work is...',
     Work: 'My work is...',
-    'Personal Development': 'I am...',
+    'Personal Development': 'My growth is...',
     Leisure: 'Fun is...',
     Environment: 'My environment is...',
     Mindfulness: 'Mindfulness is...',

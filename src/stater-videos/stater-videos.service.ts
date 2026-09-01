@@ -21,6 +21,54 @@ export const RESOURCE_BANK_FOLDERS = {
 
 export type ResourceBankSection = keyof typeof RESOURCE_BANK_FOLDERS;
 
+type Sound = { url: string; name: string; description: string };
+
+/**
+ * Tracks not offered when building a loop.
+ *
+ * These are real audio that no one has matched to a name and description from
+ * the PO's track list, so they are held back rather than shown with wording
+ * invented for them. They stay resolvable by name: a loop built before they
+ * were withdrawn still cooks with the audio it was made with.
+ *
+ * See docs/audio/background-tracks.md before adding or removing anything here.
+ */
+const RETIRED_SOUNDS: Sound[] = [
+  {
+    url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/1.%20Ambient%20Piano%20-%20Main%20version.mp3',
+    name: 'Ambient Piano',
+    description: 'Soft solo piano for calm, reflective sessions.',
+  },
+  {
+    url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/meditation.mp3',
+    name: 'meditation',
+    description: 'Gentle ambient meditation bed with piano.',
+  },
+  {
+    url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/meditation%20(not%20piano).mp3',
+    name: 'meditation - No Piano',
+    description: 'Gentle ambient meditation bed without piano.',
+  },
+  {
+    url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/Cinematic%20Piano%20-%20Short.mp3',
+    name: 'Cinematic Piano - Short',
+    description: 'Sweeping cinematic piano, short loopable version.',
+  },
+];
+
+/**
+ * What a track used to be called, for loops that stored the old name. The key
+ * on a loop is the track's name, matched exactly, so a rename would otherwise
+ * leave an existing loop unable to find its own music.
+ */
+const RENAMED_SOUNDS: Record<string, string> = {
+  'Ambient Uplifting': 'Uplifting Alpha waves 8-12 Hz',
+  'Inspiring Dreamy Happy Adventure Pop': 'Dreamy Beta waves 12-30 Hz',
+  'main track': 'Rejuvenate Alpha waves 8-12 Hz',
+  'Theta Meditation': 'Theta brainwaves 4-8 Hz',
+  'Cinematic Piano': 'Cinematic Piano Beta waves 12-30 Hz',
+};
+
 @Injectable()
 export class StaterVideosService extends BaseService {
   constructor(
@@ -146,39 +194,26 @@ export class StaterVideosService extends BaseService {
   }> {
     return [
       {
-        url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/1.%20Ambient%20Piano%20-%20Main%20version.mp3',
-        name: 'Ambient Piano',
-        description: 'Soft solo piano for calm, reflective sessions.',
-      },
-      {
-        url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/meditation.mp3',
-        name: 'meditation',
-        description: 'Gentle ambient meditation bed with piano.',
-      },
-      {
-        url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/meditation%20(not%20piano).mp3',
-        name: 'meditation - No Piano',
-        description: 'Gentle ambient meditation bed without piano.',
-      },
-      {
         url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/Ambient%20Uplifting.mp3',
-        name: 'Ambient Uplifting',
-        description: 'Bright, uplifting ambient pad for positive affirmations.',
+        name: 'Uplifting Alpha waves 8-12 Hz',
+        description: 'Promotes relaxation while maintaining alertness.',
       },
       {
         url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/Inspiring%20Dreamy%20Happy%20Adventure%20Pop%20(short%20version).wav',
-        name: 'Inspiring Dreamy Happy Adventure Pop',
-        description: 'Dreamy, upbeat pop instrumental for energizing sessions.',
+        name: 'Dreamy Beta waves 12-30 Hz',
+        description:
+          'Enhances alertness, concentration, and cognitive functioning. Can elevate energy levels and boost motivation.',
       },
       {
         url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/main%20track%20with%20out%20Fx.mp3',
-        name: 'main track',
-        description: 'Neutral ambient bed, no effects.',
+        name: 'Rejuvenate Alpha waves 8-12 Hz',
+        description: 'Promotes relaxation while maintaining alertness.',
       },
       {
         url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/Theta%20Meditation(mp3).mp3',
-        name: 'Theta Meditation',
-        description: 'Theta-range meditation tone for deep focus and calm.',
+        name: 'Theta brainwaves 4-8 Hz',
+        description:
+          'Deep meditation and creativity. Facilitates access to the subconscious, ideal for visualization and affirmations.',
       },
       // {
       //     url: 'https://lstprxumviehmvbebcub.supabase.co/storage/v1/object/sign/uploads/audios/background/od5qaWAnXdfHIgLuGC8qxaqRLrm1/308e98ba-fba5-4139-9ae3-e3249b50f04b-1772203838226.wav?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8zMmE2ZWM2Zi1iZDNjLTRmY2YtYTVmYS1hNjVhZDVmM2E4ODEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJ1cGxvYWRzL2F1ZGlvcy9iYWNrZ3JvdW5kL29kNXFhV0FuWGRmSElnTHVHQzhxeGFxUkxybTEvMzA4ZTk4YmEtZmJhNS00MTM5LTlhZTMtZTMyNDliNTBmMDRiLTE3NzIyMDM4MzgyMjYud2F2IiwiaWF0IjoxNzcyMjA0MDQzLCJleHAiOjE4MDM3NDAwNDN9.5lJzmF8cM2Dv3hmjGnUyhb_dlMaQ-yl1fdkEcL6367Y',
@@ -187,13 +222,9 @@ export class StaterVideosService extends BaseService {
       // },
       {
         url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/Cinematic%20Piano%20-%20Long.mp3',
-        name: 'Cinematic Piano',
-        description: 'Sweeping cinematic piano, full-length version.',
-      },
-      {
-        url: 'https://esatcoinkzhgaebrtajt.supabase.co/storage/v1/object/public/uploads/Background%20Sounds/Cinematic%20Piano%20-%20Short.mp3',
-        name: 'Cinematic Piano - Short',
-        description: 'Sweeping cinematic piano, short loopable version.',
+        name: 'Cinematic Piano Beta waves 12-30 Hz',
+        description:
+          'Enhances alertness, concentration, and cognitive functioning. Can elevate energy levels and boost motivation.',
       },
     ];
   }
@@ -236,11 +267,19 @@ export class StaterVideosService extends BaseService {
   /**
    * Returns the music entry for the given name, or null if not found.
    */
-  getSoundByName(
-    name: string,
-  ): { url: string; name: string; description: string } | null {
-    const list = this.getSoundList();
-    return list.find((item) => item.name === name) ?? null;
+  /**
+   * A track by name, including ones no longer offered and names since changed.
+   * A loop stores the name it was built with, so this has to answer for every
+   * name that was ever valid or an existing loop loses its music.
+   */
+  getSoundByName(name: string): Sound | null {
+    const find = (candidate: string): Sound | null =>
+      [...this.getSoundList(), ...RETIRED_SOUNDS].find(
+        (item) => item.name === candidate,
+      ) ?? null;
+
+    const renamedTo = RENAMED_SOUNDS[name];
+    return find(name) ?? (renamedTo ? find(renamedTo) : null);
   }
 
   // async getAllSessions(
