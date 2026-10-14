@@ -3,14 +3,20 @@
 # Stage 1: Dependencies
 FROM node:20-alpine AS dependencies
 
-# Install pnpm and ffmpeg (required for video compression)
-RUN npm install -g pnpm && \
+# Non-interactive installs. pnpm 11+ prompts to approve build scripts when
+# this is unset, and a Docker build has no TTY.
+ENV CI=true
+
+# Pin pnpm 10. `npm install -g pnpm` follows latest, and pnpm 11+ (store v11)
+# fails the image build on unapproved dependency scripts. It also requires
+# Node 22; this image is Node 20. pnpm 10 matches CI.
+RUN npm install -g pnpm@10 && \
     apk add --no-cache ffmpeg
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json pnpm-lock.yaml ./
+# Copy package files. pnpm-workspace.yaml holds allowBuilds.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
@@ -18,8 +24,10 @@ RUN pnpm install --frozen-lockfile
 # Stage 2: Build
 FROM node:20-alpine AS build
 
+ENV CI=true
+
 # Install pnpm and ffmpeg (required for video compression)
-RUN npm install -g pnpm && \
+RUN npm install -g pnpm@10 && \
     apk add --no-cache ffmpeg
 
 WORKDIR /app
@@ -28,7 +36,7 @@ WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 
 # Copy source code and config files (exclude dist to avoid conflicts)
-COPY package.json pnpm-lock.yaml tsconfig*.json nest-cli.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig*.json nest-cli.json ./
 COPY src ./src
 COPY prisma ./prisma
 
@@ -45,14 +53,16 @@ RUN test -f dist/src/main.js || (echo "ERROR: dist/src/main.js not found after b
 # Stage 3: Production
 FROM node:20-alpine AS production
 
+ENV CI=true
+
 WORKDIR /app
 
 # Install pnpm and ffmpeg (required for video compression)
-RUN npm install -g pnpm && \
+RUN npm install -g pnpm@10 && \
     apk add --no-cache ffmpeg
 
-# Copy package files
-COPY package.json pnpm-lock.yaml ./
+# Copy package files. pnpm-workspace.yaml holds allowBuilds.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install only production dependencies (Prisma is already in dependencies)
 RUN pnpm install --prod --frozen-lockfile

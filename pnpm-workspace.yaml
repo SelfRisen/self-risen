@@ -1,0 +1,18 @@
+# pnpm does not run dependency lifecycle scripts unless each package is listed
+# here. true = run the script, false = skip it on purpose.
+allowBuilds:
+  # Downloads Prisma engines. `prisma generate` / migrate need these.
+  "@prisma/client": true
+  "@prisma/engines": true
+  prisma: true
+  # Selects the prebuilt libvips binary. Image compression uses sharp.
+  sharp: true
+  # Funding banner, telemetry, or optional native addons. The app runs
+  # without them. msgpackr-extract has no musl prebuild, so its script
+  # would try to compile on Alpine and fail the image build.
+  "@firebase/util": false
+  "@nestjs/core": false
+  "@scarf/scarf": false
+  msgpackr-extract: false
+  protobufjs: false
+  unrs-resolver: false
